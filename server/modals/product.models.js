@@ -1,0 +1,214 @@
+const { default: mongoose } = require("mongoose");
+
+const optionSchema = new mongoose.Schema(
+  {
+    value: { type: String },
+    _id: { type: String },
+    variant_type: { type: String },
+    image_names: { type: Array }
+  },
+  { _id: false }
+);
+
+const variantSchema = new mongoose.Schema(
+  {
+    variant_name: { type: String },
+    variant_type: { type: String },
+
+    options: { type: Array },
+    _id: { type: Number },
+  },
+  { _id: false }
+);
+
+const stockInfoSchema = new mongoose.Schema(
+  {
+    date: {
+      type: Date,
+      default: Date.now
+    },
+    add_stock: {
+      type: Number,
+    },
+    buy_price: { type: String },
+    invoice: {
+      type: String
+    },
+    handler_name: {
+      type: String
+    },
+    location: {
+      type: String
+    },
+    stock_images: { type: Array },
+    notes: {
+      type: String
+    },
+  },
+  { _id: false }
+);
+const stockOfflineSchema = new mongoose.Schema(
+  {
+    date: {
+      type: Date,
+      default: Date.now
+    },
+    stock: {
+      type: Number,
+    },
+    customer_details: {
+      type: String
+    },
+    handler_name: {
+      type: String
+    },
+    location: {
+      type: String
+    },
+    notes: {
+      type: String
+    },
+  },
+  { _id: false }
+);
+
+module.exports = mongoose.model(
+  "product",
+  new mongoose.Schema(
+    {
+      sub_product_category: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "sub product",
+      },
+      category_details: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "main category",
+      },
+      sub_category_details: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "sub category",
+      },
+      product_card_color: {
+        type: String,
+      },
+      type: {
+        type: String,
+        enum: ["Stand Alone Product", "Variable Product"],
+      },
+      product_type: {
+        type: String,
+        enum: ["own Product", "vendor Product"],
+        default: "own Product"
+      },
+      HSNcode_time: {
+        type: String,
+      },
+      product_codeS_NO: {
+        type: String,
+      },
+      Vendor_Code: {
+        type: String,
+      },
+      product_Lock: {
+        type: Boolean,
+      },
+      is_acrylic: {
+        type: Boolean,
+      },
+      Production_time: {
+        type: String,
+      },
+      Stock_Arrangement_time: {
+        type: String,
+      },
+      GST: {
+        type: String,
+      },
+      Tax_prefernce: {
+        type: String,
+      },
+      is_visible: {
+        type: Boolean,
+      },
+      is_soldout: {
+        type: Boolean,
+      },
+      is_photoframe: {
+        type: Boolean,
+      },
+      is_customer: {
+        type: Boolean,
+      },
+      is_BNI: {
+        type: Boolean,
+      },
+      is_dealer: {
+        type: Boolean,
+      },
+      is_corporate: {
+        type: Boolean,
+      },
+      is_qr: {
+        type: Boolean,
+      },
+      is_limited:{
+        type: Boolean,
+      },
+      // Toggle: when true, this product carries branding/customization
+      // charges that vary by quantity tier (see quantity_discount_splitup,
+      // which stores branding_charges_customer / _dealer / _corporate per row).
+      is_branding: {
+        type: Boolean,
+        default: false,
+      },
+      unit: { type: String },
+      name: { type: String, require: true },
+      Point_one: { type: String, require: true },
+      Point_two: { type: String, require: true },
+      Point_three: { type: String, require: true },
+      Point_four: { type: String, require: true },
+      stocks_status: { type: String, require: true },
+      stock_count: { type: Number },
+      dropdown_gap: { type: Number },
+      product_code: { type: String, require: true },
+      product_description_tittle: { type: String, require: true },
+      images: { type: Array },
+      seo_title: { type: String },
+      quantity_type: { type: String },
+      max_quantity: { type: Number },
+      seo_url: { type: String },
+      seo_description: { type: String },
+      seo_keywords: { type: Array },
+      seo_img: { type: String },
+      variants: [variantSchema],
+      variants_price: { type: Array },
+      description_tabs: { type: Array },
+      quantity_discount_splitup: { type: Array },
+      vendor_details: { type: mongoose.Schema.Types.ObjectId, ref: "vendor" },
+      vendor_product: { type: mongoose.Schema.Types.ObjectId, ref: "vendor" },
+      new_product: { type: Boolean, require: true },
+      recommended_product: { type: Boolean, require: true },
+      popular_product: { type: Boolean, require: true },
+      MRP_price: { type: String, require: true },
+      offer_MRP_price: { type: String, require: true },
+
+      customer_product_price: { type: String, require: true },
+      Deler_product_price: { type: String, require: true },
+      corporate_product_price: { type: String, require: true },
+      parent_product_id: {
+        type: String,
+      },
+      stock_info: [stockInfoSchema],
+      stock_offline: [stockOfflineSchema],
+      is_cloned: {
+        type: Boolean,
+        default: false,
+      },
+    },
+
+    {
+      collection: "product",
+      timestamps: true,
+    }
+  )
+);
