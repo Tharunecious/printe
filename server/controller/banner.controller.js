@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { PRODUCT_GET_SUCCESS } = require("../helper/message.helper");
 const { errorResponse, successResponse } = require("../helper/response.helper");
 const { ProductSchema, BannerSchemas } = require("./models_import");
@@ -6,18 +7,22 @@ const addBanners = async (req, res) => {
   try {
     // Get the current highest position
     const maxPositionBanner = await BannerSchemas.findOne().sort({ position: -1 }).limit(1);
-    const nextPosition = maxPositionBanner ? maxPositionBanner.position + 1 : 0;
-    
-    // Add position to the new banner
+    const nextPosition = maxPositionBanner && typeof maxPositionBanner.position === "number"
+      ? maxPositionBanner.position + 1
+      : 0;
+
+    // Add position and handle fields for the new banner
     const bannerData = {
       ...req.body,
-      position: nextPosition,
+      banner_description: req.body.banner_description !== undefined ? req.body.banner_description : null,
+      videoUrl: req.body.videoUrl !== undefined ? req.body.videoUrl : null,
+      position: req.body.position !== undefined ? req.body.position : nextPosition,
       is_visible: req.body.is_visible !== undefined ? req.body.is_visible : true,
       expiry_date: req.body.expiry_date || null
     };
-    
+
     const result = await BannerSchemas.create(bannerData);
-    successResponse(res, "Banner Created Successfully");
+    successResponse(res, "Banner Created Successfully", result);
   } catch (err) {
     console.log(err);
     errorResponse(res, "Something went wrong while creating the banner");
@@ -51,18 +56,24 @@ const getAllBannerProducts = async (req, res) => {
 
 const editBanner = async (req, res) => {
   try {
+    const { id } = req.params;
     // If visibility is being changed and banner was auto-hidden, reset auto_hidden flag
     const updateData = { ...req.body };
     if (updateData.is_visible === true) {
       updateData.auto_hidden = false;
     }
-    
+
     const result = await BannerSchemas.findByIdAndUpdate(
-      { _id: req.params.id }, 
+      id,
       updateData,
       { new: true }
     );
-    successResponse(res, "Banner Successfully Updated");
+
+    if (!result) {
+      return errorResponse(res, "Banner not found");
+    }
+
+    successResponse(res, "Banner Successfully Updated", result);
   } catch (err) {
     console.log(err);
     errorResponse(res, "Something went wrong while updating the banner");
@@ -74,12 +85,14 @@ const getAllBanners = async (req, res) => {
   try {
     // Check and auto-hide expired banners first
     await checkAndHideExpiredBanners();
-    
+
+    const filter = req.params.id ? { _id: req.params.id } : {};
+
     // Get all banners for admin panel
-    const result = await BannerSchemas.find({})
+    const result = await BannerSchemas.find(filter)
       .sort({ position: 1, createdAt: 1 })
       .lean();
-    
+
     successResponse(res, "", result);
   } catch (err) {
     console.log(err);
@@ -92,12 +105,12 @@ const getVisibleBanners = async (req, res) => {
   try {
     // Check and auto-hide expired banners first
     await checkAndHideExpiredBanners();
-    
+
     // Get only visible banners for public display
     const result = await BannerSchemas.find({ is_visible: true })
       .sort({ position: 1, createdAt: 1 })
       .lean();
-    
+
     successResponse(res, "", result);
   } catch (err) {
     console.log(err);
@@ -108,7 +121,7 @@ const getVisibleBanners = async (req, res) => {
 const deleteBanner = async (req, res) => {
   try {
     const result = await BannerSchemas.findByIdAndDelete({ _id: req.params.id });
-    
+
     // Reorder remaining banners to fill the gap
     if (result) {
       const remainingBanners = await BannerSchemas.find().sort({ position: 1 });
@@ -121,7 +134,7 @@ const deleteBanner = async (req, res) => {
       });
       await Promise.all(updatePromises);
     }
-    
+
     successResponse(res, "Banner Successfully Deleted");
   } catch (err) {
     console.log(err);
@@ -161,19 +174,19 @@ const toggleBannerVisibility = async (req, res) => {
   try {
     const { id } = req.params;
     const banner = await BannerSchemas.findById(id);
-    
+
     if (!banner) {
       return errorResponse(res, "Banner not found");
     }
-    
+
     const newVisibility = !banner.is_visible;
     const updateData = {
       is_visible: newVisibility,
       auto_hidden: false // Reset auto_hidden when manually toggling
     };
-    
+
     await BannerSchemas.findByIdAndUpdate(id, updateData, { new: true });
-    
+
     successResponse(res, `Banner ${newVisibility ? 'shown' : 'hidden'} successfully`);
   } catch (err) {
     console.error('Error toggling banner visibility:', err);
@@ -185,7 +198,7 @@ const toggleBannerVisibility = async (req, res) => {
 const checkAndHideExpiredBanners = async () => {
   try {
     const now = new Date();
-    
+
     // Find and auto-hide expired banners
     await BannerSchemas.updateMany(
       {
@@ -208,21 +221,21 @@ const checkAndHideExpiredBanners = async () => {
 const getBannerStats = async (req, res) => {
   try {
     await checkAndHideExpiredBanners();
-    
+
     const totalBanners = await BannerSchemas.countDocuments();
     const visibleBanners = await BannerSchemas.countDocuments({ is_visible: true });
     const hiddenBanners = await BannerSchemas.countDocuments({ is_visible: false });
     const autoHiddenBanners = await BannerSchemas.countDocuments({ auto_hidden: true });
-    
+
     const now = new Date();
     const expiringSoon = await BannerSchemas.countDocuments({
-      expiry_date: { 
-        $gte: now, 
+      expiry_date: {
+        $gte: now,
         $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
       },
       is_visible: true
     });
-    
+
     successResponse(res, "Banner statistics", {
       total: totalBanners,
       visible: visibleBanners,
@@ -236,10 +249,10 @@ const getBannerStats = async (req, res) => {
   }
 };
 
-module.exports = { 
-  getAllBannerProducts, 
-  addBanners, 
-  editBanner, 
+module.exports = {
+  getAllBannerProducts,
+  addBanners,
+  editBanner,
   getAllBanners,
   getVisibleBanners,
   deleteBanner,

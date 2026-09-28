@@ -4,6 +4,7 @@ import _ from "lodash";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import { useNavigate } from "react-router-dom";
+import { BsArrowRight } from "react-icons/bs";
 
 const BrowseAll = () => {
   const [data, setData] = useState([]);
@@ -14,8 +15,6 @@ const BrowseAll = () => {
       const result = await getsubcat();
       const subcategories = _.get(result, "data.data", []);
       setData(subcategories);
-      console.log(data,"subcat");
-      
     } catch (err) {
       console.log(err);
     }
@@ -25,108 +24,92 @@ const BrowseAll = () => {
     fetchData();
   }, []);
 
-  const filterCat=data.filter((cat)=>cat.show==true)
-  
-  
+  const filterCat = data.filter((cat) => cat.show === true);
+
   return (
-    <section className="py-10 sm:py-12 md:py-16 px-3 sm:px-6 md:px-16 bg-white text-black">
-      {/* ---------- Heading ---------- */}
-      <div className="text-center mb-12 md:mb-16 relative">
-          <div className=" lg:block absolute inset-0 flex items-center justify-center opacity-5">
-            <div className="text-7xl lg:text-9xl font-black text-gray-900">CATEGORIES</div>
-          </div>
-          <div className="relative z-10">
-            <span className="inline-block text-[#f2c41a] text-xs sm:text-sm font-bold tracking-widest uppercase mb-2">
-              Explore Our Collection
-            </span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 mb-3 md:mb-4">
-              Browse{" "}
-              <span className="bg-gradient-to-r from-[#f2c41a] to-yellow-500 bg-clip-text text-transparent">
-                Categories
-              </span>
-            </h2>
-            <div className="w-20 sm:w-24 h-1 bg-gradient-to-r from-[#f2c41a] to-yellow-500 mx-auto rounded-full"></div>
-          </div>
+    <section className="py-10 sm:py-14 md:py-16 px-4 sm:px-8 bg-white text-black overflow-hidden flex justify-center">
+      <div className="max-w-[2000px] w-full flex flex-col lg:flex-row items-center gap-8 lg:gap-10">
+        {/* ---------- LEFT SIDE: Text Content + View All Button ---------- */}
+        <div className="w-full lg:w-1/4 flex flex-col justify-center items-start text-left shrink-0">
+          <span className="inline-block text-[#f2c41a] text-xs sm:text-sm font-bold tracking-wider uppercase mb-1">
+            ------ EXPLORE OUR COLLECTION
+          </span>
+          <h2 className="text-2xl sm:text-3xl md:text-3xl lg:text-[1.7rem] font-bowlby text-gray-900 mb-2 leading-tight">
+            Shop By Category
+          </h2>
+          <span className="text-sm  text-gray-500 mb-5 leading-relaxed">
+            Discover unique and personalized gifts made to make every moment memorable.
+          </span>
+          <button
+            type="button"
+            onClick={() => navigation("/all-categories")}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f2c41a] hover:bg-[#e0b316] text-black font-bold text-xs sm:text-sm shadow-sm transition-all duration-200 cursor-pointer active:scale-95"
+          >
+            <span>View All Categories</span>
+            <BsArrowRight className="text-sm" />
+          </button>
         </div>
 
+        {/* ---------- RIGHT SIDE: Category Carousel ---------- */}
+        <div className="w-full lg:w-3/4 overflow-hidden min-w-0">
+          <Swiper
+            loop={true}
+            autoplay={{ delay: 5000, disableOnInteraction: false }}
+            modules={[Autoplay]}
+            spaceBetween={16}
+            breakpoints={{
+              320: { slidesPerView: 2, spaceBetween: 12 },
+              480: { slidesPerView: 2.5, spaceBetween: 14 },
+              640: { slidesPerView: 3, spaceBetween: 16 },
+              800: { slidesPerView: 4, spaceBetween: 16 },
+              1280: { slidesPerView: 4.5, spaceBetween: 18 },
+              1600: { slidesPerView: 5.5, spaceBetween: 20 },
+              1920: { slidesPerView: 6.5, spaceBetween: 20 },
+            }}
+            className="w-full py-1"
+          >
+            {filterCat.map((category) => (
+              <SwiperSlide key={category._id} className="!h-auto flex">
+                <div
+                  onClick={() =>
+                    navigation(
+                      `/category/${category.main_category_details?.[0]?.slug || "all"}/${_.get(
+                        category,
+                        "slug"
+                      )}`
+                    )
+                  }
+                  className="bg-[#FCF8ED] border border-amber-200/50 rounded-2xl p-3 sm:p-4 flex flex-col justify-between w-full h-full group transition-all duration-300 cursor-pointer select-none"
+                >
+                  {/* Image on top — bounded size */}
+                  <div className="w-full aspect-square max-w-[180px] mx-auto rounded-xl overflow-hidden mb-3 bg-amber-100/30 flex items-center justify-center shrink-0">
+                    <img
+                      fetchpriority="high"
+                      loading="eager"
+                      src={category.sub_category_image}
+                      alt={category.sub_category_name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
 
-      {/* ---------- Swiper ---------- */}
-      <Swiper
-        loop={true}
-        autoplay={{ delay: 2200, disableOnInteraction: false }}
-        modules={[Autoplay]}
-        spaceBetween={16}
-        breakpoints={{
-          320: { slidesPerView: 2.5 },
-          480: { slidesPerView: 3 },
-          640: { slidesPerView: 4 },
-          768: { slidesPerView: 4 },
-          1024: { slidesPerView: 5 },
-        }}
-        className="w-full !overflow-visible"
-      >
-        {filterCat.map((category) => (
-          <SwiperSlide key={category._id} className="flex justify-center !overflow-visible">
-            <div className="flex flex-col items-center text-center group cursor-pointer">
-              <div
-                onClick={() =>
-                  navigation(
-                    `/category/${category.main_category_details[0].slug}/${_.get(
-                      category,
-                      "slug"
-                    )}`
-                  )
-                }
-                className="relative flex items-center justify-center rounded-full overflow-visible
-                w-[110px] h-[110px] sm:w-[140px] sm:h-[140px] md:w-[180px] md:h-[180px] 
-                group-hover:scale-110 transition-all duration-500 shadow-[0_0_10px_rgba(0,0,0,0.1)]"
-              >
-                <img   fetchpriority="high" loading="eager"
-                  src={category.sub_category_image}
-                  alt={category.sub_category_name}
-                  className="w-full h-full object-cover rounded-full transition-transform duration-700 group-hover:scale-100"
-                />
-              </div>
-              <h2 className="text-[12px] sm:text-sm md:text-base font-semibold capitalize mt-2 sm:mt-3 text-black group-hover:text-[#f2c41a] transition-all duration-300">
-                {String(category.sub_category_name).toLowerCase()}
-              </h2>
-            </div>
-          </SwiperSlide>
-        ))}
-      </Swiper>
+                  {/* Category Name + Arrow on bottom */}
+                  <div className="flex items-center justify-between gap-2 pt-1 mt-auto">
+                    <h3 className="text-xs sm:text-sm font-bold text-gray-900 capitalize group-hover:text-[#d4a005] transition-colors line-clamp-2 leading-tight">
+                      {String(category.sub_category_name).toLowerCase()}
+                    </h3>
 
-      {/* ---------- Animations ---------- */}
-      <style>
-        {`
-          @keyframes slide-up {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes underline {
-            0% { width: 0; opacity: 0; }
-            100% { width: 100%; opacity: 1; }
-          }
-          @keyframes fade-in-delay {
-            0% { opacity: 0; transform: translateY(15px); }
-            100% { opacity: 1; transform: translateY(0); }
-          }
-
-          .animate-slide-up {
-            animation: slide-up 1s ease forwards;
-          }
-          .animate-underline {
-            animation: underline 1.2s ease forwards 0.8s;
-          }
-          .animate-fade-in-delay {
-            animation: fade-in-delay 1.2s ease forwards;
-          }
-        `}
-      </style>
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-200/60 group-hover:bg-[#f2c41a] flex items-center justify-center text-gray-800 group-hover:text-black shrink-0 transition-all duration-300">
+                      <BsArrowRight className="text-xs sm:text-sm group-hover:translate-x-0.5 transition-transform" />
+                    </span>
+                  </div>
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
+      </div>
     </section>
   );
 };
 
 export default BrowseAll;
-
-
-

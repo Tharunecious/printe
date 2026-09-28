@@ -11,6 +11,14 @@ const BannerSchema = Schema(
     banner_slug: {
       type: String,
     },
+    banner_description: {
+      type: String,
+      default: null,
+    },
+    videoUrl: {
+      type: String,
+      default: null,
+    },
 
     // ── New fields for editorial / Classic style design ────────────────────
     origin: {
