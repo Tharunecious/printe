@@ -5,6 +5,7 @@ import { BsXLg } from "react-icons/bs";
 
 // ═══════════════════════════════════════════════════
 // Helpers
+// Google reviews updated
 // ═══════════════════════════════════════════════════
 
 const getRelativeTime = (dateStr) => {
