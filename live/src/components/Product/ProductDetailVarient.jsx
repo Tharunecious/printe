@@ -144,12 +144,10 @@ export const CustomModal = ({
   }, []);
 
   if (!open) return null;
-
   return ReactDOM.createPortal(
     <div
-      className={`fixed inset-0 flex justify-center p-2 ${topPosition} ${
-        isMobile ? "items-end" : "items-center"
-      }`}
+      className={`fixed inset-0 flex justify-center p-2 ${topPosition} ${isMobile ? "items-end" : "items-center"
+        }`}
       style={{ zIndex: 9000 }}
     >
       <motion.div
@@ -158,14 +156,16 @@ export const CustomModal = ({
         exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black bg-opacity-50"
         onClick={onClose}
+        
       />
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: isMobile ? 100 : 20 }}
+
+
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: isMobile ? 100 : 20 }}
-        className={`relative bg-white rounded-lg shadow-xl ${
-          isMobile ? "w-full h-full rounded-b-none" : "max-h-[90vh]"
-        } overflow-hidden flex flex-col ${className}`}
+        className={`relative bg-white rounded-lg shadow-xl ${isMobile ? "w-full h-full rounded-b-none" : "max-h-[90vh]"
+          } overflow-hidden flex flex-col ${className}`}
         style={isMobile ? {} : { width }}
       >
         {title && (
@@ -209,9 +209,9 @@ export const CustomPopover = ({
 
   const placementClasses = {
     "bottom-right": "top-full right-0 mt-2",
-    "bottom-left":  "top-full left-0 mt-2",
-    "top-right":    "bottom-full right-0 mb-2",
-    "top-left":     "bottom-full left-0 mb-2",
+    "bottom-left": "top-full left-0 mt-2",
+    "top-right": "bottom-full right-0 mb-2",
+    "top-left": "bottom-full left-0 mb-2",
   };
 
   return (
@@ -258,29 +258,29 @@ const getRoleFields = (role) => {
   switch (role) {
     case "Dealer":
       return {
-        quantity:               "Dealer_quantity",
-        discount:               "Dealer_discount",
-        freeDelivery:           "free_delivery_dealer",
-        recommended:            "recommended_stats_dealer",
-        deliveryCharges:        "delivery_charges_dealer",
+        quantity: "Dealer_quantity",
+        discount: "Dealer_discount",
+        freeDelivery: "free_delivery_dealer",
+        recommended: "recommended_stats_dealer",
+        deliveryCharges: "delivery_charges_dealer",
         deliveryChargesOuterTN: "delivery_charges_dealer_outer_tn",
       };
     case "Corporate":
       return {
-        quantity:               "Corporate_quantity",
-        discount:               "Corporate_discount",
-        freeDelivery:           "free_delivery_corporate",
-        recommended:            "recommended_stats_corporate",
-        deliveryCharges:        "delivery_charges_corporate",
+        quantity: "Corporate_quantity",
+        discount: "Corporate_discount",
+        freeDelivery: "free_delivery_corporate",
+        recommended: "recommended_stats_corporate",
+        deliveryCharges: "delivery_charges_corporate",
         deliveryChargesOuterTN: "delivery_charges_corporate_outer_tn",
       };
     default:
       return {
-        quantity:               "Customer_quantity",
-        discount:               "Customer_discount",
-        freeDelivery:           "free_delivery_customer",
-        recommended:            "recommended_stats_customer",
-        deliveryCharges:        "delivery_charges_customer",
+        quantity: "Customer_quantity",
+        discount: "Customer_discount",
+        freeDelivery: "free_delivery_customer",
+        recommended: "recommended_stats_customer",
+        deliveryCharges: "delivery_charges_customer",
         deliveryChargesOuterTN: "delivery_charges_customer_outer_tn",
       };
   }
@@ -313,7 +313,7 @@ const getBothDeliveryChargesFromProduct = (productData, userRole, currentQty = n
 
   if (!productData) return defaults;
 
-  const roleFields       = getRoleFields(userRole);
+  const roleFields = getRoleFields(userRole);
   const quantityDiscounts = productData.quantity_discount_splitup || [];
 
   // Find the matching quantity tier
@@ -341,7 +341,7 @@ const getBothDeliveryChargesFromProduct = (productData, userRole, currentQty = n
 
   // Outside TN charge — use dedicated field if set, otherwise fall back to insideTN + 50
   const outerTNRaw = matchedTier[roleFields.deliveryChargesOuterTN];
-  const outsideTN  =
+  const outsideTN =
     outerTNRaw !== undefined && outerTNRaw !== null && outerTNRaw !== ""
       ? Number(outerTNRaw)
       : insideTN > 0
@@ -364,25 +364,25 @@ const PincodeDeliveryCalculatorForModal = ({
   onPincodeChange,
   initialPincode = "",
 }) => {
-  const [pincode,             setPincode]             = useState(initialPincode);
-  const [deliveryDate,        setDeliveryDate]        = useState("");
-  const [state,               setState]               = useState("");
-  const [error,               setError]               = useState("");
+  const [pincode, setPincode] = useState(initialPincode);
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [state, setState] = useState("");
+  const [error, setError] = useState("");
   const [isValidatingPincode, setIsValidatingPincode] = useState(false);
-  const [isGettingLocation,   setIsGettingLocation]   = useState(false);
-  const [isPincodeValid,      setIsPincodeValid]      = useState(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isPincodeValid, setIsPincodeValid] = useState(null);
   // Store both charges for display
   const [bothCharges, setBothCharges] = useState({ insideTN: 0, outsideTN: 0 });
   const [isOutsideTN, setIsOutsideTN] = useState(false);
 
   const stateDeliveryDays = {
-    maharashtra:  { days: 2, name: "Maharashtra" },
-    gujarat:      { days: 3, name: "Gujarat" },
-    karnataka:    { days: 4, name: "Karnataka" },
+    maharashtra: { days: 2, name: "Maharashtra" },
+    gujarat: { days: 3, name: "Gujarat" },
+    karnataka: { days: 4, name: "Karnataka" },
     "tamil nadu": { days: 3, name: "Tamil Nadu" },
-    kerala:       { days: 6, name: "Kerala" },
-    delhi:        { days: 7, name: "Delhi" },
-    default:      { days: 3, name: "Other States" },
+    kerala: { days: 6, name: "Kerala" },
+    delhi: { days: 7, name: "Delhi" },
+    default: { days: 3, name: "Other States" },
   };
 
   const pincodeToStateMap = useMemo(() => {
@@ -398,6 +398,15 @@ const PincodeDeliveryCalculatorForModal = ({
 
   const getStateFromPincode = (pin) =>
     pincodeToStateMap[parseInt(pin.substring(0, 3))] || "default";
+
+  const productionDate = useMemo(() => {
+    const prodDays = Number(_.get(productData, "Production_time", 2));
+    const d = new Date();
+    d.setDate(d.getDate() + prodDays);
+    return d.toLocaleDateString("en-US", {
+      weekday: "short", day: "numeric", month: "short", year: "numeric",
+    });
+  }, [productData]);
 
   const calculateDeliveryDate = (stateKey = "tamil nadu") => {
     const { days } = stateDeliveryDays[stateKey] || stateDeliveryDays.default;
@@ -416,7 +425,7 @@ const PincodeDeliveryCalculatorForModal = ({
       setIsPincodeValid(isValid);
 
       if (isValid) {
-        const stateKey  = getStateFromPincode(pin);
+        const stateKey = getStateFromPincode(pin);
         const stateName = stateDeliveryDays[stateKey]?.name || stateDeliveryDays.default.name;
         setState(stateName);
         setDeliveryDate(calculateDeliveryDate(stateKey));
@@ -433,9 +442,9 @@ const PincodeDeliveryCalculatorForModal = ({
 
         if (onDeliveryChargeChange) {
           onDeliveryChargeChange({
-            insideTN:    charges.insideTN,
-            outsideTN:   charges.outsideTN,
-            active:      activeCharge,
+            insideTN: charges.insideTN,
+            outsideTN: charges.outsideTN,
+            active: activeCharge,
             isOutsideTN: outsideFlag,
           });
         }
@@ -532,7 +541,7 @@ const PincodeDeliveryCalculatorForModal = ({
             suffix={
               <div className="flex items-center gap-2">
                 {isValidatingPincode && <Spin size="small" />}
-                {isPincodeValid === true  && <CheckCircleOutlined className="text-green-500" />}
+                {isPincodeValid === true && <CheckCircleOutlined className="text-green-500" />}
                 {isPincodeValid === false && <CloseCircleOutlined className="text-red-500" />}
               </div>
             }
@@ -555,7 +564,7 @@ const PincodeDeliveryCalculatorForModal = ({
 
         {error && <div className="mt-1 text-red-500 text-sm">{error}</div>}
 
-        {isPincodeValid && deliveryDate && (
+        {isPincodeValid && deliveryDate ? (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -623,6 +632,18 @@ const PincodeDeliveryCalculatorForModal = ({
               </div>
             </div>
           </motion.div>
+        ) : (
+          <motion.div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-gray-600">
+                Expected Dispatch by <strong>{productionDate}</strong>
+              </span>
+              <span className="text-xs text-gray-500">Enter pincode for delivery date & charges</span>
+              {bothCharges.insideTN === 0 && (
+                <span className="text-xs text-green-600 font-medium">🎉 Free Delivery on this product!</span>
+              )}
+            </div>
+          </motion.div>
         )}
       </div>
     </div>
@@ -641,50 +662,157 @@ const ProductDetailVarient = ({
   selectedVariants: propSelectedVariants = {},
 }) => {
   const { user } = useSelector((state) => state.authSlice);
-  const [form]       = Form.useForm();
+  const [form] = Form.useForm();
   const [notifyForm] = Form.useForm();
-  const dispatch  = useDispatch();
-  const navigate  = useNavigate();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   // Product constants
-  const stockCount      = _.get(data, "stock_count", 0);
-  const productionTime  = _.get(data, "Production_time", "2");
-  const arrangeTime     = _.get(data, "Stock_Arrangement_time", "3");
+  const stockCount = _.get(data, "stock_count", 0);
+  const productionTime = _.get(data, "Production_time", "2");
+  const arrangeTime = _.get(data, "Stock_Arrangement_time", "3");
   const processing_item =
     stockCount === 0
       ? Number(productionTime) + Number(arrangeTime)
       : Number(productionTime);
-  const productType       = _.get(data, "type", "Variable Product");
-  const availableVariants = data.variants || [];
+  const productType = _.get(data, "type", "Variable Product");
   const quantityDiscounts = _.get(data, "quantity_discount_splitup", []);
-  const dropdownGap       = _.get(data, "dropdown_gap", 100);
-  const quantityType      = _.get(data, "quantity_type", "dropdown");
-  const maxQuantity       = _.get(data, "max_quantity", 10000);
-  const unit              = _.get(data, "unit", "pcs");
-  const gst               = _.get(data, "GST", 18);
+  const dropdownGap = _.get(data, "dropdown_gap", 100);
+  const quantityType = _.get(data, "quantity_type", "dropdown");
+  const maxQuantity = _.get(data, "max_quantity", 10000);
+  const unit = _.get(data, "unit", "pcs");
+  const gst = _.get(data, "GST", 18);
+
+  // ── Photo Book config resolution ──────────────────────────────────────────
+  const isPhotoBook = useMemo(() => {
+    if (!data) return false;
+    if (data.is_photobook === true || data.is_photobook === "true") return true;
+
+    const subCat = data.sub_category_details;
+    const subId = typeof subCat === "object" ? subCat?._id : subCat;
+    if (String(subId) === "6ad078790ec48c46f0bb521a") return true;
+    const subCategoryName = (
+      (typeof subCat === "object" ? (subCat?.sub_category_name || subCat?.name || subCat?.slug) : "") || ""
+    ).toLowerCase();
+    return (
+      subCategoryName.includes("photo book") ||
+      subCategoryName.includes("photobook")
+    );
+  }, [data]);
+
+  const photobookConfig = useMemo(() => data?.photobook_config || {}, [data]);
+  const defaultPages = Number(photobookConfig.default_pages || 26);
+  const minPages = Number(photobookConfig.min_pages || 10);
+  const maxPages = Number(photobookConfig.max_pages || 60);
+  const pageIncrement = Number(photobookConfig.page_increment || 2);
+  const pricePerExtraPage = Number(photobookConfig.price_per_extra_page || 15);
+
+  const [photoBookPages, setPhotoBookPages] = useState(defaultPages);
+  useEffect(() => {
+    if (isPhotoBook && photobookConfig.default_pages) {
+      setPhotoBookPages(Number(photobookConfig.default_pages));
+    }
+  }, [isPhotoBook, photobookConfig.default_pages]);
+
+  const extraPages = isPhotoBook ? Math.max(0, photoBookPages - defaultPages) : 0;
+  const extraPagesCost = isPhotoBook ? extraPages * pricePerExtraPage : 0;
+
+  const photoBookPageOptions = useMemo(() => {
+    if (!isPhotoBook) return [];
+    const list = [];
+    for (let p = minPages; p <= maxPages; p += pageIncrement) {
+      list.push(p);
+    }
+    return list;
+  }, [isPhotoBook, minPages, maxPages, pageIncrement]);
+
+  // Merge Photo Book configured sizes and custom variants into availableVariants
+  const availableVariants = useMemo(() => {
+    let vars = [...(data?.variants || [])];
+    if (isPhotoBook) {
+      // 1. Merge sizes from photobook_config.sizes if present
+      const cfgSizes = photobookConfig.sizes || [];
+      if (cfgSizes.length > 0) {
+        const sizeVarIdx = vars.findIndex((v) =>
+          (v.variant_name || "").toLowerCase().includes("size")
+        );
+        const availableSizes = cfgSizes.filter((sz) => sz.is_available !== false);
+        const availableNames = new Set(availableSizes.map((s) => s.name));
+
+        if (sizeVarIdx !== -1) {
+          const existing = vars[sizeVarIdx];
+          const existingOptions = existing.options || [];
+          const mergedOptions = existingOptions.filter((o) =>
+            availableNames.size === 0 || availableNames.has(o.value)
+          );
+          const existingValues = new Set(mergedOptions.map((o) => o.value));
+          availableSizes.forEach((sz) => {
+            if (!existingValues.has(sz.name)) {
+              mergedOptions.push({
+                value: sz.name,
+                label: sz.name,
+                variant_type: existing.variant_type || "dropdown",
+                image_names: [],
+              });
+            }
+          });
+          vars[sizeVarIdx] = { ...existing, options: mergedOptions };
+        } else if (availableSizes.length > 0) {
+          vars.unshift({
+            variant_name: "sizes",
+            variant_type: "dropdown",
+            options: availableSizes.map((sz) => ({
+              value: sz.name,
+              label: sz.name,
+              variant_type: "dropdown",
+              image_names: [],
+            })),
+          });
+        }
+      }
+
+      // 2. Merge custom variants from photobook_config.variants (e.g. Edition: Basic / Premium)
+      const customVars = photobookConfig.variants || [];
+      customVars.forEach((cv) => {
+        if (cv.title && cv.values?.length > 0) {
+          const exists = vars.some(
+            (v) => (v.variant_name || "").toLowerCase() === cv.title.toLowerCase()
+          );
+          if (!exists) {
+            vars.push({
+              variant_name: cv.title,
+              variant_type: "dropdown",
+              options: cv.values.map((val) => ({ value: val, label: val })),
+            });
+          }
+        }
+      });
+    }
+    return vars;
+  }, [data?.variants, isPhotoBook, photobookConfig]);
 
   // State
-  const [selectedVariants,         setSelectedVariants]         = useState({});
-  const [quantity,                  setQuantity]                  = useState(null);
-  const [discountPercentage,        setDiscountPercentage]        = useState({ uuid: "", percentage: 0 });
-  const [currentPriceSplitup,       setCurrentPriceSplitup]       = useState({});
-  const [checked,                   setChecked]                   = useState(false);
-  const [freeDelivery,              setFreeDelivery]              = useState(false);
-  const [loading,                   setLoading]                   = useState(false);
-  const [stock,                     setStockCount]                = useState(0);
-  const [designPreviewVisible,      setDesignPreviewVisible]      = useState(false);
-  const [quantityDropdownVisible,   setQuantityDropdownVisible]   = useState(false);
-  const [showShareMenu,             setShowShareMenu]             = useState(false);
-  const [noDesignUpload,            setNoDesignUpload]            = useState(false);
-  const [needDesignUpload,          setNeedDesignUpload]          = useState(true);
-  const [showNotifyModal,           setShowNotifyModal]           = useState(false);
-  const [sendingNotification,       setSendingNotification]       = useState(false);
-  const [isModalOpen,               setIsModalOpen]               = useState(false);
-  const [instructionsVisible,       setInstructionsVisible]       = useState(false);
-  const [showBulkOrderForm,         setShowBulkOrderForm]         = useState(false);
-  const [otpSent,                   setOtpSent]                   = useState(false);
-  const [emailVerified,             setEmailVerified]             = useState(false);
-  const [sendingOtp,                setSendingOtp]                = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState({});
+  const [quantity, setQuantity] = useState(null);
+  const [discountPercentage, setDiscountPercentage] = useState({ uuid: "", percentage: 0 });
+  const [currentPriceSplitup, setCurrentPriceSplitup] = useState({});
+  const [checked, setChecked] = useState(false);
+  const [freeDelivery, setFreeDelivery] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [stock, setStockCount] = useState(0);
+  const [designPreviewVisible, setDesignPreviewVisible] = useState(false);
+  const [quantityDropdownVisible, setQuantityDropdownVisible] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [noDesignUpload, setNoDesignUpload] = useState(false);
+  const [needDesignUpload, setNeedDesignUpload] = useState(true);
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [instructionsVisible, setInstructionsVisible] = useState(false);
+  const [showBulkOrderForm, setShowBulkOrderForm] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
 
   // ── Dual delivery charges state ───────────────────────────────────────────
   // DeliveryCharges   = inside Tamil Nadu charge (always stored)
@@ -692,26 +820,26 @@ const ProductDetailVarient = ({
   // Both come from pincode calculator; we send both to backend regardless of
   // which state the user's pincode is in, so the backend/order system always
   // has access to both rates.
-  const [deliveryCharges,    setDeliveryCharges]    = useState(100); // inside TN
-  const [outOfTNCharge,      setOutOfTNCharge]      = useState(150); // outside TN
+  const [deliveryCharges, setDeliveryCharges] = useState(100); // inside TN
+  const [outOfTNCharge, setOutOfTNCharge] = useState(150); // outside TN
   const [pincodeIsOutsideTN, setPincodeIsOutsideTN] = useState(false);
 
   const [checkOutState, setCheckOutState] = useState({
-    product_image:       getFirstProductImage(data),
+    product_image: getFirstProductImage(data),
     product_design_file: "",
-    product_name:        _.get(data, "name", ""),
-    category_name:       _.get(data, "category_details.main_category_name", ""),
-    subcategory_name:    _.get(data, "sub_category_details.sub_category_name", ""),
-    product_price:       0,
-    product_variants:    {},
-    product_quantity:    0,
-    product_seo_url:     _.get(data, "seo_url", ""),
-    product_id:          _.get(data, "_id", ""),
-    MRP_savings:         0,
-    TotalSavings:        0,
-    FreeDelivery:        false,
-    DeliveryCharges:     100,   // inside TN
-    out_of_tn_charge:    150,   // outside TN
+    product_name: _.get(data, "name", ""),
+    category_name: _.get(data, "category_details.main_category_name", ""),
+    subcategory_name: _.get(data, "sub_category_details.sub_category_name", ""),
+    product_price: 0,
+    product_variants: {},
+    product_quantity: 0,
+    product_seo_url: _.get(data, "seo_url", ""),
+    product_id: _.get(data, "_id", ""),
+    MRP_savings: 0,
+    TotalSavings: 0,
+    FreeDelivery: false,
+    DeliveryCharges: 100,   // inside TN
+    out_of_tn_charge: 150,   // outside TN
   });
 
   const { isGettingVariantPrice } = useSelector((state) => state.publicSlice);
@@ -719,27 +847,44 @@ const ProductDetailVarient = ({
   // ── Price helpers ──────────────────────────────────────────────────────────
   const getRoleBasedPrice = useCallback(
     (variantData) => {
-      if (!variantData) return 0;
+      const source = variantData && Object.keys(variantData).length > 0 ? variantData : data;
+      if (!source) return 0;
       if (user?.role === "Dealer")
-        return _.get(variantData, "Deler_product_price", _.get(variantData, "price", 0));
+        return Number(_.get(source, "Deler_product_price", _.get(source, "Dealer_product_price", _.get(source, "price", _.get(source, "customer_product_price", 0)))));
       if (user?.role === "Corporate")
-        return _.get(variantData, "corporate_product_price", _.get(variantData, "price", 0));
+        return Number(_.get(source, "corporate_product_price", _.get(source, "price", _.get(source, "customer_product_price", 0))));
       if (user?.role === "bni_user") {
-        const Del_price = _.get(variantData, "Deler_product_price", _.get(variantData, "price", 0));
-        const cus_price = _.get(variantData, "customer_product_price", _.get(variantData, "price", 0));
+        const Del_price = Number(_.get(source, "Deler_product_price", _.get(source, "Dealer_product_price", _.get(source, "price", 0))));
+        const cus_price = Number(_.get(source, "customer_product_price", _.get(source, "price", 0)));
         return cus_price - Math.abs((cus_price - Del_price) / 2);
       }
-      return _.get(variantData, "customer_product_price", _.get(variantData, "price", 0));
+      return Number(_.get(source, "customer_product_price", _.get(source, "price", 0)));
     },
-    [user?.role],
+    [user?.role, data],
   );
 
   const findMatchingVariantPrice = useCallback(
     (variants) => {
-      if (!data.variants_price) return null;
-      return data.variants_price.find((vp) =>
+      if (!data.variants_price || data.variants_price.length === 0) return null;
+      // 1. Exact match across all variant keys
+      const exact = data.variants_price.find((vp) =>
         Object.keys(variants).every((k) => vp[k] === variants[k]),
       );
+      if (exact) return exact;
+
+      // 2. Partial/size match for Photo Book or when some variants (e.g. Edition) don't have separate price rows
+      const sizeVal = variants.sizes || variants.size || variants.Sizes;
+      if (sizeVal) {
+        const sizeMatch = data.variants_price.find(
+          (vp) =>
+            (vp.sizes && String(vp.sizes).toLowerCase() === String(sizeVal).toLowerCase()) ||
+            (vp.key && String(vp.key).toLowerCase() === String(sizeVal).toLowerCase()),
+        );
+        if (sizeMatch) return sizeMatch;
+      }
+
+      // 3. Fallback
+      return data.variants_price[0];
     },
     [data.variants_price],
   );
@@ -791,14 +936,14 @@ const ProductDetailVarient = ({
           (item) => item[roleFields.quantity] && Number(item[roleFields.quantity]) > 0,
         ) || quantityDiscounts[0];
       if (first) {
-        const q  = Number(first[roleFields.quantity]);
-        const d  = Number(first[roleFields.discount] || 0);
+        const q = Number(first[roleFields.quantity]);
+        const d = Number(first[roleFields.discount] || 0);
         const fd = first[roleFields.freeDelivery] || false;
 
         // Initialise both delivery charges from the first tier
         const charges = getBothDeliveryChargesFromProduct(data, user?.role, q);
-        const inTN    = fd ? 0 : charges.insideTN;
-        const outTN   = fd ? 0 : charges.outsideTN;
+        const inTN = fd ? 0 : charges.insideTN;
+        const outTN = fd ? 0 : charges.outsideTN;
 
         setQuantity(q);
         setDiscountPercentage({ uuid: _.get(first, "uniqe_id", ""), percentage: d });
@@ -807,26 +952,30 @@ const ProductDetailVarient = ({
         setOutOfTNCharge(outTN);
         setCheckOutState((prev) => ({
           ...prev,
-          product_quantity:  q,
-          DeliveryCharges:   inTN,
-          out_of_tn_charge:  outTN,
-          FreeDelivery:      fd,
+          product_quantity: q,
+          DeliveryCharges: inTN,
+          out_of_tn_charge: outTN,
+          FreeDelivery: fd,
         }));
+        return;
       }
-    } else {
-      setDiscountPercentage({ uuid: "", percentage: 0 });
-      setFreeDelivery(false);
-      setDeliveryCharges(100);
-      setOutOfTNCharge(150);
-      setQuantity(null);
-      setCheckOutState((prev) => ({
-        ...prev,
-        product_quantity:  0,
-        DeliveryCharges:   100,
-        out_of_tn_charge:  150,
-        FreeDelivery:      false,
-      }));
     }
+
+    // Default fallback (e.g., Photo Book or single quantity products)
+    const defaultQty = 1;
+    const charges = getBothDeliveryChargesFromProduct(data, user?.role, defaultQty);
+    setDiscountPercentage({ uuid: "", percentage: 0 });
+    setFreeDelivery(false);
+    setDeliveryCharges(charges.insideTN || 100);
+    setOutOfTNCharge(charges.outsideTN || 150);
+    setQuantity(defaultQty);
+    setCheckOutState((prev) => ({
+      ...prev,
+      product_quantity: defaultQty,
+      DeliveryCharges: charges.insideTN || 100,
+      out_of_tn_charge: charges.outsideTN || 150,
+      FreeDelivery: false,
+    }));
   }, [user?.role, quantityType, quantityDiscounts, data]);
 
   // ── Variant change ─────────────────────────────────────────────────────────
@@ -858,18 +1007,32 @@ const ProductDetailVarient = ({
         options.push({ value: i, label: i.toString() });
       return options;
     }
-    return quantityDiscounts
+    const filtered = quantityDiscounts
       .filter((item) => item[roleFields.quantity])
       .map((item) => ({
-        value:           Number(item[roleFields.quantity]),
-        label:           `${item[roleFields.quantity]}`,
-        Free_Delivery:   item[roleFields.freeDelivery] || false,
-        discount:        Number(item[roleFields.discount] || 0),
-        uuid:            item.uniqe_id,
-        stats:           item[roleFields.recommended] || "No comments",
+        value: Number(item[roleFields.quantity]),
+        label: `${item[roleFields.quantity]}`,
+        Free_Delivery: item[roleFields.freeDelivery] || false,
+        discount: Number(item[roleFields.discount] || 0),
+        uuid: item.uniqe_id,
+        stats: item[roleFields.recommended] || "No comments",
         deliveryCharges: Number(item[roleFields.deliveryCharges] || 100),
       }))
       .sort((a, b) => a.value - b.value);
+
+    if (filtered.length > 0) return filtered;
+
+    // Fallback options for Photo Book or when no tier splitup exists
+    const defaultQtyList = [1, 2, 3, 4, 5, 10, 20, 50];
+    return defaultQtyList.map((q) => ({
+      value: q,
+      label: `${q}`,
+      Free_Delivery: false,
+      discount: 0,
+      uuid: `qty-${q}`,
+      stats: "No comments",
+      deliveryCharges: 100,
+    }));
   }, [user?.role, quantityType, quantityDiscounts, dropdownGap, maxQuantity]);
 
   const quantityOptions = generateQuantityOptions();
@@ -897,8 +1060,8 @@ const ProductDetailVarient = ({
 
         // Recalculate both delivery charges for new quantity tier
         const charges = getBothDeliveryChargesFromProduct(data, user?.role, selectedQuantity);
-        const inTN    = fd ? 0 : charges.insideTN;
-        const outTN   = fd ? 0 : charges.outsideTN;
+        const inTN = fd ? 0 : charges.insideTN;
+        const outTN = fd ? 0 : charges.outsideTN;
 
         setDiscountPercentage({
           uuid: selectedDiscount.uniqe_id,
@@ -909,9 +1072,9 @@ const ProductDetailVarient = ({
         setOutOfTNCharge(outTN);
         setCheckOutState((prev) => ({
           ...prev,
-          DeliveryCharges:  inTN,
+          DeliveryCharges: inTN,
           out_of_tn_charge: outTN,
-          FreeDelivery:     fd,
+          FreeDelivery: fd,
         }));
       } else {
         setDiscountPercentage({ uuid: "", percentage: 0 });
@@ -920,9 +1083,9 @@ const ProductDetailVarient = ({
         setOutOfTNCharge(150);
         setCheckOutState((prev) => ({
           ...prev,
-          DeliveryCharges:  100,
+          DeliveryCharges: 100,
           out_of_tn_charge: 150,
-          FreeDelivery:     false,
+          FreeDelivery: false,
         }));
       }
       setQuantityDropdownVisible(false);
@@ -943,37 +1106,42 @@ const ProductDetailVarient = ({
 
   const getUnitPrice = useMemo(() => {
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
-    return calculateUnitPrice(basePrice, discountPercentage.percentage, user?.role, gst);
-  }, [checkOutState.product_price, discountPercentage.percentage, user?.role, gst]);
+    const unit = calculateUnitPrice(basePrice, discountPercentage.percentage, user?.role, gst);
+    return unit + (isPhotoBook ? extraPagesCost : 0);
+  }, [checkOutState.product_price, discountPercentage.percentage, user?.role, gst, isPhotoBook, extraPagesCost]);
 
   const getMRPUnitPrice = useMemo(() => {
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
-    return calculateMRPUnitPrice(basePrice, user?.role, gst);
-  }, [checkOutState.product_price, user?.role, gst]);
+    const mrp = calculateMRPUnitPrice(basePrice, user?.role, gst);
+    return mrp + (isPhotoBook ? extraPagesCost : 0);
+  }, [checkOutState.product_price, user?.role, gst, isPhotoBook, extraPagesCost]);
 
   const getOriginalUnitPrice = useMemo(() => {
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
+    let orig = 0;
     if (user?.role === "Corporate" || user?.role === "Dealer" || user?.role === "bni_user")
-      return basePrice;
-    return basePrice * (1 + gst / 100);
-  }, [checkOutState.product_price, user?.role, gst]);
+      orig = basePrice;
+    else
+      orig = basePrice * (1 + gst / 100);
+    return orig + (isPhotoBook ? extraPagesCost : 0);
+  }, [checkOutState.product_price, user?.role, gst, isPhotoBook, extraPagesCost]);
 
   const getUnitPricewithoutGst = () => {
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
-    return Math.round(calculateUnitPriceWithoutGst(basePrice, discountPercentage.percentage));
+    return Math.round(calculateUnitPriceWithoutGst(basePrice, discountPercentage.percentage)) + (isPhotoBook ? extraPagesCost : 0);
   };
 
-  const calculateTotalPrice           = useCallback(() => (!quantity ? 0 : (getUnitPrice * quantity).toFixed(2)), [getUnitPrice, quantity]);
+  const calculateTotalPrice = useCallback(() => (!quantity ? 0 : (getUnitPrice * quantity).toFixed(2)), [getUnitPrice, quantity]);
   const calculateTotalPricewithoutGst = () => (!quantity ? 0 : (getUnitPricewithoutGst() * quantity).toFixed(2));
-  const calculateGstPrice             = useCallback(() => (!quantity ? 0 : Number(getUnitPrice).toFixed(2)), [getUnitPrice, quantity]);
-  const calculateMRPTotalPrice        = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return (mrp * quantity).toFixed(2); }, [currentPriceSplitup, quantity]);
-  const calculateOriginalTotalPrice   = useCallback(() => (!quantity ? 0 : (getOriginalUnitPrice * quantity).toFixed(2)), [getOriginalUnitPrice, quantity]);
-  const calculateMRPSavings           = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return ((mrp - getMRPUnitPrice) * quantity).toFixed(2); }, [currentPriceSplitup, getMRPUnitPrice, quantity]);
-  const calculateDiscountSavings      = useCallback(() => (!quantity ? 0 : ((getOriginalUnitPrice - getUnitPrice) * quantity).toFixed(2)), [getOriginalUnitPrice, getUnitPrice, quantity]);
-  const calculateTotalSavings         = useCallback(() => (parseFloat(calculateMRPSavings()) + parseFloat(calculateDiscountSavings())).toFixed(2), [calculateMRPSavings, calculateDiscountSavings]);
+  const calculateGstPrice = useCallback(() => (!quantity ? 0 : Number(getUnitPrice).toFixed(2)), [getUnitPrice, quantity]);
+  const calculateMRPTotalPrice = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)) + (isPhotoBook ? extraPagesCost : 0); return (mrp * quantity).toFixed(2); }, [currentPriceSplitup, quantity, isPhotoBook, extraPagesCost]);
+  const calculateOriginalTotalPrice = useCallback(() => (!quantity ? 0 : (getOriginalUnitPrice * quantity).toFixed(2)), [getOriginalUnitPrice, quantity]);
+  const calculateMRPSavings = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return ((mrp - getMRPUnitPrice) * quantity).toFixed(2); }, [currentPriceSplitup, getMRPUnitPrice, quantity]);
+  const calculateDiscountSavings = useCallback(() => (!quantity ? 0 : ((getOriginalUnitPrice - getUnitPrice) * quantity).toFixed(2)), [getOriginalUnitPrice, getUnitPrice, quantity]);
+  const calculateTotalSavings = useCallback(() => (parseFloat(calculateMRPSavings()) + parseFloat(calculateDiscountSavings())).toFixed(2), [calculateMRPSavings, calculateDiscountSavings]);
   const calculateDealPercentageDiscount = useCallback(() => {
     if (!quantity) return 0;
-    const mrpTotal  = parseFloat(calculateMRPTotalPrice());
+    const mrpTotal = parseFloat(calculateMRPTotalPrice());
     const dealTotal = parseFloat(calculateTotalPrice());
     if (mrpTotal === 0 || dealTotal >= mrpTotal) return 0;
     return Math.round(((mrpTotal - dealTotal) / mrpTotal) * 100);
@@ -998,11 +1166,10 @@ const ProductDetailVarient = ({
               {options.map((option, index) => (
                 <Tooltip key={index} title={option.value}>
                   <div
-                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 p-1 ${
-                      selectedVariants[variant_name] === option.value
-                        ? "ring-2 ring-blue-500 rounded-lg"
-                        : "border border-gray-200 rounded-lg hover:border-blue-300"
-                    }`}
+                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 p-1 ${selectedVariants[variant_name] === option.value
+                      ? "ring-2 ring-blue-500 rounded-lg"
+                      : "border border-gray-200 rounded-lg hover:border-blue-300"
+                      }`}
                     onClick={() => handleVariantChange(variant_name, option.value)}
                   >
                     <div
@@ -1031,29 +1198,37 @@ const ProductDetailVarient = ({
           <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
             <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">{variant_name}:</Text>
             <div className="flex flex-wrap gap-2">
-              {options.map((option, optionIndex) => (
-                <div key={optionIndex} className="flex flex-col items-center">
-                  <div
-                    onClick={() => handleVariantChange(variant_name, option.value)}
-                    className={`cursor-pointer border-2 p-1 rounded transition duration-200 ${
-                      selectedVariants[variant_name] === option.value
+              {options.map((option, optionIndex) => {
+                const szInfo = isPhotoBook && (photobookConfig.sizes?.find((s) => s.name === option.value) || null);
+                const imgSrc = option.image_names?.[0]?.path || option.image_names?.[0] || data.images?.[0]?.url || data.images?.[0]?.path;
+                return (
+                  <div key={optionIndex} className="flex flex-col items-center">
+                    <div
+                      onClick={() => handleVariantChange(variant_name, option.value)}
+                      className={`cursor-pointer border-2 p-1 rounded transition duration-200 ${selectedVariants[variant_name] === option.value
                         ? "border-blue-500 shadow-md"
                         : "border-gray-300 hover:border-blue-400"
-                    }`}
-                    style={{ width: "60px", height: "60px" }}
-                  >
-                    <img
-                      fetchpriority="high"
-                      loading="eager"
-                      src={option.image_names?.[0]?.path || option.image_names?.[0]}
-                      className="w-full h-full object-contain"
-                      alt={option.value}
-                      onError={(e) => { e.target.src = "https://via.placeholder.com/60x60?text=No+Image"; }}
-                    />
+                        }`}
+                      style={{ minWidth: "60px", minHeight: "60px" }}
+                    >
+                      <img
+                        fetchpriority="high"
+                        loading="eager"
+                        src={imgSrc}
+                        className="w-full h-12 object-contain"
+                        alt={option.value}
+                        onError={(e) => { e.target.src = "https://via.placeholder.com/60x60?text=No+Image"; }}
+                      />
+                    </div>
+                    <Text className="text-xs mt-1 text-center font-medium">{option.value}</Text>
+                    {szInfo && (
+                      <span className="text-[10px] text-gray-500 text-center leading-tight">
+                        {szInfo.width_in}″×{szInfo.height_in}″
+                      </span>
+                    )}
                   </div>
-                  <Text className="text-xs mt-1 text-center">{option.value}</Text>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -1065,17 +1240,23 @@ const ProductDetailVarient = ({
           <Select
             value={selectedVariants[variant_name]}
             onChange={(value) => handleVariantChange(variant_name, value)}
-            className="w-full"
+            className="w-full md:w-[30vw]"
             placeholder={`Select ${variant_name}`}
           >
-            {options.map((option, index) => (
-              <Select.Option key={index} value={option.value}>{option.value}</Select.Option>
-            ))}
+            {options.map((option, index) => {
+              const szInfo = isPhotoBook && (photobookConfig.sizes?.find((s) => s.name === option.value) || null);
+              const label = szInfo
+                ? `${option.value} (${szInfo.width_in}″ × ${szInfo.height_in}″ / ${szInfo.width_cm} × ${szInfo.height_cm} cm)`
+                : option.label || option.value;
+              return (
+                <Select.Option key={index} value={option.value}>{label}</Select.Option>
+              );
+            })}
           </Select>
         </div>
       );
     },
-    [selectedVariants, handleVariantChange],
+    [selectedVariants, handleVariantChange, isPhotoBook, photobookConfig, data?.images],
   );
 
   // ── Misc helpers ───────────────────────────────────────────────────────────
@@ -1103,22 +1284,21 @@ const ProductDetailVarient = ({
       >
         <div className="overflow-y-auto max-h-80 space-y-3">
           {quantityOptions.map((item) => {
-            const itemUnitPrice  = calculateUnitPrice(
+            const itemUnitPrice = calculateUnitPrice(
               Number(_.get(checkOutState, "product_price", 0)),
               quantityType === "dropdown" ? item.discount : discountPercentage.percentage,
               user?.role,
               gst,
             );
             const itemTotalPrice = itemUnitPrice * item.value;
-            const isSelected     = quantity === item.value;
+            const isSelected = quantity === item.value;
             return (
               <div
                 key={item.value}
-                className={`flex justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
-                  isSelected
-                    ? "border-blue-500 bg-blue-50 shadow-sm"
-                    : "border-gray-100 hover:border-blue-300 hover:bg-blue-50"
-                }`}
+                className={`flex justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 border-2 ${isSelected
+                  ? "border-blue-500 bg-blue-50 shadow-sm"
+                  : "border-gray-100 hover:border-blue-300 hover:bg-blue-50"
+                  }`}
                 onClick={() => handleQuantitySelect(item.value)}
               >
                 <div className="flex-1">
@@ -1195,30 +1375,39 @@ const ProductDetailVarient = ({
 
       const updatedCheckoutState = {
         ...checkOutState,
-        guestId:               getGuestId(),
-        userRole:              localStorage.getItem("userData") || "guest",
-        sgst:                  Number(gst / 2),
-        cgst:                  Number(gst / 2),
-        MRP_savings:           calculateMRPSavings(),
-        TotalSavings:          calculateTotalSavings(),
-        FreeDelivery:          freeDelivery,
+        guestId: getGuestId(),
+        userRole: localStorage.getItem("userData") || "guest",
+        sgst: Number(gst / 2),
+        cgst: Number(gst / 2),
+        MRP_savings: calculateMRPSavings(),
+        TotalSavings: calculateTotalSavings(),
+        FreeDelivery: freeDelivery,
         // ── Both delivery charges sent to backend ──────────────────────────
-        DeliveryCharges:       deliveryCharges,    // inside Tamil Nadu
-        out_of_tn_charge:      outOfTNCharge,      // outside Tamil Nadu
+        DeliveryCharges: deliveryCharges,    // inside Tamil Nadu
+        out_of_tn_charge: outOfTNCharge,      // outside Tamil Nadu
         // ──────────────────────────────────────────────────────────────────
-        noCustomtation:        noDesignUpload,
-        final_total:           Number(calculateTotalPrice()),
-        final_total_withoutGst:Number(calculateTotalPricewithoutGst()),
+        noCustomtation: noDesignUpload,
+        final_total: Number(calculateTotalPrice()),
+        final_total_withoutGst: Number(calculateTotalPricewithoutGst()),
+        ...(isPhotoBook && {
+          is_photobook: true,
+          photobook_pages: photoBookPages,
+          photobook_size: selectedVariants.sizes || selectedVariants.size || "8x8",
+          photobook_extra_pages: extraPages,
+          photobook_extra_pages_cost: extraPagesCost,
+          photobook_variants: selectedVariants,
+          photobook_selected_template: photobookConfig.eligible_template_ids?.[0] || "",
+        }),
       };
 
       const result = await addToShoppingCart(updatedCheckoutState);
       Swal.fire({
         title: "Product Added To Cart",
-        text:  "Choose an option: Go to the shopping cart page or stay here.",
-        icon:  "success",
-        showCancelButton:    true,
-        confirmButtonText:   "Go to Shopping Cart",
-        cancelButtonText:    "Stay Here",
+        text: "Choose an option: Go to the shopping cart page or stay here.",
+        icon: "success",
+        showCancelButton: true,
+        confirmButtonText: "Go to Shopping Cart",
+        cancelButtonText: "Stay Here",
       }).then((r) => { if (r.isConfirmed) goToShoppingCart(); });
       dispatch(ADD_TO_CART(_.get(result, "data.data.data", "")));
     } catch (err) {
@@ -1248,12 +1437,12 @@ const ProductDetailVarient = ({
       setSendingNotification(true);
       const result = await notifyWhenAvailable({
         productName: _.get(data, "name", ""),
-        productId:   _.get(data, "Vendor_Code", data._id),
-        productUrl:  window.location.href,
-        userEmail:   userData.email,
-        userPhone:   userData.phone,
-        userName:    userData.name,
-        timestamp:   new Date().toISOString(),
+        productId: _.get(data, "Vendor_Code", data._id),
+        productUrl: window.location.href,
+        userEmail: userData.email,
+        userPhone: userData.phone,
+        userName: userData.name,
+        timestamp: new Date().toISOString(),
       });
       if (result.data.success) {
         toast.success("We'll notify you when this product is available!");
@@ -1263,13 +1452,13 @@ const ProductDetailVarient = ({
         toast.error("Failed to submit notification request");
       }
     } catch { toast.error("Failed to submit notification request"); }
-    finally   { setSendingNotification(false); }
+    finally { setSendingNotification(false); }
   };
   const handleNotifySubmit = async (values) => sendNotification(values);
 
   // ── Share ──────────────────────────────────────────────────────────────────
   const shareProduct = useCallback((platform) => {
-    const productUrl  = encodeURIComponent(window.location.href);
+    const productUrl = encodeURIComponent(window.location.href);
     const productName = encodeURIComponent(data.name);
     const urls = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${productUrl}`,
@@ -1312,9 +1501,9 @@ const ProductDetailVarient = ({
       form.setFields([{ name: "otp", errors: ["Invalid OTP"] }]);
     }
   };
-  const validateEmail         = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const handleNoCustomization = (e)     => { setNoDesignUpload(e.target.checked); setNeedDesignUpload(!e.target.checked); };
-  const handleDesignRemove    = ()      => setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const handleNoCustomization = (e) => { setNoDesignUpload(e.target.checked); setNeedDesignUpload(!e.target.checked); };
+  const handleDesignRemove = () => setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
 
   const ProcessingTimeInfo = () => (
     <div className="max-h-[400px] overflow-y-auto text-gray-700">
@@ -1327,10 +1516,10 @@ const ProductDetailVarient = ({
 
   const generateLabel = (label) => {
     switch (label) {
-      case "new":            return <Tag color="green">New</Tag>;
-      case "popular":        return <Tag color="purple">Popular</Tag>;
+      case "new": return <Tag color="green">New</Tag>;
+      case "popular": return <Tag color="purple">Popular</Tag>;
       case "only-for-today": return <Tag color="red">Only For Today</Tag>;
-      default:               return <></>;
+      default: return <></>;
     }
   };
 
@@ -1371,15 +1560,22 @@ const ProductDetailVarient = ({
               <motion.div
                 animate={{ scale: [1, 1.15, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
-                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md text-right"
+                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md"
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="text-white/70 text-xs line-through">
-                    {formatPrice(_.get(currentPriceSplitup, "MRP_price", 0))}
-                  </span>
-                  <h3 className="text-white text-base font-semibold">
-                    {quantity ? formatPrice(getUnitPrice) : "Select Qty"}
-                  </h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+                      {formatPrice(Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))))}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <h3 className="text-white text-base font-semibold leading-tight">
+                      {quantity ? formatPrice(getUnitPrice) : formatPrice(getUnitPrice)}
+                    </h3>
+                    <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
+                      Inclusive of GST
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -1387,13 +1583,22 @@ const ProductDetailVarient = ({
               <motion.div
                 animate={{ scale: [1, 1.15, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
-                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md text-right"
+                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md"
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="text-white/70 text-xs line-through">
-                    {formatPrice(_.get(currentPriceSplitup, "MRP_price", 0))}
-                  </span>
-                  <h3 className="text-white text-base font-semibold">{formatPrice(getUnitPrice)}</h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+                      {formatPrice(Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))))}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <h3 className="text-white text-base font-semibold leading-tight">
+                      {quantity ? formatPrice(getUnitPrice) : formatPrice(getUnitPrice)}
+                    </h3>
+                    <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
+                      Inclusive of GST
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -1441,7 +1646,7 @@ const ProductDetailVarient = ({
           </ul>
         </div>
 
-        {/* ── Quantity ───────────────────────────────────────────────────── */}
+        {/* ── Quantity & Variants ──────────────────────────────────── */}
         <div className="w-full flex flex-col space-y-4">
           <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
             <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
@@ -1456,26 +1661,54 @@ const ProductDetailVarient = ({
               onDropdownVisibleChange={setQuantityDropdownVisible}
             />
           </div>
-        </div>
 
-        {/* ── Variants ──────────────────────────────────────────────────── */}
-        {Object.keys(selectedVariants).length > 0 && (
-          <Card size="small" className="!bg-blue-50">
-            {availableVariants.length > 0 && (
-              <div className="w-full flex flex-col space-y-4">
-                {availableVariants.map((variant, index) => (
-                  <div key={index}>{renderVariantSelector(variant)}</div>
-                ))}
+          {/* Variants */}
+          {availableVariants.length > 0 &&
+            availableVariants.map((variant, index) => (
+              <div key={index}>{renderVariantSelector(variant)}</div>
+            ))}
+
+          {/* Photo Book Pages (Only for Photo Book product) */}
+          {isPhotoBook && (
+            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+              <Text strong className="block mb-2 md:mb-0 md:w-24">Pages:</Text>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Select
+                  value={photoBookPages}
+                  onChange={(val) => setPhotoBookPages(val)}
+                  className="w-full md:w-[30vw]"
+                  placeholder="Select page count"
+                >
+                  {photoBookPageOptions.map((p) => (
+                    <Select.Option key={p} value={p}>
+                      {p} Pages {p === defaultPages ? `(${defaultPages} included)` : p > defaultPages ? `(+₹${(p - defaultPages) * pricePerExtraPage} extra)` : ""}
+                    </Select.Option>
+                  ))}
+                </Select>
+                {extraPages > 0 ? (
+                  <span className="text-xs text-amber-600 font-semibold">
+                    +{extraPages} Extra Pages (+₹{extraPagesCost})
+                  </span>
+                ) : (
+                  <span className="text-xs text-green-600 font-medium">
+                    ✓ Standard {defaultPages} pages included
+                  </span>
+                )}
               </div>
-            )}
-            <Text strong className="text-gray-800 block mb-2">Selected Options:</Text>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(selectedVariants).map(([key, value]) => (
-                <Tag key={key} color="blue" className="capitalize">{key}: {value}</Tag>
-              ))}
             </div>
-          </Card>
-        )}
+          )}
+
+          {isPhotoBook && photobookConfig.eligible_template_ids?.length > 0 && (
+            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+              <Text strong className="block mb-2 md:mb-0 md:w-24">Template:</Text>
+              <div className="flex items-center gap-2">
+                <Tag color="purple" className="capitalize text-xs font-semibold px-2 py-0.5">
+                  {photobookConfig.eligible_template_ids[0].replace(/-/g, " ")}
+                </Tag>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── Pricing card ───────────────────────────────────────────────── */}
         <Card className="bg-blue-50 rounded-lg border-0">
@@ -1590,7 +1823,7 @@ const ProductDetailVarient = ({
                 setPincodeIsOutsideTN(outside);
                 setCheckOutState((prev) => ({
                   ...prev,
-                  DeliveryCharges:  insideTN,
+                  DeliveryCharges: insideTN,
                   out_of_tn_charge: outsideTN,
                 }));
               }}

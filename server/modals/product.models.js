@@ -161,6 +161,20 @@ module.exports = mongoose.model(
         type: Boolean,
         default: false,
       },
+      is_photobook: {
+        type: Boolean,
+        default: false,
+      },
+      photobook_config: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {
+          min_pages: 10,
+          max_pages: 60,
+          default_pages: 20,
+          supported_sizes: ["8x8", "10x10", "12x12"],
+          eligible_template_ids: [],
+        },
+      },
       unit: { type: String },
       name: { type: String, require: true },
       Point_one: { type: String, require: true },

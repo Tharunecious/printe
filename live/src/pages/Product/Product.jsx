@@ -146,6 +146,28 @@ const resolveIsAcrylic = (productData) => {
 };
 
 /**
+ * Resolve is_photobook.
+ * Priority: explicit backend flag → photobook_config → subcategory name.
+ */
+const resolveIsPhotoBook = (productData) => {
+  if (!productData) return false;
+  if (productData.is_photobook === true || productData.is_photobook === "true")
+    return true;
+
+  const subCat = productData.sub_category_details;
+  const subId = typeof subCat === "object" ? subCat?._id : subCat;
+  if (String(subId) === "6ad078790ec48c46f0bb521a") return true;
+
+  const subCategoryName = (
+    (typeof subCat === "object" ? (subCat?.sub_category_name || subCat?.name || subCat?.slug) : "") || ""
+  ).toLowerCase();
+  return (
+    subCategoryName.includes("photo book") ||
+    subCategoryName.includes("photobook")
+  );
+};
+
+/**
  * Strip HTML tags for meta description use.
  */
 const stripHtml = (html = "") =>
@@ -175,8 +197,7 @@ const ProductHelmet = ({ productData }) => {
 
   const title = useMemo(() => {
     if (!productData) return `Loading... | ${SITE_NAME}`;
-    // seo_title is the best; fall back to name with brand suffix
-    const raw = productData.seo_title || productData.name || "";
+    const raw = productData.name || "";
     const cleaned = raw.trim();
     // If the merchant already appended the brand name, don't double-add it
     if (cleaned.toLowerCase().includes("printe")) return cleaned;
@@ -550,6 +571,11 @@ const Product = () => {
   // ── Derived / normalised product data ─────────────────────────────────────
   const productData = useMemo(() => unwrapProduct(product), [product]);
 
+  const isPhotoBookProduct = useMemo(
+    () => resolveIsPhotoBook(productData),
+    [productData],
+  );
+
   const isAcrylicProduct = useMemo(
     () => resolveIsAcrylic(productData),
     [productData],
@@ -755,7 +781,7 @@ const Product = () => {
                     selectedThickness={acrylicThickness}
                     onDesignChange={handleAcrylicDesignChange}
                   />
-                ) : hasVariants ? (
+                ) : (hasVariants || isPhotoBookProduct) ? (
                   <ImagesliderVarient
                     key={`variant-slider-${productId}-${location.key}`}
                     imageList={productImages}
@@ -784,7 +810,7 @@ const Product = () => {
                     onSizeChange={setAcrylicSize}
                     onThicknessChange={setAcrylicThickness}
                   />
-                ) : hasVariants ? (
+                ) : (hasVariants || isPhotoBookProduct) ? (
                   <ProductDetailVarient
                     key={`variant-details-${productId}-${location.key}`}
                     data={productData}

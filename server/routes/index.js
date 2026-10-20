@@ -33,7 +33,7 @@ router.use("/client_review", review_routes);
 
 //Image Upload EndPoints
 router.post("/upload_images", upload.single("image"), UploadImage);
-// router.post("/upload_video", upload.single("video"), UploadVideo);
+// router.post("/upload_video", upload.single("video"), UploadVideo); 
 
 // mail
 router.use("/mail", mail_routes);
@@ -76,4 +76,6 @@ router.use("/Lead",LeadRoutes)
 router.use("/customer-care",CustomerRoutes)
 router.use("/customer-care-settings",CustomerSettingsRoutes);
 router.use("/campaign",campaign_routes);
+const photobook_routes = require("./photobook.routes");
+router.use("/photobook", photobook_routes);
 module.exports = router;
