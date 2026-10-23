@@ -13,7 +13,7 @@ import { handleGoogleLoginSuccess } from "../utils/googleAuthHelper";
 import new_year from "../assets/new_year.jpeg";
 
 
-const GOOGLE_CLIENT_ID = "323773820042-ube4qhfaig1dbrgvl85gchkrlvphnlv9.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "804607280262-pvid5e0cupe6ab4uubn1rh8n7t28qcmf.apps.googleusercontent.com";
 
 
 
