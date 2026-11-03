@@ -25,8 +25,10 @@ import { AnimatePresence } from "motion/react";
 const useImageHandler = (imageList) => {
   const getImageUrl = useCallback((image) => {
     if (!image) return "";
-    if (typeof image === 'string') return image;
-    return image.path || image.url || image.src || "";
+    let raw = "";
+    if (typeof image === 'string') raw = image;
+    else raw = image.path || image.url || image.src || "";
+    return raw ? raw.trim() : "";
   }, []);
 
   const processedImages = useMemo(
@@ -103,16 +105,85 @@ const ImagesliderVarient = ({
   // Update images when selected variants or imageList changes
   useEffect(() => {
     let imagesToShow = imageList || [];
+    const pbConfig = data?.photobook_config;
+    const isPhotoBook = data?.is_photobook || (pbConfig?.templates && pbConfig.templates.length > 0);
 
+    // Photo Book: Prioritize images based on (Template + Size)
+    if (isPhotoBook && pbConfig?.templates && Array.isArray(pbConfig.templates) && pbConfig.templates.length > 0) {
+      const rawSelectedTpl =
+        selectedVariants["Template"] ||
+        Object.values(selectedVariants).find((v) =>
+          pbConfig.templates.some(
+            (t) =>
+              (t.template_name || t.name || "").trim().toLowerCase() === String(v || "").trim().toLowerCase() ||
+              (t.slug || "").trim().toLowerCase() === String(v || "").trim().toLowerCase() ||
+              (t.template_id || "").trim().toLowerCase() === String(v || "").trim().toLowerCase() ||
+              String(t._id || "").trim().toLowerCase() === String(v || "").trim().toLowerCase()
+          )
+        );
+      const rawSelectedSize =
+        selectedVariants["Size"] ||
+        selectedVariants["sizes"] ||
+        selectedVariants["size"] ||
+        Object.values(selectedVariants).find((v) =>
+          pbConfig.sizes?.some(
+            (s) =>
+              (s.name || "").trim().toLowerCase() === String(v || "").trim().toLowerCase() ||
+              String(v || "").toLowerCase().includes((s.name || "").trim().toLowerCase())
+          )
+        );
 
-    // Check if we have variant-specific images
-    if (Object.keys(selectedVariants).length > 0 && Object.keys(variantImages).length > 0) {
+      const cleanTplName = String(rawSelectedTpl || "").trim().toLowerCase();
+      const cleanSizeName = String(rawSelectedSize || "").trim().toLowerCase();
+
+      const matchedTpl =
+        pbConfig.templates.find(
+          (t) =>
+            (t.template_name || t.name || "").trim().toLowerCase() === cleanTplName ||
+            (t.slug || "").trim().toLowerCase() === cleanTplName ||
+            (t.template_id || "").trim().toLowerCase() === cleanTplName ||
+            String(t._id || "").trim().toLowerCase() === cleanTplName
+        ) || pbConfig.templates[0];
+
+      const matchedSize =
+        pbConfig.sizes?.find(
+          (s) =>
+            (s.name || "").trim().toLowerCase() === cleanSizeName ||
+            s._id === rawSelectedSize ||
+            cleanSizeName.includes((s.name || "").trim().toLowerCase())
+        ) || pbConfig.sizes?.[0];
+
+      if (matchedTpl) {
+        let sizeSpecificImages = null;
+        if (matchedSize) {
+          sizeSpecificImages =
+            matchedTpl.size_images?.[matchedSize._id] ||
+            matchedTpl.size_images?.[matchedSize.name] ||
+            matchedTpl.size_images?.[matchedSize.size_id];
+        }
+        if (!sizeSpecificImages || sizeSpecificImages.length === 0) {
+          const allKeys = Object.keys(matchedTpl.size_images || {});
+          for (const k of allKeys) {
+            if (Array.isArray(matchedTpl.size_images[k]) && matchedTpl.size_images[k].length > 0) {
+              sizeSpecificImages = matchedTpl.size_images[k];
+              break;
+            }
+          }
+        }
+
+        if (Array.isArray(sizeSpecificImages) && sizeSpecificImages.length > 0) {
+          imagesToShow = sizeSpecificImages;
+        } else if (matchedTpl.thumbnail_url || matchedTpl.cover_image_url) {
+          const tUrl = (matchedTpl.cover_image_url || matchedTpl.thumbnail_url || "").trim();
+          imagesToShow = [{ url: tUrl, path: tUrl }];
+        }
+      }
+    } else if (Object.keys(selectedVariants).length > 0 && Object.keys(variantImages).length > 0) {
+      // Standard variant-specific images
       const variantKey = Object.values(selectedVariants).join('_');
-
       if (variantImages[variantKey]) {
         imagesToShow = variantImages[variantKey];
       } else {
-        // Fallback: try to find images for individual variant values
         for (const variantValue of Object.values(selectedVariants)) {
           if (variantImages[variantValue]) {
             imagesToShow = variantImages[variantValue];
@@ -121,7 +192,6 @@ const ImagesliderVarient = ({
         }
       }
     }
-
 
     if (imagesToShow && imagesToShow.length > 0) {
       setCurrentImages(imagesToShow);
@@ -133,7 +203,7 @@ const ImagesliderVarient = ({
     } else {
       setCurrentImages([]);
     }
-  }, [imageList, selectedVariants, variantImages]);
+  }, [imageList, selectedVariants, variantImages, data]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -287,21 +357,33 @@ const ImagesliderVarient = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [hasMultipleImages, handlePrevious, handleNext, toggleAutoPlay]);
 
-  // Image error handler
-  const handleImageError = useCallback((imageUrl) => {
+  // Image error handler with automatic fallback
+  const handleImageError = useCallback((e, imageUrl) => {
     console.error("Failed to load image:", imageUrl);
+    if (!e?.target) return;
+    if (!e.target.dataset.retried && imageUrl) {
+      e.target.dataset.retried = "true";
+      e.target.referrerPolicy = "no-referrer";
+      const separator = imageUrl.includes("?") ? "&" : "?";
+      e.target.src = `${imageUrl}${separator}retry=${Date.now()}`;
+    } else {
+      e.target.src = "https://via.placeholder.com/600x600?text=Preview+Image";
+    }
   }, []);
 
   // Render helpers
   const renderMainImage = () => (
     <div className="absolute inset-0 w-full h-full">
       {currentImage ? (
-        <img   fetchpriority="high" loading="eager"
+        <img
+          fetchpriority="high"
+          loading="eager"
+          referrerPolicy="no-referrer"
           src={currentImage}
           className={`absolute inset-0 w-full h-full object-cover rounded-xl transition-all duration-300 ${isTransitioning ? "opacity-70 scale-105" : "opacity-100 scale-100"
             } hover:scale-105`}
           alt={data?.name || "product"}
-          onError={() => handleImageError(currentImage)}
+          onError={(e) => handleImageError(e, currentImage)}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
@@ -452,11 +534,14 @@ const ImagesliderVarient = ({
               aria-selected={activeIndex === index}
               aria-label={`View image ${index + 1}`}
             >
-              <img   fetchpriority="high" loading="eager"
+              <img
+                fetchpriority="high"
+                loading="eager"
+                referrerPolicy="no-referrer"
                 src={imageUrl}
                 className="w-full h-full object-cover"
                 alt={`Thumbnail ${index + 1}`}
-                onError={() => handleImageError(imageUrl)}
+                onError={(e) => handleImageError(e, imageUrl)}
               />
             </button>
           );

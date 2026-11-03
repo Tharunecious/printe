@@ -37,6 +37,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import _ from 'lodash';
 import { applyCouponCode } from '../../helper/api_helper';
 import { initiateCCAvenuePayment } from './pay/utils/payment';
+import { formatBookSizeInches } from '../../helper/photobookSizeHelper';
 
 // ─── Font + token injection ────────────────────────────────────────────────────
 const FontLoader = () => (
@@ -817,6 +818,13 @@ const NewCheckout = () => {
                             {item.product_name}
                           </p>
                           <p style={{ margin: '2px 0 4px', fontSize: 11, color: 'var(--muted-fg)' }}>Qty: {item.product_quantity || 1}</p>
+                          {item.is_photobook && item.photobook_details && (
+                            <p style={{ margin: '0 0 4px', fontSize: 10, color: 'var(--muted-fg)', lineHeight: 1.3 }}>
+                              {item.photobook_details.template_name && `${item.photobook_details.template_name}`}
+                              {item.photobook_details.size && ` • ${formatBookSizeInches(item.photobook_details.size)}`}
+                              {item.photobook_details.page_count && ` • ${item.photobook_details.page_count} Pages`}
+                            </p>
+                          )}
                           {isFrame && pickup && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Pickup — no delivery fee</p>}
                           {isFrame && !pickup && !toHome && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ No delivery fee</p>}
                           {charge > 0 && calc.isShippingCoupon && (

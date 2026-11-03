@@ -151,7 +151,10 @@ const resolveIsAcrylic = (productData) => {
  */
 const resolveIsPhotoBook = (productData) => {
   if (!productData) return false;
+  if (productData.product_type === "photo_book") return true;
   if (productData.is_photobook === true || productData.is_photobook === "true")
+    return true;
+  if (productData.photobook_config && (productData.photobook_config.templates?.length > 0 || productData.photobook_config.sizes?.length > 0))
     return true;
 
   const subCat = productData.sub_category_details;
@@ -571,11 +574,6 @@ const Product = () => {
   // ── Derived / normalised product data ─────────────────────────────────────
   const productData = useMemo(() => unwrapProduct(product), [product]);
 
-  const isPhotoBookProduct = useMemo(
-    () => resolveIsPhotoBook(productData),
-    [productData],
-  );
-
   const isAcrylicProduct = useMemo(
     () => resolveIsAcrylic(productData),
     [productData],
@@ -583,9 +581,10 @@ const Product = () => {
 
   const hasVariants = useMemo(
     () =>
-      productData?.type === "Variable Product" &&
-      Array.isArray(productData?.variants) &&
-      productData.variants.length > 0,
+      (productData?.type === "Variable Product" &&
+        Array.isArray(productData?.variants) &&
+        productData.variants.length > 0) ||
+      resolveIsPhotoBook(productData),
     [productData],
   );
 
@@ -677,6 +676,23 @@ const Product = () => {
     });
 
     setVariantImages(imagesMap);
+
+    // For Photo Book products: initialize Template, Edition and Size from photobook_config
+    if (resolveIsPhotoBook(productData) && productData?.photobook_config) {
+      const templates = productData.photobook_config.templates || [];
+      const firstTpl = templates.find((t) => t.storefront_visibility !== false && t.is_active !== false) || templates[0];
+      if (firstTpl) {
+        initialVariants["Template"] = (firstTpl.template_name || firstTpl.name || "").trim();
+        if (firstTpl.editions?.length > 0) {
+          initialVariants["Edition"] = (firstTpl.editions[0].edition_name || firstTpl.editions[0].name || "").trim();
+        }
+      }
+      const sizes = productData.photobook_config.sizes || [];
+      if (sizes.length > 0) {
+        initialVariants["sizes"] = sizes[0].name;
+      }
+    }
+
     setSelectedVariants(initialVariants);
     processedProductId.current = productId;
   }, [productData, productId]);
@@ -781,7 +797,7 @@ const Product = () => {
                     selectedThickness={acrylicThickness}
                     onDesignChange={handleAcrylicDesignChange}
                   />
-                ) : (hasVariants || isPhotoBookProduct) ? (
+                ) : hasVariants ? (
                   <ImagesliderVarient
                     key={`variant-slider-${productId}-${location.key}`}
                     imageList={productImages}
@@ -810,7 +826,7 @@ const Product = () => {
                     onSizeChange={setAcrylicSize}
                     onThicknessChange={setAcrylicThickness}
                   />
-                ) : (hasVariants || isPhotoBookProduct) ? (
+                ) : hasVariants ? (
                   <ProductDetailVarient
                     key={`variant-details-${productId}-${location.key}`}
                     data={productData}

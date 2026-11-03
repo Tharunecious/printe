@@ -120,6 +120,16 @@ const CreateOrder = async (req, res) => {
       );
       console.log("[CreateOrder] photo_frame_details being saved:", itemPhotoFrameDetails);
 
+      const is_photobook = Boolean(
+        item.is_photobook || item.photobook_design_id || item.photobook_details
+      );
+      const photobook_design_id =
+        item.photobook_design_id ||
+        item.photobook_details?.design_id ||
+        null;
+      const photobook_details = item.photobook_details || null;
+      const photobook_design_data = item.photobook_design_data || null;
+
       // ── Build & persist order ─────────────────────────────────────────
       const orderData = {
         user_id: id,
@@ -128,6 +138,10 @@ const CreateOrder = async (req, res) => {
         is_photoframe,
         delivery_to_home,
         photo_frame_details: itemPhotoFrameDetails,  // ← now always saved
+        is_photobook,
+        photobook_design_id,
+        photobook_details,
+        photobook_design_data,
         DeliveryCharges,                              // ← 0 when no home delivery
         BrandingCharges,
         total_price:  req.body.total_price,

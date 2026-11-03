@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Tooltip, Tag } from "antd";
 import {
   LeftOutlined,
@@ -8,6 +8,7 @@ import {
   EyeOutlined,
 } from "@ant-design/icons";
 import { motion, AnimatePresence } from "motion/react";
+import { formatBookSizeInches } from "../../helper/photobookSizeHelper";
 
 const PhotoBookImageSlider = ({
   imageList = [],
@@ -20,10 +21,53 @@ const PhotoBookImageSlider = ({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSpreadView, setIsSpreadView] = useState(false);
 
+  // Reset active image index when template or size changes
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [selectedSize?._id, selectedSize?.name, selectedVariant?.template_id, selectedVariant?.["Template"]]);
+
+  // Resolve size-and-template specific images if available
+  const effectiveImageList = useMemo(() => {
+    const pbConfig = data?.photobook_config;
+    if (pbConfig?.templates && Array.isArray(pbConfig.templates) && pbConfig.templates.length > 0) {
+      const selectedTplId = selectedVariant?.template_id;
+      const selectedTplName =
+        selectedVariant?.["Template"] ||
+        selectedVariant?.["template"] ||
+        selectedVariant?.template_name ||
+        (typeof selectedVariant === "string" ? selectedVariant : null);
+
+      const matchedTpl =
+        (selectedTplId && pbConfig.templates.find((t) => t._id === selectedTplId)) ||
+        (selectedTplName && pbConfig.templates.find((t) => t.template_name === selectedTplName)) ||
+        pbConfig.templates[0];
+
+      const sizeId =
+        selectedSize?._id ||
+        pbConfig.sizes?.find((s) => s.name === selectedSize?.name)?._id;
+
+      if (matchedTpl && sizeId && matchedTpl.size_images?.[sizeId]?.length > 0) {
+        return matchedTpl.size_images[sizeId];
+      }
+      if (matchedTpl && sizeId && matchedTpl.cover_images?.[sizeId]) {
+        return [{ url: matchedTpl.cover_images[sizeId] }];
+      }
+      // If no images for current size, check if another size has images for this template
+      if (matchedTpl?.size_images && typeof matchedTpl.size_images === "object") {
+        const anyImages = Object.values(matchedTpl.size_images).find((imgs) => Array.isArray(imgs) && imgs.length > 0);
+        if (anyImages?.length > 0) return anyImages;
+      }
+      if (matchedTpl?.thumbnail_url) {
+        return [{ url: matchedTpl.thumbnail_url }];
+      }
+    }
+    return imageList;
+  }, [data, selectedVariant, selectedSize, imageList]);
+
   // Normalize images
   const processedImages = useMemo(() => {
     return (
-      imageList
+      effectiveImageList
         ?.map((img) => {
           if (typeof img === "string") {
             if (img.startsWith("http")) return img;
@@ -38,7 +82,7 @@ const PhotoBookImageSlider = ({
         })
         .filter(Boolean) || []
     );
-  }, [imageList]);
+  }, [effectiveImageList]);
 
   const currentImage =
     processedImages[activeIndex] ||
@@ -270,7 +314,7 @@ const PhotoBookImageSlider = ({
               className="max-h-[70vh] object-contain rounded-lg shadow-sm"
             />
             <div className="text-xs text-gray-500 pt-3">
-              {widthIn}&quot; × {heightIn}&quot; ({widthCm} × {heightCm} cm) • {selectedPages} Pages • {variantSummary}
+              {formatBookSizeInches(selectedSize || `${widthIn}x${heightIn}`)} • {selectedPages} Pages • {variantSummary}
             </div>
           </div>
         </div>

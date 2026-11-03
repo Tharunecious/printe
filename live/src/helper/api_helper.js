@@ -328,3 +328,42 @@ export const createOrderId = (data) => {
 export const verifyPayment = (data) => {
   return axios.post('/api/razorpay/verify-payment', data);
 };
+
+// ==================== PHOTO BOOK DESIGN APIs ====================
+export const savePhotoBookDesign = async (data) => {
+  return await custom_axios.post(`${baseURL}/photobook/designs`, data);
+};
+
+export const updatePhotoBookDesign = async (id, data) => {
+  return await custom_axios.put(`${baseURL}/photobook/designs/${id}`, data);
+};
+
+export const getPhotoBookDesign = async (id, guestId) => {
+  return await custom_axios.get(
+    `${baseURL}/photobook/designs/${id}${guestId ? `?guest_id=${guestId}` : ""}`
+  );
+};
+
+export const validatePhotoBookDesign = async (id) => {
+  return await custom_axios.post(`${baseURL}/photobook/designs/${id}/validate`);
+};
+
+export const checkCustomerSavedPhotoBookDesign = async (productId, templateId) => {
+  const query = [];
+  if (productId) query.push(`product_id=${encodeURIComponent(productId)}`);
+  if (templateId) query.push(`template_id=${encodeURIComponent(templateId)}`);
+  const qs = query.length > 0 ? `?${query.join("&")}` : "";
+  return await custom_axios.get(`${baseURL}/photobook/designs/saved-check${qs}`);
+};
+
+export const getPhotoBookTemplates = async () => {
+  return await custom_axios.get(`${baseURL}/photobook/templates`);
+};
+
+export const getPhotoBookTemplateById = async (id) => {
+  return await custom_axios.get(`${baseURL}/photobook/templates/${id}`);
+};
+
+export const getStorefrontProductTemplates = async (productId) => {
+  return await custom_axios.get(`${baseURL}/photobook/storefront/product/${productId}/templates`);
+};

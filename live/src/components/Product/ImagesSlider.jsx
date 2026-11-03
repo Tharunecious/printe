@@ -233,7 +233,10 @@ const ImagesSlider = ({ imageList = [], data = {} }) => {
   const renderMainImage = () => (
     <div className="absolute inset-0 w-full h-full">
       {currentImage ? (
-        <img   fetchpriority="high" loading="eager"
+        <img
+          fetchpriority="high"
+          loading="eager"
+          referrerPolicy="no-referrer"
           src={currentImage}
           className={`absolute inset-0 w-full h-full object-cover rounded-xl transition-all duration-300 ${
             isTransitioning ? "opacity-70 scale-105" : "opacity-100 scale-100"
@@ -489,7 +492,10 @@ const ImagesSlider = ({ imageList = [], data = {} }) => {
               aria-label={`View image ${index + 1}`}
               aria-selected={activeIndex === index}
             >
-              <img   fetchpriority="high" loading="eager"
+              <img
+                fetchpriority="high"
+                loading="eager"
+                referrerPolicy="no-referrer"
                 src={imageUrl}
                 className="w-full h-full object-cover"
                 alt={`Thumbnail ${index + 1}`}

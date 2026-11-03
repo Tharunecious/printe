@@ -11,6 +11,7 @@ import LogoLoader from "../components/reusable/LogoLoader.jsx";
 // route's code only downloads when that route is actually visited.
 const Home = lazy(() => import("../pages/Home/Home"));
 const Product = lazy(() => import("../pages/Product/Product"));
+const PhotoBookEditorPage = lazy(() => import("../pages/Product/PhotoBookEditorPage.jsx"));
 const Contact = lazy(() => import("../pages/Contact/Contact"));
 const Information = lazy(() => import("../pages/Information/Information"));
 const Login = lazy(() => import("../pages/Login/Login.jsx"));
@@ -126,6 +127,7 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  { path: "/product/:product_name/:current_working_id", element: s(<PhotoBookEditorPage />) },
   { path: "/login", element: s(<Login />) },
   // BNI
   { path: "/BNI/Signup", element: s(<BniLogin />) },

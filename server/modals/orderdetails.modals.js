@@ -18,6 +18,15 @@ const cartItemSchema = new Schema(
     // FIX: was `type: Array` — Mongoose silently dropped objects stored here.
     // Schema.Types.Mixed accepts any shape (object, array, primitives).
     photo_frame_details: { type: Schema.Types.Mixed, default: null },
+    is_photobook:        { type: Boolean, default: false },
+    photobook_design_id: { type: Schema.Types.Mixed, default: null },
+    photobook_details:   { type: Schema.Types.Mixed, default: null },
+    photobook_design_data: { type: Schema.Types.Mixed, default: null },
+    product_design_file: { type: String, default: "" },
+    final_total:         { type: Number, default: 0 },
+    final_total_withoutGst: { type: Number, default: 0 },
+    cgst:                { type: Schema.Types.Mixed, default: 0 },
+    sgst:                { type: Schema.Types.Mixed, default: 0 },
   },
   { _id: false }
 );
@@ -63,6 +72,13 @@ const Order = model(
       // uploaded image URL, names, message, delivery mode, etc.)
       // FIX: type is Mixed so Mongoose persists the entire plain object.
       photo_frame_details: { type: Schema.Types.Mixed, default: null },
+      // ─────────────────────────────────────────────────────────────────
+
+      // ─── Photo book fields ───────────────────────────────────────────
+      is_photobook:        { type: Boolean, default: false },
+      photobook_design_id: { type: Schema.Types.Mixed, default: null },
+      photobook_details:   { type: Schema.Types.Mixed, default: null },
+      photobook_design_data: { type: Schema.Types.Mixed, default: null },
       // ─────────────────────────────────────────────────────────────────
 
       payment_type:   { type: String, required: true },

@@ -184,6 +184,15 @@ const createPaymentOrder = async (req, res) => {
           color:               item.color  || '',
           notes:               item.notes  || '',
           photo_frame_details: item.photo_frame_details || null,
+          is_photobook:        Boolean(item.is_photobook || item.photobook_design_id),
+          photobook_design_id: item.photobook_design_id || item.photobook_details?.design_id || null,
+          photobook_details:   item.photobook_details || null,
+          photobook_design_data: item.photobook_design_data || null,
+          product_design_file: item.product_design_file || '',
+          final_total:         parseFloat(item.final_total || 0),
+          final_total_withoutGst: parseFloat(item.final_total_withoutGst || 0),
+          cgst:                item.cgst || 0,
+          sgst:                item.sgst || 0,
         }))
       : [];
 
@@ -414,6 +423,16 @@ const adminCreateOrder = async (req, res) => {
       size:         item.size   || '',
       color:        item.color  || '',
       notes:        item.notes  || '',
+      photo_frame_details: item.photo_frame_details || null,
+      is_photobook: Boolean(item.is_photobook || item.photobook_design_id),
+      photobook_design_id: item.photobook_design_id || item.photobook_details?.design_id || null,
+      photobook_details: item.photobook_details || null,
+      photobook_design_data: item.photobook_design_data || null,
+      product_design_file: item.product_design_file || '',
+      final_total: parseFloat(item.final_total || 0),
+      final_total_withoutGst: parseFloat(item.final_total_withoutGst || 0),
+      cgst: item.cgst || 0,
+      sgst: item.sgst || 0,
     }));
 
     const processedAddress = {

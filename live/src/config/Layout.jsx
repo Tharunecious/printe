@@ -13,7 +13,7 @@ import { handleGoogleLoginSuccess } from "../utils/googleAuthHelper";
 import new_year from "../assets/new_year.jpeg";
 
 
-const GOOGLE_CLIENT_ID = "323773820042-ube4qhfaig1dbrgvl85gchkrlvphnlv9.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "804607280262-pvid5e0cupe6ab4uubn1rh8n7t28qcmf.apps.googleusercontent.com";
 
 
 
@@ -87,7 +87,7 @@ const LayoutContent = () => {
           ══════════════════════════════════════════════════ */}
 
       {/* 1. Special Offer Carousel */}
-      <div className="fixed top-0 z-[999] w-full overflow-hidden valentine-strip">
+      <div className="fixed top-0 z-[998] w-full overflow-hidden valentine-strip">
         <div className="scrolling-text-container">
           <div className="scrolling-text valentine-strip__text whitespace-nowrap">
             Special Offer: Buy 2 Products – Get Up to 5% OFF • Buy 3 Products – Get Up to 10% OFF • Add More Items to Your Cart & Save More!

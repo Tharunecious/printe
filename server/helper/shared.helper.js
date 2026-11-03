@@ -74,19 +74,19 @@ const VerfiyToken = async (req, res, next) => {
   try {
     const token = _.get(req, "headers.authorization", "");
     if (!token) {
-      return res.status(401).send({ message: "Invalid token" });
-    } else {
-      const result = await jwt.verify(token.split(" ")[1], process.env.SECRET_KEY);
-
-      if (_.isEmpty(result)) {
-        return res.status(401).send({ message: "Invalid token" });
-      }
-      req.userData = result;      
-      next();
+      return res.status(401).send({ message: "Access denied. No token provided." });
     }
-    return false;
+    const tokenString = token.startsWith("Bearer ") ? token.split(" ")[1] : token;
+    const result = jwt.verify(tokenString, process.env.SECRET_KEY || process.env.JWT_SECRET);
+
+    if (_.isEmpty(result)) {
+      return res.status(401).send({ message: "Invalid token" });
+    }
+    req.userData = result;      
+    return next();
   } catch (err) {
-    console.error("Error verifying token:", err);
+    console.error("Error verifying token:", err.message);
+    return res.status(401).send({ message: "Invalid or expired token" });
   }
 };
 

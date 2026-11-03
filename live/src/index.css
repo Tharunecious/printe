@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Bowlby+One&family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jost:ital,wght@0,100..900;1,100..900&family=Spicy+Rice&family=Yesteryear&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Bowlby+One&family=Caveat:wght@400..700&family=Cinzel:wght@400..900&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Dancing+Script:wght@400..700&family=Great+Vibes&family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jost:ital,wght@0,100..900;1,100..900&family=Merriweather:ital,wght@0,300..900;1,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Roboto:ital,wght@0,100..900;1,100..900&family=Spicy+Rice&family=Yesteryear&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -95,6 +95,31 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
   /* Chrome, Safari, and Opera */
+}
+
+.styled-scrollbar {
+  overflow-y: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #94a3b8 #f1f5f9 !important;
+}
+
+.styled-scrollbar::-webkit-scrollbar {
+  width: 6px !important;
+  display: block !important;
+}
+
+.styled-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 4px !important;
+}
+
+.styled-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8 !important;
+  border-radius: 4px !important;
+}
+
+.styled-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b !important;
 }
 
 .ant-table-thead>tr>th {
@@ -648,3 +673,35 @@ span.swiper-pagination-bullet.swiper-pagination-bullet-active {
     flex-direction: column;
   }
 }
+
+/* ── Realistic 3D Photobook Preview Flip Animations ── */
+@keyframes bookOpen3D {
+  0% { transform: scale(0.96) rotateY(0deg); opacity: 0.9; }
+  50% { transform: scale(1.02) rotateY(-18deg); opacity: 1; }
+  100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+}
+
+@keyframes pageFlipNext3D {
+  0% { transform: perspective(2200px) rotateY(0deg); }
+  50% { transform: perspective(2200px) rotateY(-12deg) scale(0.98); }
+  100% { transform: perspective(2200px) rotateY(0deg); }
+}
+
+@keyframes pageFlipPrev3D {
+  0% { transform: perspective(2200px) rotateY(0deg); }
+  50% { transform: perspective(2200px) rotateY(12deg) scale(0.98); }
+  100% { transform: perspective(2200px) rotateY(0deg); }
+}
+
+.animate-book-open {
+  animation: bookOpen3D 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-page-flip-next {
+  animation: pageFlipNext3D 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-page-flip-prev {
+  animation: pageFlipPrev3D 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+

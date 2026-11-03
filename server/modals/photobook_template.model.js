@@ -62,15 +62,19 @@ const elementSchema = new mongoose.Schema(
       default: "center",
     },
     is_customer_editable: { type: Boolean, default: true },
-    placeholder: { type: String, default: "" },
+    letter_spacing: { type: Number, default: 0 },
+    line_height: { type: Number, default: 1.2 },
 
     // Decoration specifics
+    preset_id: { type: String, default: "" },
+    name: { type: String, default: "" },
+    svg: { type: String, default: "" },
     asset_url: { type: String, default: "" },
     asset_type: { type: String, enum: ["svg", "png"], default: "svg" },
     opacity: { type: Number, default: 1 },
     tint: { type: String, default: "" },
   },
-  { _id: false }
+  { _id: false, strict: false }
 );
 
 const targetingRuleSchema = new mongoose.Schema(
@@ -100,8 +104,12 @@ const backgroundSchema = new mongoose.Schema(
     },
     value: { type: String, default: "#ffffff" },
     opacity: { type: Number, default: 1 },
+    position_x: { type: Number, default: 50 },
+    position_y: { type: Number, default: 50 },
+    scale: { type: Number, default: 1 },
+    fit_mode: { type: String, default: "cover" },
   },
-  { _id: false }
+  { _id: false, strict: false }
 );
 
 const pageSchema = new mongoose.Schema(
@@ -110,14 +118,15 @@ const pageSchema = new mongoose.Schema(
     name: { type: String, default: "Page" },
     page_type: {
       type: String,
-      enum: ["front_cover", "back_cover", "interior"],
+      enum: ["front_cover", "back_cover", "interior", "blank"],
       default: "interior",
     },
+    is_blank: { type: Boolean, default: false },
     targeting_rule: { type: targetingRuleSchema, default: () => ({}) },
     background: { type: backgroundSchema, default: () => ({}) },
     elements: [elementSchema],
   },
-  { _id: false }
+  { _id: false, strict: false }
 );
 
 const photoBookTemplateSchema = new mongoose.Schema(
@@ -127,19 +136,19 @@ const photoBookTemplateSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     category: {
       type: String,
-      enum: [
-        "Wedding",
-        "Baby & Kids",
-        "Travel",
-        "Family",
-        "Anniversary",
-        "Portfolio",
-        "Graduation",
-        "General",
-      ],
       default: "General",
     },
+    badge: { type: String, default: "" },
+    cover_image_url: { type: String, default: "" },
     thumbnail_url: { type: String, default: "" },
+    storefront_visibility: { type: Boolean, default: true },
+    product_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "product",
+      default: null,
+    },
+    product_template_id: { type: String, default: "" },
+    include_blank_page: { type: Boolean, default: false },
     supported_sizes: {
       type: [String],
       default: ["8x8", "10x10", "12x12"],
@@ -149,6 +158,7 @@ const photoBookTemplateSchema = new mongoose.Schema(
       max_pages: { type: Number, default: 60 },
       default_pages: { type: Number, default: 20 },
       aspect_ratio: { type: String, default: "1:1" },
+      include_blank_page: { type: Boolean, default: false },
     },
     status: {
       type: String,

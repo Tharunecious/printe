@@ -65,7 +65,8 @@ const Signup = () => {
       if (local_item) {
         setIsExiting(true);
         setTimeout(() => {
-          navigate(`/product/${local_item}`);
+          navigate(local_item.startsWith("/") ? local_item : `/product/${local_item}`);
+          localStorage.removeItem("redirect_url");
         }, 500);
       } else {
         setIsExiting(true);

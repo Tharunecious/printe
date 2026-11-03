@@ -11,12 +11,15 @@ import html2canvas from "html2canvas";
 import { ImageHelper } from "../../helper/ImageHelper";
 import { Helmet } from "react-helmet-async";
 import signatureImage from "../../../src/assets/logo/signature.png";
+import PhotoBookPreviewModal from "../Product/PhotoBookPreviewModal";
 
 const OrderDetails = () => {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
   const pdfContainerRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [previewDesignItem, setPreviewDesignItem] = useState(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const { order_id } = useParams();
   const dispatch = useDispatch();
@@ -486,6 +489,20 @@ const OrderDetails = () => {
                       {item.notes && <div className="text-xs text-gray-500 capitalize">{item.notes}</div>}
                       {item.size  && <div className="text-xs text-gray-500">Size: {item.size}</div>}
                       {item.color && <div className="text-xs text-gray-500">Color: {item.color}</div>}
+                      {(item.is_photobook || item.photobook_design_id || item.product_design_file) && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewDesignItem(item);
+                              setIsPreviewModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-md border border-teal-200 transition-colors cursor-pointer"
+                          >
+                            <span>Preview Photobook Design</span>
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="border border-gray-300 px-4 py-1 pt-2 text-right align-top">₹ {(item.mrp_price || 0).toFixed(2)}</td>
                     <td className="border border-gray-300 px-4 py-1 pt-2 text-center align-top">{item.quantity || 0}</td>
@@ -754,6 +771,18 @@ const OrderDetails = () => {
           </div>
         </Collapse.Panel>
       </Collapse>
+
+      {/* Customer Photobook Preview Modal */}
+      {previewDesignItem && (
+        <PhotoBookPreviewModal
+          open={isPreviewModalOpen}
+          onClose={() => {
+            setIsPreviewModalOpen(false);
+            setPreviewDesignItem(null);
+          }}
+          cartItem={previewDesignItem}
+        />
+      )}
     </div>
   );
 };

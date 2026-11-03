@@ -22,7 +22,7 @@ const Login = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Get Google Client ID from environment variable
-  const GOOGLE_CLIENT_ID = "323773820042-ube4qhfaig1dbrgvl85gchkrlvphnlv9.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = "804607280262-pvid5e0cupe6ab4uubn1rh8n7t28qcmf.apps.googleusercontent.com";
 
   useEffect(() => {
     setIsMounted(true);
@@ -31,7 +31,11 @@ const Login = () => {
       const redirectUrl = localStorage.getItem("redirect_url");
       setIsExiting(true);
       setTimeout(() => {
-        navigate(redirectUrl ? `/product/${redirectUrl}` : "/");
+        if (redirectUrl) {
+          navigate(redirectUrl.startsWith("/") ? redirectUrl : `/product/${redirectUrl}`);
+        } else {
+          navigate("/");
+        }
         localStorage.removeItem("redirect_url");
       }, 500);
     }

@@ -64,6 +64,16 @@ const ShoppingCardSchemaDefinition = new mongoose.Schema(
     color: { type: String, default: null },
     instructions: { type: String, default: null },
 
+    // ── Photo Book fields ──────────────────────────────────────────────────
+    is_photobook: { type: Boolean, default: false },
+    photobook_design_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "photobook_design",
+      default: null,
+    },
+    photobook_details: { type: mongoose.Schema.Types.Mixed, default: null },
+    photobook_design_data: { type: mongoose.Schema.Types.Mixed, default: null },
+
     // ── QR product platform tracking ──────────────────────────────────────
     is_qr_product: { type: Boolean, default: false },
     selected_platforms: { type: [String], default: [] },

@@ -19,7 +19,7 @@ import {
   Form,
   message,
 } from "antd";
-import React, { useCallback, useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import ReactDOM from "react-dom";
 import _ from "lodash";
 import { useDispatch, useSelector } from "react-redux";
@@ -34,8 +34,11 @@ import {
   resendOtp,
   verifyOtp,
   notifyWhenAvailable,
+  savePhotoBookDesign,
+  checkCustomerSavedPhotoBookDesign,
 } from "../../helper/api_helper";
 import Swal from "sweetalert2";
+import { formatBookSizeInches } from "../../helper/photobookSizeHelper";
 import { ADD_TO_CART } from "../../redux/slices/cart.slice";
 import {
   DISCOUNT_HELPER,
@@ -54,6 +57,9 @@ import {
   MailOutlined,
   PhoneOutlined,
   UserOutlined,
+  BookOutlined,
+  ClockCircleOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import toast from "react-hot-toast";
 import { FaMapMarkerAlt, FaTruck } from "react-icons/fa";
@@ -156,7 +162,7 @@ export const CustomModal = ({
         exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black bg-opacity-50"
         onClick={onClose}
-        
+
       />
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: isMobile ? 100 : 20 }}
@@ -660,10 +666,15 @@ const ProductDetailVarient = ({
   },
   onVariantChange,
   selectedVariants: propSelectedVariants = {},
+  onSizeChange,
+  onPagesChange,
 }) => {
   const { user } = useSelector((state) => state.authSlice);
   const [form] = Form.useForm();
   const [notifyForm] = Form.useForm();
+  const [showWelcomeBackModal, setShowWelcomeBackModal] = useState(false);
+  const [savedDesignData, setSavedDesignData] = useState(null);
+  const [isCheckingSavedDesign, setIsCheckingSavedDesign] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -687,6 +698,7 @@ const ProductDetailVarient = ({
   const isPhotoBook = useMemo(() => {
     if (!data) return false;
     if (data.is_photobook === true || data.is_photobook === "true") return true;
+    if (data.photobook_config && (data.photobook_config.templates?.length > 0 || data.photobook_config.sizes?.length > 0)) return true;
 
     const subCat = data.sub_category_details;
     const subId = typeof subCat === "object" ? subCat?._id : subCat;
@@ -701,21 +713,77 @@ const ProductDetailVarient = ({
   }, [data]);
 
   const photobookConfig = useMemo(() => data?.photobook_config || {}, [data]);
-  const defaultPages = Number(photobookConfig.default_pages || 26);
-  const minPages = Number(photobookConfig.min_pages || 10);
-  const maxPages = Number(photobookConfig.max_pages || 60);
+
+  // State
+  const [selectedVariants, setSelectedVariants] = useState({});
+
+  // Dynamic templates list from admin (ONLY storefront visible templates)
+  const templatesList = useMemo(() => {
+    return (photobookConfig.templates || [])
+      .filter((t) => t.storefront_visibility !== false && t.is_active !== false)
+      .map((t) => ({
+        ...t,
+        template_name: (t.template_name || t.name || "").trim(),
+      }));
+  }, [photobookConfig.templates]);
+  const activeTemplate = useMemo(() => {
+    if (templatesList.length === 0) return null;
+    const curVal = String(selectedVariants["Template"] || "").trim().toLowerCase();
+    return (
+      templatesList.find(
+        (t) =>
+          (t.template_name || "").trim().toLowerCase() === curVal ||
+          (t.slug || "").trim().toLowerCase() === curVal ||
+          (t.template_id || "").trim().toLowerCase() === curVal ||
+          String(t._id || "").trim().toLowerCase() === curVal
+      ) || templatesList[0]
+    );
+  }, [templatesList, selectedVariants]);
+
+  const activeEdition = useMemo(() => {
+    const eds = activeTemplate?.editions || [];
+    if (eds.length === 0) return null;
+    const curVal = String(selectedVariants["Edition"] || "").trim().toLowerCase();
+    return (
+      eds.find((e) => (e.edition_name || "").trim().toLowerCase() === curVal) || eds[0]
+    );
+  }, [activeTemplate, selectedVariants]);
+
+  const userManuallyChangedPages = useRef(false);
+  const defaultPages = Number(
+    activeEdition?.default_pages ||
+    activeTemplate?.default_pages ||
+    activeTemplate?.page_config?.default_pages ||
+    photobookConfig.default_pages ||
+    20
+  );
+  const minPages = Number(
+    activeEdition?.min_pages ||
+    activeTemplate?.min_pages ||
+    activeTemplate?.page_config?.min_pages ||
+    photobookConfig.min_pages ||
+    10
+  );
+  const maxPages = Number(
+    activeEdition?.max_pages ||
+    activeTemplate?.max_pages ||
+    activeTemplate?.page_config?.max_pages ||
+    photobookConfig.max_pages ||
+    60
+  );
   const pageIncrement = Number(photobookConfig.page_increment || 2);
-  const pricePerExtraPage = Number(photobookConfig.price_per_extra_page || 15);
 
   const [photoBookPages, setPhotoBookPages] = useState(defaultPages);
   useEffect(() => {
-    if (isPhotoBook && photobookConfig.default_pages) {
-      setPhotoBookPages(Number(photobookConfig.default_pages));
+    if (isPhotoBook) {
+      if (!userManuallyChangedPages.current) {
+        setPhotoBookPages(Math.min(maxPages, Math.max(minPages, defaultPages)));
+      } else {
+        if (photoBookPages > maxPages) setPhotoBookPages(maxPages);
+        if (photoBookPages < minPages) setPhotoBookPages(minPages);
+      }
     }
-  }, [isPhotoBook, photobookConfig.default_pages]);
-
-  const extraPages = isPhotoBook ? Math.max(0, photoBookPages - defaultPages) : 0;
-  const extraPagesCost = isPhotoBook ? extraPages * pricePerExtraPage : 0;
+  }, [isPhotoBook, defaultPages, maxPages, minPages]);
 
   const photoBookPageOptions = useMemo(() => {
     if (!isPhotoBook) return [];
@@ -726,52 +794,114 @@ const ProductDetailVarient = ({
     return list;
   }, [isPhotoBook, minPages, maxPages, pageIncrement]);
 
-  // Merge Photo Book configured sizes and custom variants into availableVariants
+  const currentSizeName = selectedVariants.sizes || selectedVariants.size;
+  const currentSizeObj = useMemo(() => {
+    return (photobookConfig.sizes || []).find(
+      (s) =>
+        (s.name && String(s.name).toLowerCase() === String(currentSizeName).toLowerCase()) ||
+        (s._id && String(s._id) === String(currentSizeName)),
+    );
+  }, [photobookConfig.sizes, currentSizeName]);
+  const currentSizeId = currentSizeObj?._id || currentSizeName;
+
+  const [currentPriceSplitup, setCurrentPriceSplitup] = useState({});
+
+  // Dynamically calculate pricePerExtraPage for current size and active edition/template
+  // Priority: Size-specific surcharge in edition -> Edition surcharge -> Size-specific in template -> Size obj -> Config
+  const pricePerExtraPage = useMemo(() => {
+    if (!isPhotoBook) return 0;
+    // 1. From size-specific pricing inside active edition
+    const edPricing = currentSizeId && (activeEdition?.size_pricing?.[currentSizeId] || activeEdition?.pricing_by_size?.[currentSizeId]);
+    if (edPricing?.extra_page_price !== undefined && edPricing.extra_page_price !== null && edPricing.extra_page_price !== "") {
+      const ep = Number(edPricing.extra_page_price);
+      if (!isNaN(ep) && ep > 0) return ep;
+    }
+    // 2. From active edition level default
+    if (activeEdition?.price_per_extra_page !== undefined && activeEdition.price_per_extra_page !== null && activeEdition.price_per_extra_page !== "") {
+      const ep = Number(activeEdition.price_per_extra_page);
+      if (!isNaN(ep) && ep > 0) return ep;
+    }
+    // 3. From active template size pricing
+    const tplPricing = currentSizeId && (activeTemplate?.size_pricing?.[currentSizeId] || activeTemplate?.pricing_by_size?.[currentSizeId]);
+    if (tplPricing?.extra_page_price !== undefined && tplPricing.extra_page_price !== null && tplPricing.extra_page_price !== "") {
+      const ep = Number(tplPricing.extra_page_price);
+      if (!isNaN(ep) && ep > 0) return ep;
+    }
+    // 4. From current size obj
+    if (currentSizeObj?.extra_page_price !== undefined && currentSizeObj?.extra_page_price !== null && currentSizeObj?.extra_page_price !== "") {
+      const ep = Number(currentSizeObj.extra_page_price);
+      if (!isNaN(ep) && ep > 0) return ep;
+    }
+    // 5. From currentPriceSplitup
+    if (currentPriceSplitup?.extra_page_price !== undefined && currentPriceSplitup.extra_page_price !== null) {
+      const ep = Number(currentPriceSplitup.extra_page_price);
+      if (!isNaN(ep) && ep > 0) return ep;
+    }
+    return Number(photobookConfig.price_per_extra_page || 15);
+  }, [isPhotoBook, currentSizeId, activeEdition, activeTemplate, currentSizeObj, currentPriceSplitup, photobookConfig]);
+
+  const extraPages = isPhotoBook ? Math.max(0, photoBookPages - defaultPages) : 0;
+  const extraPagesCost = isPhotoBook ? extraPages * pricePerExtraPage : 0;
+
+  // Merge Photo Book configured templates, editions, sizes and custom variants into availableVariants
   const availableVariants = useMemo(() => {
     let vars = [...(data?.variants || [])];
     if (isPhotoBook) {
-      // 1. Merge sizes from photobook_config.sizes if present
-      const cfgSizes = photobookConfig.sizes || [];
-      if (cfgSizes.length > 0) {
-        const sizeVarIdx = vars.findIndex((v) =>
-          (v.variant_name || "").toLowerCase().includes("size")
-        );
-        const availableSizes = cfgSizes.filter((sz) => sz.is_available !== false);
-        const availableNames = new Set(availableSizes.map((s) => s.name));
+      // 1. Merge templates from photobookConfig.templates
+      if (templatesList.length > 0) {
+        vars.unshift({
+          variant_name: "Template",
+          variant_type: "dropdown",
+          options: templatesList.map((tpl) => ({
+            value: tpl.template_name,
+            label: tpl.template_name,
+          })),
+        });
 
-        if (sizeVarIdx !== -1) {
-          const existing = vars[sizeVarIdx];
-          const existingOptions = existing.options || [];
-          const mergedOptions = existingOptions.filter((o) =>
-            availableNames.size === 0 || availableNames.has(o.value)
-          );
-          const existingValues = new Set(mergedOptions.map((o) => o.value));
-          availableSizes.forEach((sz) => {
-            if (!existingValues.has(sz.name)) {
-              mergedOptions.push({
-                value: sz.name,
-                label: sz.name,
-                variant_type: existing.variant_type || "dropdown",
-                image_names: [],
-              });
-            }
-          });
-          vars[sizeVarIdx] = { ...existing, options: mergedOptions };
-        } else if (availableSizes.length > 0) {
-          vars.unshift({
-            variant_name: "sizes",
+        // 2. Merge editions from the active template
+        const editions = activeTemplate?.editions || [];
+        if (editions.length > 0) {
+          vars.splice(1, 0, {
+            variant_name: "Edition",
             variant_type: "dropdown",
-            options: availableSizes.map((sz) => ({
-              value: sz.name,
-              label: sz.name,
-              variant_type: "dropdown",
-              image_names: [],
+            options: editions.map((ed) => ({
+              value: ed.edition_name,
+              label: ed.edition_name,
             })),
           });
         }
       }
 
-      // 2. Merge custom variants from photobook_config.variants (e.g. Edition: Basic / Premium)
+      // 3. Merge ALL sizes created in photobook_config.sizes
+      const cfgSizes = photobookConfig.sizes || [];
+      if (cfgSizes.length > 0) {
+        const sizeVarIdx = vars.findIndex((v) =>
+          (v.variant_name || "").toLowerCase().includes("size")
+        );
+
+        const formatSizeLabel = (sz) => {
+          return formatBookSizeInches(sz);
+        };
+
+        const sizeOptions = cfgSizes.map((sz) => ({
+          value: sz.name,
+          label: formatSizeLabel(sz),
+          variant_type: "dropdown",
+          image_names: [],
+        }));
+
+        if (sizeVarIdx !== -1) {
+          vars[sizeVarIdx] = { ...vars[sizeVarIdx], options: sizeOptions };
+        } else {
+          vars.push({
+            variant_name: "sizes",
+            variant_type: "dropdown",
+            options: sizeOptions,
+          });
+        }
+      }
+
+      // 4. Merge custom variants from photobook_config.variants
       const customVars = photobookConfig.variants || [];
       customVars.forEach((cv) => {
         if (cv.title && cv.values?.length > 0) {
@@ -789,13 +919,25 @@ const ProductDetailVarient = ({
       });
     }
     return vars;
-  }, [data?.variants, isPhotoBook, photobookConfig]);
+  }, [data?.variants, isPhotoBook, photobookConfig, templatesList, activeTemplate]);
 
-  // State
-  const [selectedVariants, setSelectedVariants] = useState({});
+  // Sync size changes to slider / parent
+  useEffect(() => {
+    if (isPhotoBook && onSizeChange) {
+      if (currentSizeObj) onSizeChange(currentSizeObj);
+      else if (currentSizeName) onSizeChange({ name: currentSizeName });
+    }
+  }, [isPhotoBook, currentSizeObj, currentSizeName, onSizeChange]);
+
+  // Sync pages changes to slider / parent
+  useEffect(() => {
+    if (isPhotoBook && onPagesChange) {
+      onPagesChange(photoBookPages);
+    }
+  }, [isPhotoBook, photoBookPages, onPagesChange]);
+
   const [quantity, setQuantity] = useState(null);
   const [discountPercentage, setDiscountPercentage] = useState({ uuid: "", percentage: 0 });
-  const [currentPriceSplitup, setCurrentPriceSplitup] = useState({});
   const [checked, setChecked] = useState(false);
   const [freeDelivery, setFreeDelivery] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -813,6 +955,8 @@ const ProductDetailVarient = ({
   const [otpSent, setOtpSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [isDesignerOpen, setIsDesignerOpen] = useState(false);
+  const [photoBookDesignData, setPhotoBookDesignData] = useState(null);
 
   // ── Dual delivery charges state ───────────────────────────────────────────
   // DeliveryCharges   = inside Tamil Nadu charge (always stored)
@@ -850,21 +994,119 @@ const ProductDetailVarient = ({
       const source = variantData && Object.keys(variantData).length > 0 ? variantData : data;
       if (!source) return 0;
       if (user?.role === "Dealer")
-        return Number(_.get(source, "Deler_product_price", _.get(source, "Dealer_product_price", _.get(source, "price", _.get(source, "customer_product_price", 0)))));
+        return Number(_.get(source, "Deler_product_price", _.get(source, "Dealer_product_price", _.get(source, "dealer_price", _.get(source, "price", _.get(source, "customer_product_price", _.get(source, "customer_price", 0)))))));
       if (user?.role === "Corporate")
-        return Number(_.get(source, "corporate_product_price", _.get(source, "price", _.get(source, "customer_product_price", 0))));
+        return Number(_.get(source, "corporate_product_price", _.get(source, "corporate_price", _.get(source, "price", _.get(source, "customer_product_price", _.get(source, "customer_price", 0))))));
       if (user?.role === "bni_user") {
-        const Del_price = Number(_.get(source, "Deler_product_price", _.get(source, "Dealer_product_price", _.get(source, "price", 0))));
-        const cus_price = Number(_.get(source, "customer_product_price", _.get(source, "price", 0)));
+        const Del_price = Number(_.get(source, "Deler_product_price", _.get(source, "Dealer_product_price", _.get(source, "dealer_price", _.get(source, "price", 0)))));
+        const cus_price = Number(_.get(source, "customer_product_price", _.get(source, "customer_price", _.get(source, "price", 0))));
         return cus_price - Math.abs((cus_price - Del_price) / 2);
       }
-      return Number(_.get(source, "customer_product_price", _.get(source, "price", 0)));
+      return Number(_.get(source, "customer_product_price", _.get(source, "customer_price", _.get(source, "price", 0))));
     },
     [user?.role, data],
   );
 
   const findMatchingVariantPrice = useCallback(
     (variants) => {
+      // For Photo Book: check if edition or template has specific size pricing
+      if (isPhotoBook) {
+        const sizeVal = variants.sizes || variants.size || variants.Sizes;
+        const sizeObj = (photobookConfig.sizes || []).find(
+          (s) =>
+            (s.name && String(s.name).toLowerCase() === String(sizeVal).toLowerCase()) ||
+            (s._id && String(s._id) === String(sizeVal)),
+        );
+        const sId = sizeObj?._id || sizeVal;
+
+        const curTplName = String(variants["Template"] || "").trim().toLowerCase();
+        const curTpl =
+          (photobookConfig.templates || []).find(
+            (t) =>
+              (t.template_name || "").trim().toLowerCase() === curTplName ||
+              (t.slug || "").trim().toLowerCase() === curTplName ||
+              (t.template_id || "").trim().toLowerCase() === curTplName
+          ) || photobookConfig.templates?.[0];
+
+        const curEdName = String(variants["Edition"] || "").trim().toLowerCase();
+        const curEd =
+          (curTpl?.editions || []).find(
+            (e) => (e.edition_name || "").trim().toLowerCase() === curEdName
+          ) || curTpl?.editions?.[0];
+
+        // Search edition pricing_by_size or size_pricing
+        let matchedPricing = null;
+        if (curEd?.pricing_by_size) {
+          matchedPricing =
+            (sId && curEd.pricing_by_size[sId]) ||
+            (sizeObj?.name && curEd.pricing_by_size[sizeObj.name]) ||
+            (sizeVal && curEd.pricing_by_size[sizeVal]);
+        }
+        if (!matchedPricing && curEd?.size_pricing) {
+          matchedPricing =
+            (sId && curEd.size_pricing[sId]) ||
+            (sizeObj?.name && curEd.size_pricing[sizeObj.name]) ||
+            (sizeVal && curEd.size_pricing[sizeVal]);
+        }
+        // Fallback to template pricing
+        if (!matchedPricing && curTpl?.pricing_by_size) {
+          matchedPricing =
+            (sId && curTpl.pricing_by_size[sId]) ||
+            (sizeObj?.name && curTpl.pricing_by_size[sizeObj.name]) ||
+            (sizeVal && curTpl.pricing_by_size[sizeVal]);
+        }
+        if (!matchedPricing && curTpl?.size_pricing) {
+          matchedPricing =
+            (sId && curTpl.size_pricing[sId]) ||
+            (sizeObj?.name && curTpl.size_pricing[sizeObj.name]) ||
+            (sizeVal && curTpl.size_pricing[sizeVal]);
+        }
+
+        if (matchedPricing) {
+          const custPrice = Number(
+            matchedPricing.customer_price ??
+            matchedPricing.customer_product_price ??
+            matchedPricing.price ??
+            data.customer_product_price ??
+            0,
+          );
+          const delerPrice = Number(
+            matchedPricing.dealer_price ??
+            matchedPricing.Deler_product_price ??
+            matchedPricing.Dealer_product_price ??
+            custPrice,
+          );
+          const corpPrice = Number(
+            matchedPricing.corporate_price ??
+            matchedPricing.corporate_product_price ??
+            custPrice,
+          );
+          const mrpPrice = Number(
+            matchedPricing.mrp ??
+            matchedPricing.MRP_price ??
+            data.MRP_price ??
+            custPrice,
+          );
+
+          return {
+            ...matchedPricing,
+            sizes: sizeVal,
+            customer_product_price: custPrice,
+            customer_price: custPrice,
+            price: custPrice,
+            Deler_product_price: delerPrice,
+            Dealer_product_price: delerPrice,
+            corporate_product_price: corpPrice,
+            MRP_price: mrpPrice,
+            extra_page_price:
+              curEd?.price_per_extra_page ??
+              matchedPricing.extra_page_price ??
+              photobookConfig.price_per_extra_page,
+            product_code: matchedPricing.product_code || data.product_code || "",
+          };
+        }
+      }
+
       if (!data.variants_price || data.variants_price.length === 0) return null;
       // 1. Exact match across all variant keys
       const exact = data.variants_price.find((vp) =>
@@ -886,7 +1128,7 @@ const ProductDetailVarient = ({
       // 3. Fallback
       return data.variants_price[0];
     },
-    [data.variants_price],
+    [data.variants_price, data.MRP_price, isPhotoBook, photobookConfig],
   );
 
   const updateVariantData = useCallback(
@@ -900,14 +1142,29 @@ const ProductDetailVarient = ({
     [getRoleBasedPrice],
   );
 
-  // ── Initialization ─────────────────────────────────────────────────────────
+  const hasInitializedRef = useRef(false);
+  const currentProductIdRef = useRef(data?._id);
+  if (currentProductIdRef.current !== data?._id) {
+    currentProductIdRef.current = data?._id;
+    hasInitializedRef.current = false;
+  }
+
+  // ── Initialization (runs only once per product) ───────────────────────────
   useEffect(() => {
-    if (productType === "Variable Product" && data.variants_price?.length > 0) {
+    if (hasInitializedRef.current) return;
+    if (availableVariants.length === 0 && !data.variants_price?.length) return;
+
+    if ((productType === "Variable Product" && data.variants_price?.length > 0) || isPhotoBook) {
       const initialSelectedVariants = {};
       availableVariants.forEach((variant) => {
-        if (variant.options?.length > 0)
+        if (variant.options?.length > 0) {
           initialSelectedVariants[variant.variant_name] = variant.options[0].value;
+          if (isPhotoBook && (variant.variant_name.toLowerCase().includes("size") || variant.variant_name === "sizes")) {
+            localStorage.setItem("photobook_selected_size", variant.options[0].value);
+          }
+        }
       });
+      hasInitializedRef.current = true;
       setSelectedVariants(initialSelectedVariants);
       const matchingVariant = findMatchingVariantPrice(initialSelectedVariants);
       if (matchingVariant) {
@@ -915,20 +1172,80 @@ const ProductDetailVarient = ({
         if (onVariantChange) onVariantChange(initialSelectedVariants);
       }
     } else {
+      hasInitializedRef.current = true;
       updateVariantData(data.variants_price?.[0] || {});
     }
     initializeQuantity();
   }, [data.variants_price, availableVariants, productType, findMatchingVariantPrice, updateVariantData, onVariantChange]);
 
+  // Dynamically reconcile missing or invalid variant keys when availableVariants changes,
+  // without resetting valid user selections (e.g. keeping user's chosen Template).
+  useEffect(() => {
+    if (!hasInitializedRef.current) return;
+    if (!isPhotoBook) return;
+
+    setSelectedVariants((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      availableVariants.forEach((v) => {
+        const currentVal = next[v.variant_name];
+        const isValid = (v.options || []).some(
+          (opt) =>
+            opt.value === currentVal ||
+            String(opt.value || "").trim().toLowerCase() === String(currentVal || "").trim().toLowerCase()
+        );
+        if (!isValid && v.options?.length > 0) {
+          next[v.variant_name] = v.options[0].value;
+          changed = true;
+        }
+      });
+      if (changed) {
+        const mv = findMatchingVariantPrice(next);
+        if (mv) updateVariantData(mv);
+        if (onVariantChange) onVariantChange(next);
+        return next;
+      }
+      return prev;
+    });
+  }, [availableVariants, isPhotoBook, findMatchingVariantPrice, updateVariantData, onVariantChange]);
+
   useEffect(() => {
     if (propSelectedVariants && Object.keys(propSelectedVariants).length > 0) {
-      setSelectedVariants(propSelectedVariants);
-      const mv = findMatchingVariantPrice(propSelectedVariants);
-      if (mv) updateVariantData(mv);
+      setSelectedVariants((prev) => {
+        const merged = { ...prev, ...propSelectedVariants };
+        const isDifferent = Object.keys(merged).some(
+          (k) => merged[k] !== prev[k]
+        );
+        if (isDifferent) {
+          const mv = findMatchingVariantPrice(merged);
+          if (mv) updateVariantData(mv);
+          return merged;
+        }
+        return prev;
+      });
     }
   }, [propSelectedVariants, findMatchingVariantPrice, updateVariantData]);
 
   const initializeQuantity = useCallback(() => {
+    // For Photo Book: strictly default to 1 quantity and hide quantity selection
+    if (isPhotoBook) {
+      const defaultQty = 1;
+      const charges = getBothDeliveryChargesFromProduct(data, user?.role, defaultQty);
+      setDiscountPercentage({ uuid: "", percentage: 0 });
+      setFreeDelivery(false);
+      setDeliveryCharges(charges.insideTN || 100);
+      setOutOfTNCharge(charges.outsideTN || 150);
+      setQuantity(defaultQty);
+      setCheckOutState((prev) => ({
+        ...prev,
+        product_quantity: defaultQty,
+        DeliveryCharges: charges.insideTN || 100,
+        out_of_tn_charge: charges.outsideTN || 150,
+        FreeDelivery: false,
+      }));
+      return;
+    }
+
     const roleFields = getRoleFields(user?.role);
     if (quantityType !== "textbox" && quantityDiscounts.length > 0) {
       const first =
@@ -983,19 +1300,65 @@ const ProductDetailVarient = ({
     async (variantName, selectedValue) => {
       try {
         const updatedVariants = { ...selectedVariants, [variantName]: selectedValue };
+
+        // For Photo Book: if size changed, store in localStorage
+        if (isPhotoBook && (variantName.toLowerCase().includes("size") || variantName === "sizes")) {
+          localStorage.setItem("photobook_selected_size", selectedValue);
+        }
+
+        // For Photo Book: if Template changed, automatically switch Edition to the first edition of that template
+        // AND immediately reset photoBookPages to that template's default pages!
+        if (isPhotoBook && variantName === "Template") {
+          const cleanVal = String(selectedValue || "").trim().toLowerCase();
+          const newTpl = (photobookConfig.templates || []).find(
+            (t) =>
+              (t.template_name || "").trim().toLowerCase() === cleanVal ||
+              (t.slug || "").trim().toLowerCase() === cleanVal ||
+              (t.template_id || "").trim().toLowerCase() === cleanVal
+          );
+          if (newTpl?.editions?.length > 0) {
+            updatedVariants["Edition"] = newTpl.editions[0].edition_name;
+          }
+          userManuallyChangedPages.current = false;
+          const newTplDefaultPages = Number(
+            newTpl?.editions?.[0]?.default_pages ||
+            newTpl?.default_pages ||
+            newTpl?.page_config?.default_pages ||
+            photobookConfig.default_pages ||
+            20
+          );
+          setPhotoBookPages(newTplDefaultPages);
+        }
+
+        // For Photo Book: if Edition changed, use edition's default pages if user hasn't manually adjusted
+        if (isPhotoBook && variantName === "Edition") {
+          const cleanEd = String(selectedValue || "").trim().toLowerCase();
+          const edObj = (activeTemplate?.editions || []).find(
+            (e) => (e.edition_name || "").trim().toLowerCase() === cleanEd
+          );
+          if (edObj && !userManuallyChangedPages.current) {
+            const edDefaultPages = Number(
+              edObj.default_pages ||
+              activeTemplate?.default_pages ||
+              photobookConfig.default_pages ||
+              20
+            );
+            setPhotoBookPages(edDefaultPages);
+          }
+        }
+
         setSelectedVariants(updatedVariants);
         const vd = findMatchingVariantPrice(updatedVariants);
         if (vd) {
           updateVariantData(vd);
-          if (onVariantChange) onVariantChange(updatedVariants);
-        } else {
-          toast.error("This variant combination is not available");
         }
+        if (onVariantChange) onVariantChange(updatedVariants);
       } catch (err) {
+        console.error("Failed to change variant:", err);
         toast.error("Failed to change variant");
       }
     },
-    [selectedVariants, findMatchingVariantPrice, updateVariantData, onVariantChange],
+    [selectedVariants, findMatchingVariantPrice, updateVariantData, onVariantChange, isPhotoBook, photobookConfig],
   );
 
   // ── Quantity ───────────────────────────────────────────────────────────────
@@ -1158,9 +1521,173 @@ const ProductDetailVarient = ({
       const { variant_name, variant_type, options } = variant;
       if (!options || options.length === 0) return null;
 
-      if (variant_type === "color_variant") {
+      const isSizeVariant = (variant_name || "").toLowerCase().includes("size");
+      const isTemplateVariant = (variant_name || "").toLowerCase().includes("template");
+      const isEditionVariant = (variant_name || "").toLowerCase().includes("edition");
+
+      // ── Template selector: Image + Template Name with unique active state ──
+      if (isTemplateVariant) {
+        return (
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-6">
+            <Text
+              strong
+              className="block capitalize md:shrink-0 md:pt-3"
+            >
+              {variant_name}:
+            </Text>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-nowrap items-stretch gap-3 overflow-x-auto overflow-y-hidden pb-3 scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-yellow-100">
+                {options.map((option, optIdx) => {
+                  const isSelected =
+                    String(selectedVariants[variant_name] || "")
+                      .trim()
+                      .toLowerCase() ===
+                    String(option.value || "").trim().toLowerCase();
+
+                  const tplObj = (photobookConfig.templates || []).find(
+                    (t) =>
+                      (t.template_name || t.name || "").trim().toLowerCase() ===
+                      String(option.value || "").trim().toLowerCase() ||
+                      (t.slug || "").trim().toLowerCase() ===
+                      String(option.value || "").trim().toLowerCase() ||
+                      (t.template_id || "").trim().toLowerCase() ===
+                      String(option.value || "").trim().toLowerCase() ||
+                      String(t._id || "").trim().toLowerCase() ===
+                      String(option.value || "").trim().toLowerCase()
+                  );
+
+                  let thumbUrl =
+                    tplObj?.cover_image_url || tplObj?.thumbnail_url || "";
+
+                  if (!thumbUrl && tplObj?.size_images) {
+                    const firstImgList = Object.values(tplObj.size_images).find(
+                      (imgs) => Array.isArray(imgs) && imgs.length > 0
+                    );
+
+                    thumbUrl =
+                      firstImgList?.[0]?.url || firstImgList?.[0]?.path || "";
+                  }
+
+                  if (!thumbUrl) {
+                    thumbUrl =
+                      data.images?.[0]?.url || data.images?.[0]?.path || "";
+                  }
+
+                  return (
+                    <div
+                      key={optIdx}
+                      onClick={() =>
+                        handleVariantChange(variant_name, option.value)
+                      }
+                      className={`group flex flex-col shrink-0 cursor-pointer w-[160px] items-center gap-3 rounded-xl border-2 p-2.5 transition-all duration-200 ${isSelected
+                        ? "border-yellow-500 bg-yellow-50/70 shadow-md ring-2 ring-yellow-400/30"
+                        : "border-gray-200 bg-white hover:border-yellow-300 hover:shadow-sm"
+                        }`}
+                    >
+                      {/* Template thumbnail */}
+                      <div className="relative h-16 w-full shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-100">
+                        <img
+                          src={(thumbUrl || "").trim()}
+                          alt={option.value}
+                          referrerPolicy="no-referrer"
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src =
+                              "https://via.placeholder.com/80?text=Template";
+                          }}
+                        />
+
+                        {isSelected && (
+                          <div className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-black shadow">
+                            ✓
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Template name */}
+                      <div className="min-w-0">
+                        <span
+                          className={`block whitespace-normal break-words text-sm text-center leading-snug ${isSelected
+                            ? "font-bold text-gray-900"
+                            : "font-medium text-gray-700"
+                            }`}
+                        >
+                          {option.value}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      // ── Sizes selector: Buttons with name only, NO image, unique active UI ──
+      if (isSizeVariant) {
         return (
           <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+            <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">{variant_name}:</Text>
+            <div className="flex flex-wrap gap-2.5">
+              {options.map((option, optIdx) => {
+                const isSelected =
+                  selectedVariants[variant_name] === option.value ||
+                  String(selectedVariants[variant_name] || "").trim().toLowerCase() ===
+                  String(option.value || "").trim().toLowerCase();
+                return (
+                  <button
+                    key={optIdx}
+                    type="button"
+                    onClick={() => handleVariantChange(variant_name, option.value)}
+                    className={`px-4 py-2 rounded-lg text-sm transition-all duration-200 border ${isSelected
+                      ? "bg-yellow-400 text-black border-yellow-500 font-bold shadow-sm ring-2 ring-yellow-400/40"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-gray-50 font-medium"
+                      }`}
+                  >
+                    {option.label || option.value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+
+      // ── Edition selector: Buttons with name, unique active UI ──
+      if (isEditionVariant) {
+        return (
+          <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+            <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">{variant_name}:</Text>
+            <div className="flex flex-wrap gap-2.5">
+              {options.map((option, optIdx) => {
+                const isSelected =
+                  selectedVariants[variant_name] === option.value ||
+                  String(selectedVariants[variant_name] || "").trim().toLowerCase() ===
+                  String(option.value || "").trim().toLowerCase();
+                return (
+                  <button
+                    key={optIdx}
+                    type="button"
+                    onClick={() => handleVariantChange(variant_name, option.value)}
+                    className={`px-4 py-2 rounded-lg text-sm transition-all duration-200 border ${isSelected
+                      ? "bg-yellow-400 text-black border-yellow-500 font-bold shadow-sm ring-2 ring-yellow-400/40"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-gray-50 font-medium"
+                      }`}
+                  >
+                    {option.value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+
+      if (variant_type === "color_variant") {
+        return (
+          <div className="flex flex-col md:flex-row md:items-center gap-8 space-y-2 md:space-y-0">
             <Text strong className="block mb-2 md:mb-0 md:w-24 !capitalize">{variant_name}:</Text>
             <div className="flex flex-wrap gap-2">
               {options.map((option, index) => (
@@ -1199,7 +1726,6 @@ const ProductDetailVarient = ({
             <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">{variant_name}:</Text>
             <div className="flex flex-wrap gap-2">
               {options.map((option, optionIndex) => {
-                const szInfo = isPhotoBook && (photobookConfig.sizes?.find((s) => s.name === option.value) || null);
                 const imgSrc = option.image_names?.[0]?.path || option.image_names?.[0] || data.images?.[0]?.url || data.images?.[0]?.path;
                 return (
                   <div key={optionIndex} className="flex flex-col items-center">
@@ -1221,11 +1747,6 @@ const ProductDetailVarient = ({
                       />
                     </div>
                     <Text className="text-xs mt-1 text-center font-medium">{option.value}</Text>
-                    {szInfo && (
-                      <span className="text-[10px] text-gray-500 text-center leading-tight">
-                        {szInfo.width_in}″×{szInfo.height_in}″
-                      </span>
-                    )}
                   </div>
                 );
               })}
@@ -1243,20 +1764,14 @@ const ProductDetailVarient = ({
             className="w-full md:w-[30vw]"
             placeholder={`Select ${variant_name}`}
           >
-            {options.map((option, index) => {
-              const szInfo = isPhotoBook && (photobookConfig.sizes?.find((s) => s.name === option.value) || null);
-              const label = szInfo
-                ? `${option.value} (${szInfo.width_in}″ × ${szInfo.height_in}″ / ${szInfo.width_cm} × ${szInfo.height_cm} cm)`
-                : option.label || option.value;
-              return (
-                <Select.Option key={index} value={option.value}>{label}</Select.Option>
-              );
-            })}
+            {options.map((option, index) => (
+              <Select.Option key={index} value={option.value}>{option.label || option.value}</Select.Option>
+            ))}
           </Select>
         </div>
       );
     },
-    [selectedVariants, handleVariantChange, isPhotoBook, photobookConfig, data?.images],
+    [selectedVariants, handleVariantChange, data?.images, photobookConfig.templates],
   );
 
   // ── Misc helpers ───────────────────────────────────────────────────────────
@@ -1353,12 +1868,233 @@ const ProductDetailVarient = ({
   );
 
   // ── Cart ───────────────────────────────────────────────────────────────────
-  const handleBuy = async () => {
+  const handleDesignerAddToCart = async (designData) => {
     try {
       setLoading(true);
+      setPhotoBookDesignData(designData);
+      const currentQty = quantity || 1;
+      if (_.isEmpty(user)) {
+        localStorage.setItem("redirect_url", _.get(data, "seo_url", ""));
+        toast.error("Please Login");
+        return navigate("/login");
+      }
+      const getGuestId = () => {
+        let g = localStorage.getItem("guestId");
+        if (!g) {
+          g = "guest_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+          localStorage.setItem("guestId", g);
+        }
+        return g;
+      };
+
+      const finalTot = calculateTotalPrice();
+      const finalTotNoGst = calculateTotalPricewithoutGst();
+
+      const updatedCheckoutState = {
+        ...checkOutState,
+        product_quantity: currentQty,
+        product_design_file: designData?.cover_image || checkOutState.product_image,
+        guestId: getGuestId(),
+        userRole: localStorage.getItem("userData") || "guest",
+        sgst: Number(gst / 2),
+        cgst: Number(gst / 2),
+        MRP_savings: calculateMRPSavings(),
+        TotalSavings: calculateTotalSavings(),
+        FreeDelivery: freeDelivery,
+        DeliveryCharges: deliveryCharges,
+        out_of_tn_charge: outOfTNCharge,
+        noCustomtation: false,
+        final_total: Number(finalTot),
+        final_total_withoutGst: Number(finalTotNoGst),
+        is_photobook: true,
+        photobook_pages: photoBookPages,
+        photobook_size: selectedVariants.sizes || selectedVariants.size || "8x8",
+        photobook_extra_pages: extraPages,
+        photobook_extra_page_price: pricePerExtraPage,
+        photobook_extra_pages_cost: extraPagesCost,
+        photobook_variants: selectedVariants,
+        photobook_template_id: activeTemplate?._id || "",
+        photobook_template_name: selectedVariants["Template"] || "",
+        photobook_edition_id: activeEdition?._id || "",
+        photobook_edition_name: selectedVariants["Edition"] || "",
+        photobook_selected_template: selectedVariants["Template"] || "",
+        photobook_design_data: designData,
+      };
+
+      const result = await addToShoppingCart(updatedCheckoutState);
+      Swal.fire({
+        title: "Photo Book Added To Cart!",
+        text: `Your ${photoBookPages}-page custom photo book (${designData.total_photos_used} photos) has been added to cart.`,
+        icon: "success",
+        showCancelButton: true,
+        confirmButtonText: "Go to Shopping Cart",
+        cancelButtonText: "Stay Here",
+      }).then((r) => {
+        if (r.isConfirmed) goToShoppingCart();
+      });
+      dispatch(ADD_TO_CART(_.get(result, "data.data.data", "")));
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        localStorage.setItem("redirect_url", _.get(data, "seo_url", ""));
+        toast.error("Login to place order");
+        navigate("/sign-up");
+      } else {
+        toast.error(err.message || "An error occurred");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startNewPhotoBookDesign = async (chosenSize, chosenTemplateId, chosenTemplateName) => {
+    try {
+      setLoading(true);
+      const payload = {
+        product_id: data._id,
+        size: chosenSize,
+        variant: selectedVariants["Edition"] || selectedVariants.variant || "Standard",
+        page_count: photoBookPages,
+        template_id: chosenTemplateId,
+        template_name: chosenTemplateName,
+        uploaded_images: [],
+        pages: [],
+      };
+      const res = await savePhotoBookDesign(payload);
+      const designId = res.data?.data?.design_id || res.data?.data?.design?._id;
+      if (designId) {
+        const prodSlug = encodeURIComponent(data.seo_url || data.name || data._id);
+        navigate(`/product/${prodSlug}/${designId}?step=1&new=true&template_id=${encodeURIComponent(chosenTemplateId)}&template_name=${encodeURIComponent(chosenTemplateName)}`);
+      } else {
+        toast.error("Could not initiate design session");
+      }
+    } catch (err) {
+      console.error("Error creating new design session:", err);
+      toast.error("Failed to initialize new book session.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartDesigning = async () => {
+    try {
+      setLoading(true);
+
+      const chosenTemplateName =
+        String(selectedVariants["Template"] || activeTemplate?.template_name || templatesList[0]?.template_name || "").trim() ||
+        "Vintage Wedding Book";
+      const chosenTemplateId =
+        activeTemplate?.template_id ||
+        activeTemplate?._id ||
+        templatesList[0]?.template_id ||
+        templatesList[0]?._id ||
+        "vintage-wedding-book";
+
+      const chosenSize =
+        selectedVariants.sizes ||
+        selectedVariants.size ||
+        (photobookConfig.sizes && photobookConfig.sizes[0]?.name) ||
+        "A4";
+      localStorage.setItem("photobook_selected_size", chosenSize);
+
+      const token = localStorage.getItem("authToken");
+
+      // 1. Check whether customer is authenticated
+      if (!token || _.isEmpty(user)) {
+        localStorage.setItem("redirect_url", `${window.location.pathname}?resumePhotoBook=true`);
+        sessionStorage.setItem("resume_photobook", "true");
+        toast.error("Please log in to customize and save your photo book.");
+        navigate("/login");
+        return;
+      }
+
+      // 2. Validate customer identity on backend and check for existing saved design
+      try {
+        setIsCheckingSavedDesign(true);
+        const res = await checkCustomerSavedPhotoBookDesign(data._id);
+        const checkData = res.data?.data || res.data;
+
+        if (checkData?.has_saved_design && checkData.design) {
+          // Saved design exists: show Welcome Back Modal
+          setSavedDesignData(checkData.design);
+          setShowWelcomeBackModal(true);
+          return;
+        } else {
+          // No saved design: directly initialize a new photo book
+          await startNewPhotoBookDesign(chosenSize, chosenTemplateId, chosenTemplateName);
+        }
+      } catch (authErr) {
+        if (authErr.response?.status === 401 || authErr.response?.status === 403) {
+          localStorage.setItem("redirect_url", `${window.location.pathname}?resumePhotoBook=true`);
+          sessionStorage.setItem("resume_photobook", "true");
+          toast.error("Please log in to customize and save your photo book.");
+          navigate("/login");
+          return;
+        }
+        console.error("Saved design check failed:", authErr);
+        toast.error("Could not verify saved designs. Please try again.");
+      } finally {
+        setIsCheckingSavedDesign(false);
+      }
+    } catch (err) {
+      console.error("Failed to start photo book design:", err);
+      toast.error(err.response?.data?.message || err.message || "Failed to start design session. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContinueSavedBook = () => {
+    if (!savedDesignData?._id) return;
+    setShowWelcomeBackModal(false);
+    const prodSlug = encodeURIComponent(data.seo_url || data.name || data._id);
+    navigate(`/product/${prodSlug}/${savedDesignData._id}?step=3&resume=true`);
+  };
+
+  const handleStartNewBookFromModal = async () => {
+    setShowWelcomeBackModal(false);
+    const chosenTemplateName =
+      String(selectedVariants["Template"] || activeTemplate?.template_name || templatesList[0]?.template_name || "").trim() ||
+      "Vintage Wedding Book";
+    const chosenTemplateId =
+      activeTemplate?.template_id ||
+      activeTemplate?._id ||
+      templatesList[0]?.template_id ||
+      templatesList[0]?._id ||
+      "vintage-wedding-book";
+    const chosenSize =
+      selectedVariants.sizes ||
+      selectedVariants.size ||
+      (photobookConfig.sizes && photobookConfig.sizes[0]?.name) ||
+      "A4";
+
+    await startNewPhotoBookDesign(chosenSize, chosenTemplateId, chosenTemplateName);
+  };
+
+
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const shouldResume =
+      searchParams.get("resumePhotoBook") === "true" ||
+      sessionStorage.getItem("resume_photobook") === "true";
+
+    if (shouldResume && !_.isEmpty(user)) {
+      sessionStorage.removeItem("resume_photobook");
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      handleStartDesigning();
+    }
+  }, [user]);
+
+  const handleBuy = async () => {
+    try {
+      if (isPhotoBook) {
+        return handleStartDesigning();
+      }
+      setLoading(true);
       if (!quantity) { toast.error("Please select quantity first"); return; }
-      if (needDesignUpload && !checkOutState.product_design_file) { toast.error("Please upload your design file first"); return; }
-      if (needDesignUpload && !checked) { toast.error("Please Confirm Your Designs"); return; }
+      if (!isPhotoBook && needDesignUpload && !checkOutState.product_design_file) { toast.error("Please upload your design file first"); return; }
+      if (!isPhotoBook && needDesignUpload && !checked) { toast.error("Please Confirm Your Designs"); return; }
       if (_.isEmpty(user)) {
         localStorage.setItem("redirect_url", _.get(data, "seo_url", ""));
         toast.error("Please Login");
@@ -1394,9 +2130,16 @@ const ProductDetailVarient = ({
           photobook_pages: photoBookPages,
           photobook_size: selectedVariants.sizes || selectedVariants.size || "8x8",
           photobook_extra_pages: extraPages,
+          photobook_extra_page_price: pricePerExtraPage,
           photobook_extra_pages_cost: extraPagesCost,
           photobook_variants: selectedVariants,
-          photobook_selected_template: photobookConfig.eligible_template_ids?.[0] || "",
+          photobook_template_id: activeTemplate?._id || "",
+          photobook_template_name: selectedVariants["Template"] || "",
+          photobook_edition_id: activeEdition?._id || "",
+          photobook_edition_name: selectedVariants["Edition"] || "",
+          photobook_selected_template: selectedVariants["Template"] || "",
+          photobook_design_data: photoBookDesignData,
+          photobook_cover_image: photoBookDesignData?.cover_image || checkOutState.product_image,
         }),
       };
 
@@ -1648,19 +2391,21 @@ const ProductDetailVarient = ({
 
         {/* ── Quantity & Variants ──────────────────────────────────── */}
         <div className="w-full flex flex-col space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-            <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
-            <Select
-              value={quantity}
-              onChange={handleQuantitySelect}
-              options={quantityOptions}
-              className="w-full md:w-[30vw]"
-              placeholder="Select quantity"
-              dropdownRender={quantityDropdownRender}
-              open={quantityDropdownVisible}
-              onDropdownVisibleChange={setQuantityDropdownVisible}
-            />
-          </div>
+          {!isPhotoBook && (
+            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+              <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
+              <Select
+                value={quantity}
+                onChange={handleQuantitySelect}
+                options={quantityOptions}
+                className="w-full md:w-[30vw]"
+                placeholder="Select quantity"
+                dropdownRender={quantityDropdownRender}
+                open={quantityDropdownVisible}
+                onDropdownVisibleChange={setQuantityDropdownVisible}
+              />
+            </div>
+          )}
 
           {/* Variants */}
           {availableVariants.length > 0 &&
@@ -1668,43 +2413,54 @@ const ProductDetailVarient = ({
               <div key={index}>{renderVariantSelector(variant)}</div>
             ))}
 
-          {/* Photo Book Pages (Only for Photo Book product) */}
+          {/* Photo Book Pages: Increase / Decrease control + minimal info */}
           {isPhotoBook && (
             <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-              <Text strong className="block mb-2 md:mb-0 md:w-24">Pages:</Text>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <Select
-                  value={photoBookPages}
-                  onChange={(val) => setPhotoBookPages(val)}
-                  className="w-full md:w-[30vw]"
-                  placeholder="Select page count"
-                >
-                  {photoBookPageOptions.map((p) => (
-                    <Select.Option key={p} value={p}>
-                      {p} Pages {p === defaultPages ? `(${defaultPages} included)` : p > defaultPages ? `(+₹${(p - defaultPages) * pricePerExtraPage} extra)` : ""}
-                    </Select.Option>
-                  ))}
-                </Select>
+              <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">Pages:</Text>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Stepper counter */}
+                <div className="inline-flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden shadow-sm">
+                  <button
+                    type="button"
+                    disabled={photoBookPages <= minPages}
+                    onClick={() => {
+                      userManuallyChangedPages.current = true;
+                      const next = Math.max(minPages, photoBookPages - pageIncrement);
+                      setPhotoBookPages(next);
+                      if (onPagesChange) onPagesChange(next);
+                    }}
+                    className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    −
+                  </button>
+                  <span className="w-24 text-center text-sm font-bold text-gray-900 select-none">
+                    {photoBookPages} Pages
+                  </span>
+                  <button
+                    type="button"
+                    disabled={photoBookPages >= maxPages}
+                    onClick={() => {
+                      userManuallyChangedPages.current = true;
+                      const next = Math.min(maxPages, photoBookPages + pageIncrement);
+                      setPhotoBookPages(next);
+                      if (onPagesChange) onPagesChange(next);
+                    }}
+                    className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Minimal info for customer */}
                 {extraPages > 0 ? (
-                  <span className="text-xs text-amber-600 font-semibold">
-                    +{extraPages} Extra Pages (+₹{extraPagesCost})
+                  <span className="text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+                    +{extraPages} extra pages (+₹{extraPagesCost}) • ₹{pricePerExtraPage}/extra page
                   </span>
                 ) : (
-                  <span className="text-xs text-green-600 font-medium">
-                    ✓ Standard {defaultPages} pages included
+                  <span className="text-xs text-gray-500 font-medium bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
+                    ({defaultPages} pages included)
                   </span>
                 )}
-              </div>
-            </div>
-          )}
-
-          {isPhotoBook && photobookConfig.eligible_template_ids?.length > 0 && (
-            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-              <Text strong className="block mb-2 md:mb-0 md:w-24">Template:</Text>
-              <div className="flex items-center gap-2">
-                <Tag color="purple" className="capitalize text-xs font-semibold px-2 py-0.5">
-                  {photobookConfig.eligible_template_ids[0].replace(/-/g, " ")}
-                </Tag>
               </div>
             </div>
           )}
@@ -1742,7 +2498,7 @@ const ProductDetailVarient = ({
                           Kudos! Additionally you saved {formatPrice(calculateDiscountSavings())} ({discountPercentage.percentage}% Discount)
                         </div>
                       )}
-                      {discountPercentage.percentage === 0 && quantity && (
+                      {!isPhotoBook && discountPercentage.percentage === 0 && quantity && (
                         <div className="mt-2 text-base text-amber-600">
                           💡 Select higher quantity to get extra discounts
                         </div>
@@ -1759,7 +2515,7 @@ const ProductDetailVarient = ({
               )}
             </div>
 
-            {(user.role === "Corporate" || user.role === "Dealer" || user.role === "bni_user") && (
+            {!isPhotoBook && (user.role === "Corporate" || user.role === "Dealer" || user.role === "bni_user") && (
               <div className="!text-[12px] text-gray-600">
                 Exclusive of all taxes for <strong>{quantity}</strong> Qty (
                 <strong>
@@ -1768,7 +2524,7 @@ const ProductDetailVarient = ({
               </div>
             )}
 
-            {quantity && (
+            {!isPhotoBook && quantity && (
               <div className="!text-[14px] text-gray-600">
                 Inclusive of all taxes for <span>{quantity}</span> Qty
                 <strong>
@@ -1831,68 +2587,72 @@ const ProductDetailVarient = ({
           </motion.div>
         </Card>
 
-        {/* ── File upload ────────────────────────────────────────────────── */}
+        {/* ── File upload / Customization ─────────────────────────────────── */}
         <div className="space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
-              Proceed without Design
-            </Checkbox>
-            {!noDesignUpload && (
-              <div className="flex items-center gap-2">
-                <Text>Already have a Design</Text>
-                <Switch
-                  checked={needDesignUpload}
-                  onChange={(checked) => {
-                    setNeedDesignUpload(checked);
-                    if (!checked) {
-                      setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
-                      setChecked(false);
-                    }
-                  }}
-                />
+          {isPhotoBook ? null : (
+            <>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
+                  Proceed without Design
+                </Checkbox>
+                {!noDesignUpload && (
+                  <div className="flex items-center gap-2">
+                    <Text>Already have a Design</Text>
+                    <Switch
+                      checked={needDesignUpload}
+                      onChange={(checked) => {
+                        setNeedDesignUpload(checked);
+                        if (!checked) {
+                          setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
+                          setChecked(false);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {!noDesignUpload && (
-            <div>
-              {needDesignUpload ? (
-                <>
-                  <UploadFileButton
-                    handleUploadImage={handleUploadImage}
-                    buttonText="Drag & Drop Files Here or Browse Files"
-                    className="w-full border-dotted rounded-lg flex flex-col items-center justify-center transition-colors"
-                  />
-                  {checkOutState.product_design_file && (
-                    <div className="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                      <div className="md:order-1">
-                        <Button
-                          type="link"
-                          icon={<EyeOutlined />}
-                          onClick={() => setDesignPreviewVisible(true)}
-                        >
-                          View Design
-                        </Button>
-                        <Button type="link" onClick={handleDesignRemove}>Remove</Button>
-                      </div>
-                      <Checkbox
-                        checked={checked}
-                        onChange={(e) => setChecked(e.target.checked)}
-                        className="md:order-2"
-                      >
-                        I confirm this design
-                      </Checkbox>
-                    </div>
+              {!noDesignUpload && (
+                <div>
+                  {needDesignUpload ? (
+                    <>
+                      <UploadFileButton
+                        handleUploadImage={handleUploadImage}
+                        buttonText="Drag & Drop Files Here or Browse Files"
+                        className="w-full border-dotted rounded-lg flex flex-col items-center justify-center transition-colors"
+                      />
+                      {checkOutState.product_design_file && (
+                        <div className="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                          <div className="md:order-1">
+                            <Button
+                              type="link"
+                              icon={<EyeOutlined />}
+                              onClick={() => setDesignPreviewVisible(true)}
+                            >
+                              View Design
+                            </Button>
+                            <Button type="link" onClick={handleDesignRemove}>Remove</Button>
+                          </div>
+                          <Checkbox
+                            checked={checked}
+                            onChange={(e) => setChecked(e.target.checked)}
+                            className="md:order-2"
+                          >
+                            I confirm this design
+                          </Checkbox>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Alert
+                      message="Our Designing Team will contact you within 24 Hours After Booking"
+                      type="info"
+                      showIcon
+                    />
                   )}
-                </>
-              ) : (
-                <Alert
-                  message="Our Designing Team will contact you within 24 Hours After Booking"
-                  type="info"
-                  showIcon
-                />
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Instructions */}
@@ -1929,6 +2689,17 @@ const ProductDetailVarient = ({
                     loading={sendingNotification}
                   >
                     Notify When Available
+                  </Button>
+                ) : isPhotoBook ? (
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<BookOutlined />}
+                    className="!h-12 !bg-yellow-400 text-black hover:!bg-yellow-500 hover:!text-black font-semibold w-full text-base shadow-sm"
+                    onClick={handleStartDesigning}
+                    loading={loading}
+                  >
+                    Customize & Add to Cart
                   </Button>
                 ) : (
                   <Button
@@ -2060,6 +2831,90 @@ const ProductDetailVarient = ({
           </Form>
         </CustomModal>
 
+
+
+        {/* ── Photo Book Welcome Back Modal ── */}
+        <CustomModal
+          open={showWelcomeBackModal}
+          onClose={() => setShowWelcomeBackModal(false)}
+          title="Welcome Back!"
+          width={540}
+        >
+          <div className="flex flex-col gap-5 p-1 select-none">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">
+                Welcome Back!
+              </h3>
+              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                You have a photo book in progress. Would you like to continue where you left off or start a new book?
+              </p>
+            </div>
+
+            {/* Saved Design Card Preview */}
+            {savedDesignData && (
+              <div className="bg-gray-50/80 border border-gray-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-gray-200 shrink-0 border border-gray-200 shadow-xs flex items-center justify-center">
+                  {savedDesignData.template_thumbnail || savedDesignData.cover_image ? (
+                    <img
+                      src={savedDesignData.template_thumbnail || savedDesignData.cover_image}
+                      alt={savedDesignData.template_name || "Saved Photo Book"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
+                      <BookOutlined className="text-3xl text-[#00a896]" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 flex flex-col gap-1 text-center sm:text-left">
+                  <span className="text-[11px] font-bold text-[#00a896] uppercase tracking-wider">
+                    Saved Design In-Progress
+                  </span>
+                  <h4 className="text-base font-bold text-gray-900 leading-snug">
+                    {savedDesignData.template_name || activeTemplate?.template_name || "Custom Photo Book"}
+                  </h4>
+                  <p className="text-xs text-gray-600">
+                    Size: <span className="font-semibold text-gray-800">{formatBookSizeInches(savedDesignData.size, photobookConfig.sizes) || "Standard"}</span> • Pages:{" "}
+                    <span className="font-semibold text-gray-800">{savedDesignData.page_count || 20}</span>
+                  </p>
+                  <p className="text-xs text-teal-700 font-medium">
+                    {savedDesignData.uploaded_images?.length || 0} photos uploaded
+                  </p>
+                  {savedDesignData.updatedAt && (
+                    <p className="text-[11px] text-gray-400 mt-1 flex items-center justify-center sm:justify-start gap-1">
+                      <ClockCircleOutlined className="text-[10px]" />
+                      Last saved: {new Date(savedDesignData.updatedAt).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button
+                type="primary"
+                size="large"
+                className="flex-1 !h-12 !bg-[#00a896] hover:!bg-[#008f80] text-white font-bold rounded-xl text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2"
+                onClick={handleContinueSavedBook}
+              >
+                <BookOutlined /> Continue My Book
+              </Button>
+              <Button
+                size="large"
+                className="flex-1 !h-12 border-gray-300 hover:border-gray-400 hover:!bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm flex items-center justify-center gap-2"
+                onClick={handleStartNewBookFromModal}
+                loading={loading}
+              >
+                <PlusOutlined /> Start a New Book
+              </Button>
+            </div>
+          </div>
+        </CustomModal>
       </div>
     </Spin>
   );

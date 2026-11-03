@@ -9,6 +9,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { SET_CART_ITEMS } from "../../redux/slices/cart.slice";
 import { ImageHelper } from "../../helper/ImageHelper";
+import { formatBookSizeInches } from "../../helper/photobookSizeHelper";
+import PhotoBookPreviewModal from "../../components/Product/PhotoBookPreviewModal";
 
 const ShoppingCart = () => {
   const { user } = useSelector((state) => state.authSlice);
@@ -17,6 +19,8 @@ const ShoppingCart = () => {
   const [deleteLoading, setDeleteLoading] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [designModalVisible, setDesignModalVisible] = useState(false);
+  const [photobookModalVisible, setPhotobookModalVisible] = useState(false);
+  const [selectedPhotobookItem, setSelectedPhotobookItem] = useState(null);
 
   const dispatch = useDispatch();
   const navigation = useNavigate();
@@ -66,8 +70,13 @@ const ShoppingCart = () => {
   };
 
   const handleViewDesign = (product) => {
-    setSelectedProduct(product);
-    setDesignModalVisible(true);
+    if (product.is_photobook || product.photobook_design_id) {
+      setSelectedPhotobookItem(product);
+      setPhotobookModalVisible(true);
+    } else {
+      setSelectedProduct(product);
+      setDesignModalVisible(true);
+    }
   };
 
   const GET_TOTAL_AMOUNT = () => {
@@ -359,7 +368,24 @@ const ShoppingCart = () => {
                       Qty: <strong>{item.product_quantity}</strong>
                     </div>
 
-                    {item.product_design_file && (
+                    {item.is_photobook && item.photobook_details && (
+                      <div className="cart-item-meta !text-xs !text-gray-600 mt-1 space-y-0.5">
+                        {item.photobook_details.template_name && (
+                          <div>Template: <strong>{item.photobook_details.template_name}</strong></div>
+                        )}
+                        {item.photobook_details.variant && (
+                          <div>Edition: <strong>{item.photobook_details.variant}</strong></div>
+                        )}
+                        {item.photobook_details.size && (
+                          <div>Size: <strong>{formatBookSizeInches(item.photobook_details.size_name || item.photobook_details.size, item.photobook_config?.sizes)}</strong></div>
+                        )}
+                        {item.photobook_details.page_count && (
+                          <div>Pages: <strong>{item.photobook_details.page_count}</strong></div>
+                        )}
+                      </div>
+                    )}
+
+                    {(item.product_design_file || item.is_photobook || item.photobook_design_id) && (
                       <Button
                         type="link"
                         size="small"
@@ -372,9 +398,14 @@ const ShoppingCart = () => {
 
                     {/* Price + actions */}
                     <div className="cart-item-price-row">
-                      <span className="cart-item-price">
-                        ₹{Number(item.final_total).toFixed(2)}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="cart-item-price">
+                          ₹{Number(item.final_total).toFixed(2)}
+                        </span>
+                        <span className="text-[11px] text-emerald-600 font-medium">
+                          (Incl. GST)
+                        </span>
+                      </div>
                       <div className="cart-item-actions">
                         <Button
                           size="small"
@@ -407,6 +438,9 @@ const ShoppingCart = () => {
                   {cardData.length === 1 ? "item" : "items"}):{" "}
                   <span className="cart-summary-amount">
                     ₹{Number(GET_TOTAL_AMOUNT()).toFixed(2)}
+                  </span>
+                  <span className="text-[11px] text-emerald-600 font-normal ml-1.5">
+                    (Incl. GST)
                   </span>
                 </div>
                 <Button
@@ -448,6 +482,13 @@ const ShoppingCart = () => {
           </div>
         )}
       </Modal>
+
+      {/* Photo Book Realistic 3D Flip Preview Modal */}
+      <PhotoBookPreviewModal
+        open={photobookModalVisible}
+        onClose={() => setPhotobookModalVisible(false)}
+        cartItem={selectedPhotobookItem}
+      />
     </>
   );
 };

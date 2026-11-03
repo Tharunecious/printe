@@ -97,8 +97,7 @@ module.exports = mongoose.model(
       },
       product_type: {
         type: String,
-        enum: ["own Product", "vendor Product"],
-        default: "own Product"
+        default: "own Product",
       },
       HSNcode_time: {
         type: String,

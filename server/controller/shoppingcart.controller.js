@@ -82,11 +82,13 @@ const addToShoppingCart = async (req, res) => {
     let phone = null;
     let email = null;
 
-    if (req.userData && req.userData.id) {
-      userIdentifier  = req.userData.id;
+    const authUserId = req.userData?.id || req.userData?._id || req.userData?.userId || req.user?._id || req.user?.id || req.body.user_id || null;
+
+    if (authUserId) {
+      userIdentifier  = String(authUserId);
       identifierField = "user_id";
 
-      const contact = await resolveUserContact(req.userData, req.body);
+      const contact = await resolveUserContact(req.userData || { id: authUserId }, req.body);
       phone = contact.phone;
       email = contact.email;
     } else {
@@ -109,6 +111,156 @@ const addToShoppingCart = async (req, res) => {
       return errorResponse(res, "Product ID is required");
     }
 
+    // ── Fetch Product & Validate ─────────────────────────────────────────────
+    let Product;
+    try { Product = require("../modals/product.models"); }
+    catch { Product = require("../models/product.models"); }
+
+    const product = await Product.findById(req.body.product_id);
+    if (!product) {
+      return errorResponse(res, "Product not found");
+    }
+    if (product.is_soldout) {
+      return errorResponse(res, "This product is currently out of stock");
+    }
+
+    const isPhotoBook =
+      product.product_type === "photo_book" ||
+      Boolean(product.is_photobook) ||
+      Boolean(req.body.is_photobook);
+
+    let validatedDesign = null;
+
+    if (isPhotoBook) {
+      const designId =
+        req.body.photobook_design_id ||
+        req.body.design_id ||
+        req.body.designId ||
+        req.body.photobook_design_data?.design_id;
+
+      if (!designId) {
+        return errorResponse(
+          res,
+          "Photo Book customization is required. Please design your photo book before adding to cart.",
+          400
+        );
+      }
+
+      let PhotoBookDesign;
+      try { PhotoBookDesign = require("../modals/photobook_design.model"); }
+      catch { PhotoBookDesign = require("../models/photobook_design.model"); }
+
+      validatedDesign = await PhotoBookDesign.findById(designId);
+      if (!validatedDesign) {
+        return errorResponse(
+          res,
+          "Photo Book design session not found. Please save your design first.",
+          404
+        );
+      }
+
+      const guestIdVal = req.body.guestId || req.body.GuestId;
+      const callerUserId = authUserId ? String(authUserId) : null;
+      const callerGuestId = guestIdVal ? String(guestIdVal).trim() : null;
+      const designUserId = validatedDesign.user_id ? String(validatedDesign.user_id) : null;
+      const designGuestId = validatedDesign.guest_id ? String(validatedDesign.guest_id) : null;
+
+      // Ownership authorization check
+      let isAuthorized = false;
+      if (callerUserId && designUserId && callerUserId === designUserId) {
+        isAuthorized = true;
+      } else if (callerGuestId && designGuestId && callerGuestId === designGuestId) {
+        isAuthorized = true;
+      } else if (callerUserId && !designUserId) {
+        // Logged-in user claiming a guest design
+        validatedDesign.user_id = callerUserId;
+        isAuthorized = true;
+      } else if (callerGuestId && !designGuestId) {
+        // Session with guestId matching design
+        validatedDesign.guest_id = callerGuestId;
+        isAuthorized = true;
+      } else if (!callerUserId && !designUserId) {
+        // Guest user creating/adding guest design
+        isAuthorized = true;
+      } else if (callerGuestId && designUserId && !callerUserId) {
+        // Design was saved by user, and client browser is continuing with this design
+        if (!designGuestId) {
+          validatedDesign.guest_id = callerGuestId;
+        }
+        isAuthorized = true;
+      }
+
+      if (!isAuthorized) {
+        return errorResponse(
+          res,
+          "Invalid or unauthorized Photo Book design session. Please save your design first.",
+          403
+        );
+      }
+
+      // Link any missing owner IDs
+      if (callerUserId && !validatedDesign.user_id) {
+        validatedDesign.user_id = callerUserId;
+      }
+      if (callerGuestId && !validatedDesign.guest_id) {
+        validatedDesign.guest_id = callerGuestId;
+      }
+      await validatedDesign.save();
+
+      // Re-validate design if not already marked ready_for_cart
+      if (validatedDesign.status !== "ready_for_cart" || !validatedDesign.is_complete) {
+        let validateDesignInternal;
+        try {
+          const pbCtrl = require("./photobook.controller");
+          validateDesignInternal = pbCtrl.validateDesignInternal;
+        } catch (e) {
+          // Ignore import error if already present
+        }
+
+        if (validateDesignInternal) {
+          const validation = validateDesignInternal(validatedDesign, product.photobook_config);
+          if (validation.isValid) {
+            validatedDesign.status = "ready_for_cart";
+            validatedDesign.is_complete = true;
+            validatedDesign.validation_errors = [];
+            await validatedDesign.save();
+          } else {
+            const errList = validation.errors?.length
+              ? validation.errors.join(". ")
+              : "All required pages and photo frames must be designed.";
+            return errorResponse(res, `Photo Book design is incomplete: ${errList}`, 400);
+          }
+        } else {
+          const errList = validatedDesign.validation_errors?.length
+            ? validatedDesign.validation_errors.join(". ")
+            : "All required pages and photo frames must be designed.";
+          return errorResponse(res, `Photo Book design is incomplete: ${errList}`, 400);
+        }
+      }
+
+      // Backend price calculation: Authoritative calculation including GST
+      const basePages = product.photobook_config?.default_pages || 20;
+      const actualPages = validatedDesign.page_count || basePages;
+      const extraPages = Math.max(0, actualPages - basePages);
+      const extraPagePrice = Number(product.photobook_config?.price_per_extra_page || 15);
+      const extraPagesCost = extraPages * extraPagePrice;
+      const basePrice = Number(product.customer_product_price || product.price || 0);
+      const unitPrice = basePrice + extraPagesCost;
+
+      const requestedQty = parseInt(req.body.product_quantity || req.body.quantity) || 1;
+      const taxableTotal = unitPrice * requestedQty;
+      const gstRate = parseFloat(product.GST || product.gst || 18) || 18;
+      const taxAmount = Number(((taxableTotal * gstRate) / 100).toFixed(2));
+      const computedFinalTotal = Number((taxableTotal + taxAmount).toFixed(2));
+
+      // Authoritative pricing: final_total includes GST, final_total_withoutGst is taxable amount
+      req.body.product_price = unitPrice;
+      req.body.cgst = Number((gstRate / 2).toFixed(2));
+      req.body.sgst = Number((gstRate / 2).toFixed(2));
+      req.body.final_total = computedFinalTotal;
+      req.body.final_total_withoutGst = taxableTotal;
+    }
+
     // ── Extract both delivery charges from request body ───────────────────────
     // DeliveryCharges  = inside Tamil Nadu rate (sent by frontend always)
     // out_of_tn_charge = outside Tamil Nadu rate (sent by frontend always)
@@ -118,17 +270,41 @@ const addToShoppingCart = async (req, res) => {
     // tier (frontend always sends this, same as delivery charges).
     const incomingBrandingCharges      = Number(req.body.BrandingCharges   || 0);
 
-    // ── Check for existing item (same product + variant) ─────────────────────
+    // ── Check for existing item (same product + variant/design) ──────────────
     const existingItemQuery = {
       [identifierField]: userIdentifier,
       product_id: new mongoose.Types.ObjectId(req.body.product_id),
     };
-    if (req.body.size)  existingItemQuery.size  = req.body.size;
-    if (req.body.color) existingItemQuery.color = req.body.color;
+
+    if (isPhotoBook && validatedDesign) {
+      existingItemQuery.photobook_design_id = validatedDesign._id;
+    } else {
+      if (req.body.size)  existingItemQuery.size  = req.body.size;
+      if (req.body.color) existingItemQuery.color = req.body.color;
+    }
 
     const existingItem = await ShoppingCardSchema.findOne(existingItemQuery);
 
     let result;
+
+    // Compute photo book size resolution if photobook
+    let pbResolvedSize = validatedDesign?.size || "";
+    let pbRawSize = String(validatedDesign?.size || req.body.photobook_size || req.body.size || "").trim();
+    if (isPhotoBook && validatedDesign) {
+      const configSizes = product.photobook_config?.sizes || [];
+      const matched = configSizes.find(
+        (s) => String(s._id) === pbRawSize || String(s.id) === pbRawSize || String(s.name).toLowerCase() === pbRawSize.toLowerCase()
+      );
+      if (matched) {
+        const w = matched.width_in || matched.width;
+        const h = matched.height_in || matched.height;
+        pbResolvedSize = (matched.name && w && h) ? `${matched.name} - ${w} x ${h} in` : (matched.name || pbRawSize);
+      } else if (pbRawSize.startsWith("size-") || pbRawSize.toLowerCase().includes("a4")) {
+        pbResolvedSize = "A4 - 8.27 x 11.69 in";
+      } else if (req.body.photobook_size_name) {
+        pbResolvedSize = req.body.photobook_size_name;
+      }
+    }
 
     if (existingItem) {
       // ── Update existing cart item ─────────────────────────────────────────
@@ -162,6 +338,28 @@ const addToShoppingCart = async (req, res) => {
       if (req.body.platform_links)     existingItem.platform_links     = req.body.platform_links;
       if (req.body.is_photo_frame !== undefined) existingItem.is_photo_frame     = req.body.is_photo_frame;
       if (req.body.photo_frame_details)          existingItem.photo_frame_details = req.body.photo_frame_details;
+      if (isPhotoBook && validatedDesign) {
+        existingItem.is_photobook = true;
+        existingItem.photobook_design_id = validatedDesign._id;
+        existingItem.photobook_details = {
+          design_id: validatedDesign._id,
+          template_id: validatedDesign.template_id,
+          template_name: validatedDesign.template_name,
+          template_version: validatedDesign.template_version,
+          size: pbResolvedSize,
+          size_name: pbResolvedSize,
+          size_id: pbRawSize,
+          variant: validatedDesign.variant,
+          page_count: validatedDesign.page_count,
+          cover_image: validatedDesign.cover_image,
+          total_photos_used: validatedDesign.uploaded_images?.length || 0,
+          pricing: validatedDesign.pricing,
+          status: validatedDesign.status,
+        };
+        if (req.body.photobook_design_data) {
+          existingItem.photobook_design_data = req.body.photobook_design_data;
+        }
+      }
 
       result = await existingItem.save();
 
@@ -174,9 +372,9 @@ const addToShoppingCart = async (req, res) => {
         product_quantity:         parseInt(req.body.product_quantity || req.body.quantity) || 1,
         product_price:            req.body.product_price          || 0,
         product_name:             req.body.product_name           || "Product",
-        product_image:            req.body.product_image          || "",
+        product_image:            (validatedDesign?.cover_image) || req.body.product_image || "",
         product_seo_url:          req.body.product_seo_url        || "",
-        product_design_file:      req.body.product_design_file    || "",
+        product_design_file:      (validatedDesign?.cover_image) || req.body.product_design_file || "",
         category_name:            req.body.category_name          || "",
         subcategory_name:         req.body.subcategory_name       || "",
         final_total:              req.body.final_total            || 0,
@@ -192,6 +390,24 @@ const addToShoppingCart = async (req, res) => {
         out_of_tn_charge:         incomingOutOfTNCharge,       // outside Tamil Nadu
         BrandingCharges:          incomingBrandingCharges,     // flat, one-time per order
         // ─────────────────────────────────────────────────────────────────
+        is_photobook:             Boolean(isPhotoBook),
+        photobook_design_id:      validatedDesign ? validatedDesign._id : null,
+        photobook_details:        validatedDesign ? {
+          design_id: validatedDesign._id,
+          template_id: validatedDesign.template_id,
+          template_name: validatedDesign.template_name,
+          template_version: validatedDesign.template_version,
+          size: pbResolvedSize,
+          size_name: pbResolvedSize,
+          size_id: pbRawSize,
+          variant: validatedDesign.variant,
+          page_count: validatedDesign.page_count,
+          cover_image: validatedDesign.cover_image,
+          total_photos_used: validatedDesign.uploaded_images?.length || 0,
+          pricing: validatedDesign.pricing,
+          status: validatedDesign.status,
+        } : null,
+        photobook_design_data:    req.body.photobook_design_data  || null,
         is_qr_product:            req.body.is_qr_product          || false,
         selected_platforms:       req.body.selected_platforms     || [],
         platform_links:           req.body.platform_links         || {},
@@ -297,6 +513,11 @@ const getMyShoppingCart = async (req, res) => {
           platform_links:         1,
           is_photo_frame:         1,
           photo_frame_details:    1,
+          is_photobook:           1,
+          photobook_design_id:    1,
+          photobook_details:      1,
+          photobook_design_data:  1,
+          photobook_config:       "$product_details.photobook_config",
           phone_number:           1,
           email:                  1,
           createdAt:              "$created_at",
@@ -306,44 +527,96 @@ const getMyShoppingCart = async (req, res) => {
       },
     ]);
 
-    const transformedResult = result.map((item) => ({
-      _id:                    item._id,
-      product_id:             item.product_id,
-      product_design_file:    item.product_design_file    || "",
-      FreeDelivery:           item.FreeDelivery            || false,
-      noCustomtation:         item.noCustomtation          || false,
-      DeliveryCharges:        item.DeliveryCharges         || 0,    // inside TN
-      out_of_tn_charge:       item.out_of_tn_charge        || 0,    // outside TN
-      BrandingCharges:        item.BrandingCharges         || 0,    // flat, one-time per order
-      product_image:          item.product_image           || "",
-      product_name:           item.product_name            || "",
-      category_name:          item.category_name           || "",
-      subcategory_name:       item.subcategory_name        || "",
-      product_price:          item.product_price           || 0,
-      MRP_savings:            typeof item.MRP_savings  === "number" ? item.MRP_savings.toFixed(2)  : "0.00",
-      TotalSavings:           typeof item.TotalSavings === "number" ? item.TotalSavings.toFixed(2) : "0.00",
-      product_quantity:       item.product_quantity ? item.product_quantity.toString() : "1",
-      product_seo_url:        item.product_seo_url         || "",
-      product_variants:       item.product_variants        || [],
-      sgst:                   item.sgst  ? item.sgst.toString()  : "0",
-      cgst:                   item.cgst  ? item.cgst.toString()  : "0",
-      final_total:            item.final_total             || 0,
-      final_total_withoutGst: item.final_total_withoutGst  || 0,
-      quantity:               item.quantity                || 1,
-      size:                   item.size                    || null,
-      color:                  item.color                   || null,
-      instructions:           item.instructions            || null,
-      is_qr_product:          item.is_qr_product           || false,
-      selected_platforms:     item.selected_platforms      || [],
-      platform_links:         item.platform_links          || {},
-      is_photo_frame:         item.is_photo_frame          || false,
-      photo_frame_details:    item.photo_frame_details     || {},
-      phone_number:           item.phone_number            || null,
-      email:                  item.email                   || null,
-      createdAt:              item.createdAt,
-      updatedAt:              item.updatedAt,
-      __v:                    item.__v || 0,
-    }));
+    const transformedResult = result.map((item) => {
+      let photobookDetails = item.photobook_details || null;
+      const configSizes = item.photobook_config?.sizes || [];
+      if (photobookDetails && photobookDetails.size) {
+        const rawSize = String(photobookDetails.size).trim();
+        const matched = configSizes.find(
+          (s) => String(s._id) === rawSize || String(s.id) === rawSize || String(s.name).toLowerCase() === rawSize.toLowerCase()
+        );
+        if (matched) {
+          const w = matched.width_in || matched.width;
+          const h = matched.height_in || matched.height;
+          const formatted = (matched.name && w && h)
+            ? `${matched.name} - ${w} x ${h} in`
+            : (matched.name || rawSize);
+          photobookDetails = {
+            ...photobookDetails,
+            size: formatted,
+            size_name: formatted,
+            size_id: rawSize,
+          };
+        } else if (rawSize.startsWith("size-") || rawSize.toLowerCase().includes("a4")) {
+          const formatted = "A4 - 8.27 x 11.69 in";
+          photobookDetails = {
+            ...photobookDetails,
+            size: formatted,
+            size_name: formatted,
+            size_id: rawSize,
+          };
+        }
+      }
+
+      let itemFinalTotal = Number(item.final_total || 0);
+      let itemFinalTotalWithoutGst = Number(item.final_total_withoutGst || 0);
+      let itemCgst = item.cgst !== undefined && item.cgst !== null ? Number(item.cgst) : 0;
+      let itemSgst = item.sgst !== undefined && item.sgst !== null ? Number(item.sgst) : 0;
+
+      if (item.is_photobook && (itemCgst === 0 || itemFinalTotal === itemFinalTotalWithoutGst)) {
+        const gstRate = parseFloat(item.photobook_config?.GST || item.photobook_config?.gst || 18) || 18;
+        const taxable = itemFinalTotalWithoutGst > 0 ? itemFinalTotalWithoutGst : itemFinalTotal > 0 ? itemFinalTotal : (Number(item.product_price || 0) * (item.quantity || 1));
+        const tax = Number(((taxable * gstRate) / 100).toFixed(2));
+        itemFinalTotalWithoutGst = taxable;
+        itemFinalTotal = Number((taxable + tax).toFixed(2));
+        itemCgst = Number((gstRate / 2).toFixed(2));
+        itemSgst = Number((gstRate / 2).toFixed(2));
+      }
+
+      return {
+        _id:                    item._id,
+        product_id:             item.product_id,
+        product_design_file:    item.product_design_file    || "",
+        FreeDelivery:           item.FreeDelivery            || false,
+        noCustomtation:         item.noCustomtation          || false,
+        DeliveryCharges:        item.DeliveryCharges         || 0,    // inside TN
+        out_of_tn_charge:       item.out_of_tn_charge        || 0,    // outside TN
+        BrandingCharges:        item.BrandingCharges         || 0,    // flat, one-time per order
+        product_image:          item.product_image           || "",
+        product_name:           item.product_name            || "",
+        category_name:          item.category_name           || "",
+        subcategory_name:       item.subcategory_name        || "",
+        product_price:          item.product_price           || 0,
+        MRP_savings:            typeof item.MRP_savings  === "number" ? item.MRP_savings.toFixed(2)  : "0.00",
+        TotalSavings:           typeof item.TotalSavings === "number" ? item.TotalSavings.toFixed(2) : "0.00",
+        product_quantity:       item.product_quantity ? item.product_quantity.toString() : "1",
+        product_seo_url:        item.product_seo_url         || "",
+        product_variants:       item.product_variants        || [],
+        sgst:                   itemSgst.toString(),
+        cgst:                   itemCgst.toString(),
+        final_total:            itemFinalTotal,
+        final_total_withoutGst: itemFinalTotalWithoutGst,
+        quantity:               item.quantity                || 1,
+        size:                   item.size                    || null,
+        color:                  item.color                   || null,
+        instructions:           item.instructions            || null,
+        is_qr_product:          item.is_qr_product           || false,
+        selected_platforms:     item.selected_platforms      || [],
+        platform_links:         item.platform_links          || {},
+        is_photo_frame:         item.is_photo_frame          || false,
+        photo_frame_details:    item.photo_frame_details     || {},
+        is_photobook:           item.is_photobook           || false,
+        photobook_design_id:    item.photobook_design_id    || null,
+        photobook_details:      photobookDetails,
+        photobook_design_data:  item.photobook_design_data  || null,
+        photobook_config:       item.photobook_config       || null,
+        phone_number:           item.phone_number            || null,
+        email:                  item.email                   || null,
+        createdAt:              item.createdAt,
+        updatedAt:              item.updatedAt,
+        __v:                    item.__v || 0,
+      };
+    });
 
     return res.status(200).json({ message: "", data: transformedResult });
 
