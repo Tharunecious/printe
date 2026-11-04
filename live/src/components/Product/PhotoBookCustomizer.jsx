@@ -425,7 +425,29 @@ export const PhotoBookCustomizer = ({
   // ── Add To Cart Handler ───────────────────────────────────────────────────
   const handleAddToCart = async () => {
     if (!validationSummary.allPagesComplete) {
-      toast.error("Please complete all required photo frames before adding to cart");
+      const pages = design?.pages || [];
+      const coverPage = pages.find((p) => p.page_type === "front_cover") || pages[0];
+      const interiorPages = pages.filter((p) => p.page_type === "interior");
+      const incompleteInteriors = interiorPages.filter(
+        (p) => !p.photo_frames?.some((f) => Boolean(f.photo_url))
+      );
+      const backCover = pages.find((p) => p.page_type === "back_cover");
+
+      let firstMissingLabel = "This page";
+      if (!coverPage?.photo_frames?.some((f) => Boolean(f.photo_url))) {
+        firstMissingLabel = "Front Cover";
+      } else if (incompleteInteriors.length > 0) {
+        const firstIncomp = incompleteInteriors[0];
+        firstMissingLabel = firstIncomp.page_number ? `Page ${firstIncomp.page_number}` : "Page 1";
+      } else if (backCover && !backCover.photo_frames?.some((f) => Boolean(f.photo_url))) {
+        firstMissingLabel = "Back Cover";
+      }
+
+      toast.dismiss();
+      toast.error(`${firstMissingLabel} has no image.`, {
+        duration: 4000,
+        id: "empty-page-photo-notice",
+      });
       return;
     }
 

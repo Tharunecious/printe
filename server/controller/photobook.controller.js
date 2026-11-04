@@ -1345,9 +1345,13 @@ const validateDesignInternal = (design, productConfig) => {
   } else {
     const coverFrames = getPagePhotoFrames(coverPage);
     const requiredFrames = coverFrames.filter((f) => f.is_required !== false);
-    const emptyFrames = requiredFrames.filter((f) => !f.photo_url);
+    const emptyFrames = requiredFrames.filter((f) => !f.photo_url || String(f.photo_url).trim() === "");
     if (requiredFrames.length > 0 && emptyFrames.length > 0) {
-      errors.push("Front Cover has empty required photo frames.");
+      if (emptyFrames.length === requiredFrames.length) {
+        errors.push(`Front Cover: all ${requiredFrames.length} photo holders are empty.`);
+      } else {
+        errors.push(`Front Cover: ${emptyFrames.length} of ${requiredFrames.length} photo holders are empty.`);
+      }
     }
   }
 
@@ -1360,11 +1364,30 @@ const validateDesignInternal = (design, productConfig) => {
       const pageNum = page.page_number || index + 1;
       const pageFrames = getPagePhotoFrames(page);
       const requiredFrames = pageFrames.filter((f) => f.is_required !== false);
-      const emptyFrames = requiredFrames.filter((f) => !f.photo_url);
-      if (requiredFrames.length > 0 && emptyFrames.length === requiredFrames.length) {
-        errors.push(`Page ${pageNum} is empty. Please place at least one photo.`);
+      const emptyFrames = requiredFrames.filter((f) => !f.photo_url || String(f.photo_url).trim() === "");
+      if (requiredFrames.length > 0 && emptyFrames.length > 0) {
+        if (emptyFrames.length === requiredFrames.length) {
+          errors.push(`Page ${pageNum}: all ${requiredFrames.length} photo holders are empty.`);
+        } else {
+          errors.push(`Page ${pageNum}: ${emptyFrames.length} of ${requiredFrames.length} photo holders are empty.`);
+        }
       }
     });
+  }
+
+  // Back cover check
+  const backPage = design.back_cover || (design.pages || []).find((p) => p.page_type === "back_cover" || p.page_id === "back-cover");
+  if (backPage) {
+    const backFrames = getPagePhotoFrames(backPage);
+    const requiredBackFrames = backFrames.filter((f) => f.is_required !== false);
+    const emptyBackFrames = requiredBackFrames.filter((f) => !f.photo_url || String(f.photo_url).trim() === "");
+    if (requiredBackFrames.length > 0 && emptyBackFrames.length > 0) {
+      if (emptyBackFrames.length === requiredBackFrames.length) {
+        errors.push(`Back Cover: all ${requiredBackFrames.length} photo holders are empty.`);
+      } else {
+        errors.push(`Back Cover: ${emptyBackFrames.length} of ${requiredBackFrames.length} photo holders are empty.`);
+      }
+    }
   }
 
   return {

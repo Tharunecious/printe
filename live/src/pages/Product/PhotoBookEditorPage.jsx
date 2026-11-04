@@ -60,12 +60,12 @@ import {
   SaveOutlined,
   InfoCircleOutlined,
   CloseCircleOutlined,
-  ThunderboltOutlined,
+ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import _ from "lodash";
 import Swal from "sweetalert2";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import { EnvHelper } from "../../helper/EnvHelper";
 import {
   getPhotoBookDesign,
@@ -76,7 +76,11 @@ import {
   addToShoppingCart,
 } from "../../helper/api_helper";
 import { ADD_TO_CART } from "../../redux/slices/cart.slice";
-import { formatBookSizeInches } from "../../helper/photobookSizeHelper";
+import {
+  formatBookSizeInches,
+  resolveEditionPriceForSize,
+  getEditionPricingDetailsForSize,
+} from "../../helper/photobookSizeHelper";
 import YourBookStep, { getPhotoBoundsForDensity } from "../../components/Product/PhotoBookSteps/YourBookStep";
 import UploadPhotosStep from "../../components/Product/PhotoBookSteps/UploadPhotosStep";
 
@@ -2683,6 +2687,7 @@ const PhotoBookEditorPage = () => {
   // 4-Step Workflow: 1: Your Book, 2: Upload Photos, 3: Edit Your Book, 4: Review & Cart
   const [currentStep, setCurrentStep] = useState(1);
   const [maxUnlockedStep, setMaxUnlockedStep] = useState(1);
+  const [isAddToCartConfirmModalOpen, setIsAddToCartConfirmModalOpen] = useState(false);
 
   // Active Tool in Step 3 Workspace: "add" | "arrange" | "size" | "design" | "options" | null
   const [activeStudioTool, setActiveStudioTool] = useState("add");
@@ -3413,49 +3418,34 @@ const PhotoBookEditorPage = () => {
       editions[0] ||
       null;
 
-    // 3. Resolve size object
+    // 3. Resolve size object & pricing details
     const sizeNameOrId = selectedSize || designData?.size || "8x8";
+    const allKnownSizes = [
+      ...(templateSizes || []),
+      ...(sizes || []),
+      ...(photobookConfig.sizes || []),
+    ];
+
+    const edPricingDetails = getEditionPricingDetailsForSize(
+      matchedEdition,
+      sizeNameOrId,
+      allKnownSizes
+    );
+
     const matchedSize =
-      sizes.find(
+      allKnownSizes.find(
         (s) =>
           (s._id && String(s._id) === String(sizeNameOrId)) ||
+          (s.id && String(s.id) === String(sizeNameOrId)) ||
           (s.name && String(s.name).toLowerCase() === String(sizeNameOrId).toLowerCase())
       ) ||
       sizes[0] ||
       null;
 
-    const sizeKey = matchedSize?._id || matchedSize?.name || sizeNameOrId;
-
-    // 4. Resolve size-specific pricing from edition (or template fallback)
-    let sizePricing = null;
-    const candidateKeys = [matchedSize?._id, matchedSize?.name, sizeNameOrId, sizeKey].filter(Boolean);
-    for (const k of candidateKeys) {
-      if (matchedEdition?.pricing_by_size?.[k]) {
-        sizePricing = matchedEdition.pricing_by_size[k];
-        break;
-      }
-      if (matchedEdition?.size_pricing?.[k]) {
-        sizePricing = matchedEdition.size_pricing[k];
-        break;
-      }
-      if (matchedTemplate?.pricing_by_size?.[k]) {
-        sizePricing = matchedTemplate.pricing_by_size[k];
-        break;
-      }
-      if (matchedTemplate?.size_pricing?.[k]) {
-        sizePricing = matchedTemplate.size_pricing[k];
-        break;
-      }
-    }
-
-    // 5. Base price resolution
+    // 4. Base price resolution
     let basePrice = 500;
-    if (sizePricing?.customer_price !== undefined && sizePricing?.customer_price !== null && sizePricing?.customer_price !== "") {
-      basePrice = Number(sizePricing.customer_price);
-    } else if (sizePricing?.customer_product_price !== undefined && sizePricing?.customer_product_price !== null) {
-      basePrice = Number(sizePricing.customer_product_price);
-    } else if (sizePricing?.mrp !== undefined && sizePricing?.mrp !== null) {
-      basePrice = Number(sizePricing.mrp);
+    if (edPricingDetails?.customerPrice !== null && edPricingDetails?.customerPrice !== undefined) {
+      basePrice = edPricingDetails.customerPrice;
     } else if (productData?.customer_product_price) {
       basePrice = Number(productData.customer_product_price);
     } else if (productData?.price) {
@@ -3464,8 +3454,9 @@ const PhotoBookEditorPage = () => {
       basePrice = Number(productData.MRP_price);
     }
 
-    // 6. Default pages, min, and max pages limits
+    // 5. Default pages, min, and max pages limits
     const basePages = Number(
+      edPricingDetails?.defaultPages ||
       matchedEdition?.default_pages ||
       matchedTemplate?.default_pages ||
       templateData?.default_pages ||
@@ -3474,6 +3465,7 @@ const PhotoBookEditorPage = () => {
       20
     );
     const minPages = Number(
+      edPricingDetails?.minPages ||
       matchedEdition?.min_pages ||
       matchedTemplate?.min_pages ||
       templateData?.min_pages ||
@@ -3482,6 +3474,7 @@ const PhotoBookEditorPage = () => {
       10
     );
     const maxPages = Number(
+      edPricingDetails?.maxPages ||
       matchedEdition?.max_pages ||
       matchedTemplate?.max_pages ||
       templateData?.max_pages ||
@@ -3490,10 +3483,10 @@ const PhotoBookEditorPage = () => {
       60
     );
 
-    // 7. Extra page surcharge price
+    // 6. Extra page surcharge price
     let extraPricePerUnit = 0;
-    if (sizePricing?.extra_page_price !== undefined && sizePricing?.extra_page_price !== null && Number(sizePricing.extra_page_price) > 0) {
-      extraPricePerUnit = Number(sizePricing.extra_page_price);
+    if (edPricingDetails?.extraPagePrice && edPricingDetails.extraPagePrice > 0) {
+      extraPricePerUnit = edPricingDetails.extraPagePrice;
     } else if (matchedEdition?.price_per_extra_page !== undefined && matchedEdition?.price_per_extra_page !== null && Number(matchedEdition.price_per_extra_page) > 0) {
       extraPricePerUnit = Number(matchedEdition.price_per_extra_page);
     } else if (matchedTemplate?.price_per_extra_page !== undefined && matchedTemplate?.price_per_extra_page !== null && Number(matchedTemplate.price_per_extra_page) > 0) {
@@ -4429,6 +4422,21 @@ const PhotoBookEditorPage = () => {
     }
     return [];
   }, [productData, templateData, designData, selectedTemplateName, selectedTemplateId]);
+
+  // Reconcile selectedVariant when availableEditions are loaded
+  useEffect(() => {
+    if (availableEditions.length > 0) {
+      const cur = String(selectedVariant || "").trim().toLowerCase();
+      const matched = availableEditions.find(
+        (e) =>
+          (e.edition_name && String(e.edition_name).trim().toLowerCase() === cur) ||
+          (e.name && String(e.name).trim().toLowerCase() === cur)
+      );
+      if (!matched) {
+        setSelectedVariant(availableEditions[0]?.edition_name || availableEditions[0]?.name);
+      }
+    }
+  }, [availableEditions]);
 
   // ── Autofill Empty Photo Slots ─────────────────────────────────────────────
   const handleAutofillEmptySlots = useCallback(() => {
@@ -7450,8 +7458,120 @@ const PhotoBookEditorPage = () => {
     );
   };
 
-  // ── Step 3: Add to Cart Action ─────────────────────────────────────────────
-  const handleAddToCart = async () => {
+  // ── Step 3: Photo Holders Completeness Checker ─────────────────────────────
+  const checkPhotoHoldersCompleteness = () => {
+    const missingByPage = [];
+    let totalMissingFrames = 0;
+
+    (pagesData || []).forEach((pg, pgIdx) => {
+      if (pg.is_blank || pg.page_type === "blank") return;
+
+      const frames = (pg.elements || []).filter(
+        (el) => el.type === "photo_frame" || el.type === "image_frame"
+      );
+      if (frames.length === 0) return;
+
+      const emptyFrames = frames.filter((f) => {
+        const url =
+          f.photo_url ||
+          f.photo?.url ||
+          f.photo?.preview ||
+          f.image_url ||
+          f.url ||
+          f.src;
+        return !(
+          url &&
+          typeof url === "string" &&
+          url.trim() !== "" &&
+          url !== "null" &&
+          url !== "undefined"
+        );
+      });
+
+      if (emptyFrames.length > 0) {
+        totalMissingFrames += emptyFrames.length;
+        const totalFrames = frames.length;
+        const emptyCount = emptyFrames.length;
+        const filledCount = totalFrames - emptyCount;
+
+        const pageLabel =
+          (pg.page_type === "front_cover" || pg.page_id === "front-cover")
+            ? "Front Cover"
+            : (pg.page_type === "back_cover" || pg.page_id === "back-cover")
+            ? "Back Cover"
+            : typeof pg.page_number === "number"
+            ? `Page ${pg.page_number}`
+            : pg.display_label || pg.name || `Page ${pgIdx + 1}`;
+
+        // Find the spread index in spreads array that contains this page
+        const spreadIdx = (spreads || []).findIndex(
+          (sp) =>
+            sp.leftPage?.page_id === pg.page_id ||
+            sp.rightPage?.page_id === pg.page_id ||
+            (pg.page_number && (sp.leftPage?.page_number === pg.page_number || sp.rightPage?.page_number === pg.page_number)) ||
+            (pg.page_type === "front_cover" && (sp.rightPage?.page_type === "front_cover" || sp.id === "spread-cover")) ||
+            (pg.page_type === "back_cover" && (sp.leftPage?.page_type === "back_cover" || sp.id === "spread-cover"))
+        );
+
+        missingByPage.push({
+          pageIndex: pgIdx,
+          pageId: pg.page_id || pg.id,
+          pageLabel,
+          totalFrames,
+          emptyCount,
+          filledCount,
+          spreadIdx: spreadIdx !== -1 ? spreadIdx : 0,
+        });
+      }
+    });
+
+    return {
+      missingByPage,
+      totalMissingFrames,
+      isComplete: missingByPage.length === 0,
+    };
+  };
+
+  // ── Review & Cart Handler: Checks All Photoholders ─────────────────────────
+  const handleReviewAndCartClick = () => {
+    const { missingByPage, isComplete } = checkPhotoHoldersCompleteness();
+
+    if (!isComplete) {
+      const firstMissing = missingByPage[0];
+      const pageLabel = firstMissing?.pageLabel || "This page";
+
+      // Simple notification identifying only the first page with an empty photo placeholder
+      message.destroy();
+      toast.dismiss();
+      const notificationMsg = `${pageLabel} has no image.`;
+      toast.error(notificationMsg, {
+        duration: 4000,
+        id: "empty-page-photo-notice",
+      });
+      message.error(notificationMsg, 4);
+
+      // Jump and scroll directly to the first incomplete page
+      if (firstMissing) {
+        if (currentStep !== 3) {
+          setCurrentStep(3);
+        }
+        setActivePageIndex(firstMissing.pageIndex);
+        if (typeof firstMissing.spreadIdx === "number" && firstMissing.spreadIdx >= 0) {
+          setTimeout(() => {
+            scrollToSpread(firstMissing.spreadIdx);
+          }, 120);
+        }
+      }
+      return;
+    }
+
+    // All photo holders have images uploaded! Open Add to Cart / Stay Here modal
+    setMaxUnlockedStep((prev) => Math.max(prev, 4));
+    setIsAddToCartConfirmModalOpen(true);
+  };
+
+  // ── Execute Real Add to Cart (From Modal) ───────────────────────────────────
+  const handleExecuteAddToCart = async () => {
     try {
       setIsAddingToCart(true);
 
@@ -7514,19 +7634,10 @@ const PhotoBookEditorPage = () => {
       const result = await addToShoppingCart(cartItemPayload);
       dispatch(ADD_TO_CART(_.get(result, "data.data.data", "")));
 
-      Swal.fire({
-        title: "Photo Book Added To Cart! 🎉",
-        text: `Your ${photoBookPages}-page album using "${selectedTemplateName}" is ready in your cart.`,
-        icon: "success",
-        showCancelButton: true,
-        confirmButtonText: "Go to Shopping Cart",
-        cancelButtonText: "Keep Customizing",
-        confirmButtonColor: "#f59e0b",
-      }).then((r) => {
-        if (r.isConfirmed) {
-          navigate("/shopping-cart");
-        }
-      });
+      setIsAddToCartConfirmModalOpen(false);
+
+      toast.success("Photo Book added to cart successfully!", { duration: 4000 });
+      navigate("/shopping-cart");
     } catch (err) {
       console.error("Cart addition failed:", err);
       toast.error(err.response?.data?.message || err.message || "Failed to add to cart");
@@ -7534,6 +7645,25 @@ const PhotoBookEditorPage = () => {
       setIsAddingToCart(false);
     }
   };
+
+  // ── Stay Here Handler (From Modal) ─────────────────────────────────────────
+  const handleStayHere = async () => {
+    setIsAddToCartConfirmModalOpen(false);
+    if (current_working_id) {
+      try {
+        await saveDesignToBackend(false);
+        toast.success("Your photo book design has been saved. You can continue customizing!", {
+          duration: 3500,
+          id: "stay-here-saved",
+        });
+      } catch (e) {
+        console.warn("Silent save on stay here:", e);
+      }
+    }
+  };
+
+  // Alias for backward compatibility
+  const handleAddToCart = handleReviewAndCartClick;
 
   if (isLoading) {
     return (
@@ -7549,6 +7679,21 @@ const PhotoBookEditorPage = () => {
 
   return (
     <div className="h-screen w-full flex flex-col bg-[#f5f6f8] text-gray-800 select-none overflow-hidden font-sans">
+      {/* React Hot Toast notification container with highest z-index */}
+      <Toaster
+        position="top-center"
+        containerStyle={{ zIndex: 999999, top: "24px" }}
+        toastOptions={{
+          duration: 7000,
+          style: {
+            background: "#ffffff",
+            color: "#0f172a",
+            fontSize: "12px",
+            zIndex: 999999,
+          },
+        }}
+      />
+
       {/* ── Studio Top Header (Matching Admin Exact UI & Palette) ────────────── */}
       <header className="h-[58px] bg-[#0f172a] border-b border-slate-800 px-4 md:px-6 flex items-center justify-between z-30 shrink-0 text-white select-none">
         {/* Left Side: Printe Branding + Back Arrow + Book Title */}
@@ -7582,9 +7727,14 @@ const PhotoBookEditorPage = () => {
           ].map(({ step, label }, idx, arr) => {
             const isActive = currentStep === step;
             const isCompleted = currentStep > step;
-            const isLocked = step > maxUnlockedStep;
+            const isLocked = step === 4 ? false : step > maxUnlockedStep;
 
             const handleStepperClick = () => {
+              if (step === 4) {
+                handleReviewAndCartClick();
+                return;
+              }
+
               if (step === currentStep) return;
 
               if (step < currentStep) {
@@ -7604,12 +7754,6 @@ const PhotoBookEditorPage = () => {
                 } else {
                   message.warning("Please complete the current step before proceeding.");
                 }
-                return;
-              }
-
-              if (step === 4) {
-                setPreviewSpreadModalIndex(0);
-                setIsPreviewModalOpen(true);
                 return;
               }
 
@@ -7740,7 +7884,7 @@ const PhotoBookEditorPage = () => {
 
               <button
                 type="button"
-                onClick={handleAddToCart}
+                onClick={handleReviewAndCartClick}
                 disabled={isAddingToCart}
                 className="bg-[#0284c7] hover:bg-sky-600 text-white font-bold text-xs px-4 py-1.5 rounded-lg transition-all shadow-md shadow-sky-950/40 flex items-center gap-1.5 cursor-pointer"
               >
@@ -7882,7 +8026,7 @@ const PhotoBookEditorPage = () => {
                 }}
                 className="text-[#00a896] hover:text-[#008f80] font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
               >
-                <EyeOutlined /> Flip Preview
+                {/* <EyeOutlined /> Flip Preview */}
               </button>
             </div>
 
@@ -8142,6 +8286,26 @@ const PhotoBookEditorPage = () => {
                           <span>W: {s.width_in || s.width} in</span>
                           <span>H: {s.height_in || s.height} in</span>
                         </div>
+                        {(() => {
+                          const activeEd =
+                            availableEditions.find((e) => (e.edition_name || e.name) === selectedVariant) ||
+                            availableEditions[0];
+                          const allKnownSizes = [
+                            ...(templateSizes || []),
+                            ...(productData?.photobook_config?.sizes || []),
+                          ];
+                          const sizePrice = resolveEditionPriceForSize(activeEd, s.id, allKnownSizes);
+                          if (!sizePrice) return null;
+                          return (
+                            <span
+                              className={`text-[11px] font-bold mt-1.5 ${
+                                isSelected ? "text-[#f97316]" : "text-[#00a896]"
+                              }`}
+                            >
+                              {/* ₹{sizePrice} */}
+                            </span>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -9072,7 +9236,12 @@ const PhotoBookEditorPage = () => {
                     {availableEditions.length > 0 ? (
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-bold text-gray-800">Book Edition</label>
+                          <div className="flex items-baseline gap-1.5">
+                            <label className="text-xs font-bold text-gray-800">Book Edition</label>
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              for {activeSizeInfo?.dimensions || activeSizeInfo?.name || "Selected Size"}
+                            </span>
+                          </div>
                           <span className="text-[11px] text-[#00a896] font-semibold">
                             {selectedVariant || availableEditions[0]?.edition_name || availableEditions[0]?.name}
                           </span>
@@ -9082,6 +9251,27 @@ const PhotoBookEditorPage = () => {
                             const isChosen =
                               selectedVariant === (ed.edition_name || ed.name) ||
                               (!selectedVariant && ed === availableEditions[0]);
+
+                            const allKnownSizes = [
+                              ...(templateSizes || []),
+                              ...(productData?.photobook_config?.sizes || []),
+                            ];
+                            const activeSizeIdentifier =
+                              selectedSize ||
+                              activeSizeInfo?.id ||
+                              activeSizeInfo?.matchedId ||
+                              activeSizeInfo?.name ||
+                              designData?.size ||
+                              "8x8";
+
+                            const edPricing = getEditionPricingDetailsForSize(
+                              ed,
+                              activeSizeIdentifier,
+                              allKnownSizes
+                            );
+                            const edPriceVal = edPricing?.customerPrice;
+                            const edMrpVal = edPricing?.mrp;
+
                             return (
                               <div
                                 key={ed._id || ed.edition_name || ed.name}
@@ -9106,26 +9296,32 @@ const PhotoBookEditorPage = () => {
                                     </div>
                                   )}
                                 </div>
-                                {(() => {
-                                  let edPrice = ed.price_tag;
-                                  if (!edPrice && ed.pricing_by_size) {
-                                    const candidateKeys = [selectedSize, designData?.size, "8x8"].filter(Boolean);
-                                    for (const k of candidateKeys) {
-                                      const sp = ed.pricing_by_size[k] || ed.size_pricing?.[k];
-                                      if (sp?.customer_price || sp?.customer_product_price || sp?.price) {
-                                        edPrice = `₹${sp.customer_price || sp.customer_product_price || sp.price}`;
-                                        break;
-                                      }
-                                    }
-                                  }
-                                  if (!edPrice && ed.price) edPrice = `₹${ed.price}`;
-                                  if (!edPrice) return null;
-                                  return (
-                                    <span className={`text-[11px] font-bold shrink-0 ${isChosen ? "text-[#00a896]" : "text-gray-500"}`}>
-                                      {edPrice}
+                                <div className="text-right shrink-0">
+                                  {edPriceVal !== null && edPriceVal !== undefined ? (
+                                    <div className="flex items-baseline gap-1.5 justify-end">
+                                      {edMrpVal && edMrpVal > edPriceVal && (
+                                        <span className="text-[10px] text-gray-400 line-through">
+                                          ₹{edMrpVal}
+                                        </span>
+                                      )}
+                                      <span
+                                        className={`text-xs font-bold ${
+                                          isChosen ? "text-[#00a896]" : "text-gray-700"
+                                        }`}
+                                      >
+                                        ₹{edPriceVal}
+                                      </span>
+                                    </div>
+                                  ) : ed.price_tag ? (
+                                    <span
+                                      className={`text-[11px] font-bold ${
+                                        isChosen ? "text-[#00a896]" : "text-gray-500"
+                                      }`}
+                                    >
+                                      {ed.price_tag}
                                     </span>
-                                  );
-                                })()}
+                                  ) : null}
+                                </div>
                               </div>
                             );
                           })}
@@ -10647,6 +10843,77 @@ const PhotoBookEditorPage = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Add to Cart or Stay Here Modal ── */}
+      <Modal
+        open={isAddToCartConfirmModalOpen}
+        onCancel={() => setIsAddToCartConfirmModalOpen(false)}
+        footer={null}
+        centered
+        width={500}
+        destroyOnClose
+        styles={{ body: { padding: "28px" } }}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-14 h-14 rounded-full bg-teal-50 border-2 border-teal-200 flex items-center justify-center text-[#00a896] mb-3 shadow-xs">
+            <CheckCircleOutlined className="text-3xl" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-1">
+            All Photos Uploaded! 🎉
+          </h3>
+          <p className="text-xs text-gray-500 mb-5 max-w-sm">
+            Every photo holder in your photo book is filled with photos. Would you like to proceed to your cart or stay here to continue customizing?
+          </p>
+
+          <div className="w-full bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-left mb-6 space-y-2.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500 font-medium">Template</span>
+              <span className="font-bold text-gray-800">{selectedTemplateName}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500 font-medium">Size</span>
+              <span className="font-bold text-gray-800">{activeSizeInfo?.dimensions || activeSizeInfo?.name}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500 font-medium">Edition</span>
+              <span className="font-bold text-gray-800">{selectedVariant}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500 font-medium">Total Pages</span>
+              <span className="font-bold text-gray-800">{photoBookPages} Pages</span>
+            </div>
+            <div className="pt-2.5 border-t border-slate-200 flex justify-between items-center text-xs">
+              <span className="font-bold text-gray-800">Total Price (incl. GST)</span>
+              <span className="text-base font-bold text-[#00a896]">₹{priceDetails.finalTotal}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+            <button
+              type="button"
+              onClick={handleStayHere}
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              Stay Here
+            </button>
+            <button
+              type="button"
+              disabled={isAddingToCart}
+              onClick={handleExecuteAddToCart}
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#00a896] hover:bg-teal-700 text-white font-bold text-xs shadow-md shadow-teal-900/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              {isAddingToCart ? (
+                <Spin size="small" />
+              ) : (
+                <>
+                  <ShoppingCartOutlined className="text-sm" />
+                  <span>Add to Cart</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </Modal>

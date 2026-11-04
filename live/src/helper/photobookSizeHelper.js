@@ -119,3 +119,231 @@ export const formatBookSizeInches = (sizeInput, optionalSizesList = []) => {
   return str;
 };
 
+/**
+ * Resolves the edition price for a specific page size.
+ * Handles size IDs (e.g. 'size-1793345803562-09027'), size names (e.g. 'A4', '10x10 in'),
+ * dimension strings, and fuzzy matching across edition.pricing_by_size, edition.size_pricing,
+ * and edition.sizes.
+ *
+ * @param {Object} edition - The edition object (e.g., Softcover, Hardcover)
+ * @param {string|Object} sizeIdentifier - The active size ID, name, or size object
+ * @param {Array} allSizes - Array of known size objects (templateSizes, photobookConfig.sizes)
+ * @returns {number|null} - The customer product price for this edition at the given size
+ */
+export const resolveEditionPriceForSize = (edition, sizeIdentifier, allSizes = []) => {
+  if (!edition) return null;
+
+  // 1. Normalize size string / identifier
+  const rawStr = String(
+    (typeof sizeIdentifier === "object" && sizeIdentifier !== null
+      ? sizeIdentifier.id || sizeIdentifier._id || sizeIdentifier.name
+      : sizeIdentifier) || ""
+  ).trim();
+
+  const currentStr = rawStr.toLowerCase();
+
+  // 2. Find matched size object from allSizes
+  const matchedSize = (allSizes || []).find((s) => {
+    if (!s) return false;
+    const sId = String(s._id || s.id || "").trim().toLowerCase();
+    const sName = String(s.name || s.title || s.label || "").trim().toLowerCase();
+    return sId === currentStr || sName === currentStr || (sName && currentStr.includes(sName));
+  });
+
+  // Candidate lookup keys
+  const candidateKeys = [
+    rawStr,
+    matchedSize?._id,
+    matchedSize?.id,
+    matchedSize?.name,
+    matchedSize?.title,
+    typeof sizeIdentifier === "object" ? sizeIdentifier.name : null,
+    typeof sizeIdentifier === "object" ? sizeIdentifier.id : null,
+    typeof sizeIdentifier === "object" ? sizeIdentifier._id : null,
+  ]
+    .filter(Boolean)
+    .map((x) => String(x).trim());
+
+  const pbs = edition.pricing_by_size || edition.size_pricing || {};
+
+  // Direct key check
+  for (const key of candidateKeys) {
+    if (pbs[key]) {
+      const item = pbs[key];
+      const val =
+        item.customer_price ??
+        item.customer_product_price ??
+        item.price ??
+        item.mrp;
+      if (val !== undefined && val !== null && val !== "") return Number(val);
+    }
+  }
+
+  // Case-insensitive key check
+  const pbsEntries = Object.entries(pbs);
+  for (const [k, item] of pbsEntries) {
+    const kLower = k.trim().toLowerCase();
+    const isMatch = candidateKeys.some((ck) => ck.toLowerCase() === kLower);
+    if (isMatch) {
+      const val =
+        item.customer_price ??
+        item.customer_product_price ??
+        item.price ??
+        item.mrp;
+      if (val !== undefined && val !== null && val !== "") return Number(val);
+    }
+  }
+
+  // Cross-reference via allSizes (e.g. k is a size ID whose size.name matches matchedSize.name)
+  if (matchedSize?.name) {
+    const targetName = String(matchedSize.name).trim().toLowerCase();
+    for (const [k, item] of pbsEntries) {
+      const sz = (allSizes || []).find((s) => String(s._id || s.id) === k);
+      if (sz && String(sz.name).trim().toLowerCase() === targetName) {
+        const val =
+          item.customer_price ??
+          item.customer_product_price ??
+          item.price ??
+          item.mrp;
+        if (val !== undefined && val !== null && val !== "") return Number(val);
+      }
+    }
+  }
+
+  // Check if edition has sizes array (edition.sizes: [{ size_id, size_name, customer_price, ... }])
+  if (Array.isArray(edition.sizes) && edition.sizes.length > 0) {
+    const matchedSizeItem = edition.sizes.find((si) => {
+      const siId = String(si._id || si.id || si.size_id || "").toLowerCase();
+      const siName = String(si.name || si.size_name || "").toLowerCase();
+      return candidateKeys.some(
+        (ck) => ck.toLowerCase() === siId || ck.toLowerCase() === siName
+      );
+    });
+    if (matchedSizeItem) {
+      const val =
+        matchedSizeItem.customer_price ??
+        matchedSizeItem.customer_product_price ??
+        matchedSizeItem.price ??
+        matchedSizeItem.mrp;
+      if (val !== undefined && val !== null && val !== "") return Number(val);
+    }
+  }
+
+  // Fallbacks: edition default pricing
+  if (
+    edition.customer_price !== undefined &&
+    edition.customer_price !== null &&
+    edition.customer_price !== ""
+  ) {
+    return Number(edition.customer_price);
+  }
+  if (
+    edition.price !== undefined &&
+    edition.price !== null &&
+    edition.price !== ""
+  ) {
+    return Number(edition.price);
+  }
+  if (
+    edition.price_tag &&
+    /^\d+$/.test(String(edition.price_tag).replace(/[^0-9]/g, ""))
+  ) {
+    return Number(String(edition.price_tag).replace(/[^0-9]/g, ""));
+  }
+
+  return null;
+};
+
+/**
+ * Returns full pricing details for an edition at a given size
+ */
+export const getEditionPricingDetailsForSize = (edition, sizeIdentifier, allSizes = []) => {
+  if (!edition) return null;
+
+  const rawStr = String(
+    (typeof sizeIdentifier === "object" && sizeIdentifier !== null
+      ? sizeIdentifier.id || sizeIdentifier._id || sizeIdentifier.name
+      : sizeIdentifier) || ""
+  ).trim();
+
+  const currentStr = rawStr.toLowerCase();
+
+  const matchedSize = (allSizes || []).find((s) => {
+    if (!s) return false;
+    const sId = String(s._id || s.id || "").trim().toLowerCase();
+    const sName = String(s.name || s.title || s.label || "").trim().toLowerCase();
+    return sId === currentStr || sName === currentStr || (sName && currentStr.includes(sName));
+  });
+
+  const candidateKeys = [
+    rawStr,
+    matchedSize?._id,
+    matchedSize?.id,
+    matchedSize?.name,
+    matchedSize?.title,
+    typeof sizeIdentifier === "object" ? sizeIdentifier.name : null,
+    typeof sizeIdentifier === "object" ? sizeIdentifier.id : null,
+    typeof sizeIdentifier === "object" ? sizeIdentifier._id : null,
+  ]
+    .filter(Boolean)
+    .map((x) => String(x).trim());
+
+  const pbs = edition.pricing_by_size || edition.size_pricing || {};
+
+  let sizePricingObj = null;
+
+  for (const key of candidateKeys) {
+    if (pbs[key]) {
+      sizePricingObj = pbs[key];
+      break;
+    }
+  }
+
+  if (!sizePricingObj) {
+    const pbsEntries = Object.entries(pbs);
+    for (const [k, item] of pbsEntries) {
+      const kLower = k.trim().toLowerCase();
+      if (candidateKeys.some((ck) => ck.toLowerCase() === kLower)) {
+        sizePricingObj = item;
+        break;
+      }
+    }
+  }
+
+  if (!sizePricingObj && matchedSize?.name) {
+    const targetName = String(matchedSize.name).trim().toLowerCase();
+    for (const [k, item] of Object.entries(pbs)) {
+      const sz = (allSizes || []).find((s) => String(s._id || s.id) === k);
+      if (sz && String(sz.name).trim().toLowerCase() === targetName) {
+        sizePricingObj = item;
+        break;
+      }
+    }
+  }
+
+  const customerPrice =
+    sizePricingObj?.customer_price ??
+    sizePricingObj?.customer_product_price ??
+    sizePricingObj?.price ??
+    edition.customer_price ??
+    edition.price ??
+    null;
+
+  const mrp = sizePricingObj?.mrp ?? edition.mrp ?? null;
+  const extraPagePrice =
+    sizePricingObj?.extra_page_price ??
+    edition.price_per_extra_page ??
+    matchedSize?.extra_page_price ??
+    15;
+
+  return {
+    customerPrice: customerPrice !== null && customerPrice !== "" ? Number(customerPrice) : null,
+    mrp: mrp !== null && mrp !== "" ? Number(mrp) : null,
+    extraPagePrice: Number(extraPagePrice),
+    defaultPages: Number(edition.default_pages || 20),
+    minPages: Number(edition.min_pages || 10),
+    maxPages: Number(edition.max_pages || 60),
+  };
+};
+
+
