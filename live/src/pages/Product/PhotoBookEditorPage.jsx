@@ -2117,6 +2117,27 @@ const AVAILABLE_COLORS = [
   { value: "#15803d", label: "Forest Green" },
 ];
 
+export const PRESET_CUSTOMER_GRADIENTS = [
+  { name: "Golden Sunset", value: "linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #f59e0b 100%)" },
+  { name: "Rose Blush", value: "linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #fda4af 100%)" },
+  { name: "Champagne Luxury", value: "linear-gradient(135deg, #fefce8 0%, #fef08a 60%, #e2b714 100%)" },
+  { name: "Ocean Breeze", value: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 60%, #93c5fd 100%)" },
+  { name: "Sage Serenity", value: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 60%, #86efac 100%)" },
+  { name: "Lavender Dream", value: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 60%, #d8b4fe 100%)" },
+  { name: "Velvet Midnight", value: "linear-gradient(135deg, #1e1e2d 0%, #0f172a 100%)" },
+  { name: "Dark Emerald", value: "linear-gradient(135deg, #064e3b 0%, #022c22 100%)" },
+];
+
+export const PRESET_CUSTOMER_BG_COLORS = [
+  { value: "#ffffff", label: "White" },
+  { value: "#fef9c3", label: "Cream" },
+  { value: "#ccfbf1", label: "Mint" },
+  { value: "#ffe4e6", label: "Rose" },
+  { value: "#f1f5f9", label: "Slate" },
+  { value: "#1e293b", label: "Navy" },
+  { value: "#000000", label: "Black" },
+];
+
 // ── Color Luminance & Contrast Checker (White Family vs Dark Family) ──────────
 export const isWhiteFamilyColor = (color) => {
   if (!color || typeof color !== "string") return false;
@@ -5753,6 +5774,8 @@ const PhotoBookEditorPage = () => {
         font_size: existingText.font_size || 28,
         color: existingText.color || "#1e293b",
         align: existingText.align || "center",
+        shadow: existingText.shadow || { enable: false, color: "#000000", blur: 0, offsetX: 2, offsetY: 2 },
+        background: existingText.background || (existingText.bg_color ? { type: "color", value: existingText.bg_color, padding: 6, radius: 4 } : { type: "none", value: "", padding: 6, radius: 4 }),
         x_pct: coords.left,
         y_pct: coords.top,
         width_pct: coords.width,
@@ -5770,6 +5793,8 @@ const PhotoBookEditorPage = () => {
         font_size: 28,
         color: "#1e293b",
         align: "center",
+        shadow: { enable: false, color: "#000000", blur: 0, offsetX: 2, offsetY: 2 },
+        background: { type: "none", value: "", padding: 6, radius: 4 },
         x_pct: 49.5,
         y_pct: 82,
         width_pct: 1.0,
@@ -5818,6 +5843,9 @@ const PhotoBookEditorPage = () => {
             font_size_cqmin: fontSizeCqmin,
             color: textFormDraft.color,
             align: textFormDraft.align,
+            shadow: textFormDraft.shadow || { enable: false, color: "#000000", blur: 0, offsetX: 0, offsetY: 0 },
+            background: textFormDraft.background || { type: "none", value: "" },
+            bg_color: textFormDraft.background?.type !== "none" ? textFormDraft.background?.value : undefined,
             x_pct: coords.left,
             y_pct: coords.top,
             width_pct: coords.width,
@@ -5866,6 +5894,9 @@ const PhotoBookEditorPage = () => {
         font_size_cqmin: fontSizeCqmin,
         color: textFormDraft.color || "#1e293b",
         align: textFormDraft.align || "center",
+        shadow: textFormDraft.shadow || { enable: false, color: "#000000", blur: 0, offsetX: 0, offsetY: 0 },
+        background: textFormDraft.background || { type: "none", value: "" },
+        bg_color: textFormDraft.background?.type !== "none" ? textFormDraft.background?.value : undefined,
         x_pct: leftPct,
         y_pct: topPct,
         width_pct: widthPct,
@@ -6310,6 +6341,28 @@ const PhotoBookEditorPage = () => {
                 offsetX: 0,
                 offsetY: 0,
                 rotation: 0,
+              },
+            };
+          }
+          return el;
+        }),
+      };
+    });
+  };
+
+  const handleUpdateModalFrameBorder = (elementId, borderPatch) => {
+    pushModalUndo();
+    setEditingPageDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        elements: (prev.elements || []).map((el) => {
+          if ((el.id || el.frame_id) === elementId) {
+            return {
+              ...el,
+              border: {
+                ...(el.border || {}),
+                ...borderPatch,
               },
             };
           }
@@ -6779,6 +6832,33 @@ const PhotoBookEditorPage = () => {
     );
   };
 
+  const handleElementBorderWidthStep = (elementId, delta, pageId) => {
+    pushToUndo(pagesData);
+    setPagesData((prev) =>
+      prev.map((page) => {
+        if (page.page_id !== pageId && page.page_number !== pageId) return page;
+        return {
+          ...page,
+          elements: (page.elements || []).map((el) => {
+            if (el.id === elementId || el.frame_id === elementId) {
+              const currentW = el.border?.width || 0;
+              const newW = Math.max(0, Math.min(40, currentW + delta));
+              return {
+                ...el,
+                border: {
+                  ...(el.border || {}),
+                  width: newW,
+                  color: el.border?.color || "#ffffff",
+                },
+              };
+            }
+            return el;
+          }),
+        };
+      })
+    );
+  };
+
   const handleDuplicateElement = (elementId, pageId) => {
     pushToUndo(pagesData);
     setPagesData((prev) =>
@@ -7104,15 +7184,14 @@ const PhotoBookEditorPage = () => {
                   <svg
                     viewBox="0 0 100 100"
                     preserveAspectRatio="none"
-                    className="absolute inset-0 w-full h-full pointer-events-none"
-                    style={{ zIndex: 10 }}
+                    className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
+                    style={{ zIndex: 10, overflow: "visible" }}
                   >
                     <g
                       transform="scale(100, 100)"
                       fill="none"
                       stroke={borderColor}
-                      strokeWidth={normalizedBorderStroke}
-                      vectorEffect="non-scaling-stroke"
+                      strokeWidth={borderWidth / elRefDim}
                     >
                       {renderShapeSvgClip(clipDef, false)}
                     </g>
@@ -7186,6 +7265,27 @@ const PhotoBookEditorPage = () => {
                         W+
                       </button>
                       <div className="w-px h-3 bg-slate-700 mx-0.5" />
+                      {/* Border adjustments */}
+                      <button
+                        type="button"
+                        onClick={() => handleElementBorderWidthStep(el.id || el.frame_id, -2, page.page_id || page.page_number)}
+                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
+                        title="Decrease Border Width"
+                      >
+                        B-
+                      </button>
+                      <span className="text-[9px] text-teal-300 font-mono px-0.5 font-bold" title="Border Width">
+                        {el.border?.width || 0}px
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleElementBorderWidthStep(el.id || el.frame_id, 2, page.page_id || page.page_number)}
+                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
+                        title="Increase Border Width"
+                      >
+                        B+
+                      </button>
+                      <div className="w-px h-3 bg-slate-700 mx-0.5" />
                       {hasPhoto && (
                         <button
                           type="button"
@@ -7240,6 +7340,22 @@ const PhotoBookEditorPage = () => {
                   wordBreak: "break-word",
                   overflowWrap: "break-word",
                   whiteSpace: hasExplicitNewlines ? "pre-line" : "normal",
+                  textShadow:
+                    el.shadow?.blur || el.shadow?.offsetX || el.shadow?.offsetY
+                      ? `${el.shadow.offsetX ?? 2}px ${el.shadow.offsetY ?? 2}px ${el.shadow.blur || 0}px ${el.shadow.color || "rgba(0,0,0,0.5)"}`
+                      : undefined,
+                  background:
+                    el.background?.type !== "none" && el.background?.value
+                      ? el.background.value
+                      : el.bg_color || undefined,
+                  padding:
+                    el.background?.value || el.bg_color
+                      ? `${el.background?.padding ?? 4}px ${(el.background?.padding ?? 4) * 1.5}px`
+                      : undefined,
+                  borderRadius:
+                    el.background?.value || el.bg_color
+                      ? `${el.background?.radius ?? 4}px`
+                      : undefined,
                   border: isSelected && isInteractive ? "2px solid #00a896" : "none",
                   zIndex: isSelected ? 150 : Math.max(100, Number(el.z_index) || 100),
                 }}
@@ -9570,6 +9686,22 @@ const PhotoBookEditorPage = () => {
                               textAlign: textFormDraft.align || "center",
                               lineHeight: 1.25,
                               wordBreak: "break-word",
+                              textShadow:
+                                textFormDraft.shadow?.blur || textFormDraft.shadow?.offsetX || textFormDraft.shadow?.offsetY
+                                  ? `${textFormDraft.shadow.offsetX ?? 2}px ${textFormDraft.shadow.offsetY ?? 2}px ${textFormDraft.shadow.blur || 0}px ${textFormDraft.shadow.color || "rgba(0,0,0,0.5)"}`
+                                  : undefined,
+                              background:
+                                textFormDraft.background?.type !== "none" && textFormDraft.background?.value
+                                  ? textFormDraft.background.value
+                                  : undefined,
+                              padding:
+                                textFormDraft.background?.type !== "none" && textFormDraft.background?.value
+                                  ? `${textFormDraft.background?.padding ?? 6}px ${(textFormDraft.background?.padding ?? 6) * 1.5}px`
+                                  : undefined,
+                              borderRadius:
+                                textFormDraft.background?.type !== "none" && textFormDraft.background?.value
+                                  ? `${textFormDraft.background?.radius ?? 4}px`
+                                  : undefined,
                             }}
                           >
                             {textFormDraft.content || (
@@ -9759,6 +9891,333 @@ const PhotoBookEditorPage = () => {
                         <span className="text-[10px] text-gray-500 font-bold">🎨</span>
                       </label>
                     </div>
+                  </div>
+
+                  {/* F. Text Shadow Controls */}
+                  <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-gray-700">Text Shadow</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-[#00a896] bg-[#00a896]/10 px-2 py-0.5 rounded-md">
+                          {textFormDraft.shadow?.blur || 0}px
+                        </span>
+                        {(textFormDraft.shadow?.blur || 0) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTextFormDraft((prev) => ({
+                                ...prev,
+                                shadow: { enable: false, color: "#000000", blur: 0, offsetX: 0, offsetY: 0 },
+                              }))
+                            }
+                            className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">Intensity:</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTextFormDraft((prev) => ({
+                            ...prev,
+                            shadow: {
+                              ...(prev.shadow || {}),
+                              enable: true,
+                              blur: Math.max(0, (prev.shadow?.blur || 0) - 2),
+                              color: prev.shadow?.color || "rgba(0,0,0,0.5)",
+                              offsetX: prev.shadow?.offsetX ?? 2,
+                              offsetY: prev.shadow?.offsetY ?? 2,
+                            },
+                          }))
+                        }
+                        className="w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-xs transition-colors cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={30}
+                        step={1}
+                        value={textFormDraft.shadow?.blur || 0}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setTextFormDraft((prev) => ({
+                            ...prev,
+                            shadow: {
+                              ...(prev.shadow || {}),
+                              enable: val > 0,
+                              blur: val,
+                              color: prev.shadow?.color || "rgba(0,0,0,0.5)",
+                              offsetX: prev.shadow?.offsetX ?? 2,
+                              offsetY: prev.shadow?.offsetY ?? 2,
+                            },
+                          }));
+                        }}
+                        className="flex-1 accent-[#00a896] cursor-pointer"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTextFormDraft((prev) => ({
+                            ...prev,
+                            shadow: {
+                              ...(prev.shadow || {}),
+                              enable: true,
+                              blur: Math.min(30, (prev.shadow?.blur || 0) + 2),
+                              color: prev.shadow?.color || "rgba(0,0,0,0.5)",
+                              offsetX: prev.shadow?.offsetX ?? 2,
+                              offsetY: prev.shadow?.offsetY ?? 2,
+                            },
+                          }))
+                        }
+                        className="w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-xs transition-colors cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Shadow Color Selector */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-200/60">
+                      <span className="text-[11px] text-gray-500 font-medium">Shadow Color:</span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {["rgba(0,0,0,0.6)", "#000000", "#1e293b", "#b45309", "#ffffff", "rgba(0,168,150,0.7)"].map((sc) => (
+                          <button
+                            key={sc}
+                            type="button"
+                            onClick={() =>
+                              setTextFormDraft((prev) => ({
+                                ...prev,
+                                shadow: {
+                                  ...(prev.shadow || {}),
+                                  enable: true,
+                                  color: sc,
+                                  blur: (prev.shadow?.blur || 0) === 0 ? 4 : prev.shadow?.blur,
+                                  offsetX: prev.shadow?.offsetX ?? 2,
+                                  offsetY: prev.shadow?.offsetY ?? 2,
+                                },
+                              }))
+                            }
+                            style={{ backgroundColor: sc }}
+                            className={`w-5 h-5 rounded-full border transition-transform cursor-pointer ${
+                              (textFormDraft.shadow?.color || "rgba(0,0,0,0.6)") === sc
+                                ? "ring-2 ring-[#00a896] scale-110 border-white"
+                                : "border-gray-300 hover:scale-105"
+                            }`}
+                          />
+                        ))}
+                        <label className="w-5 h-5 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-pointer relative overflow-hidden" title="Custom color">
+                          <input
+                            type="color"
+                            value={textFormDraft.shadow?.color?.startsWith("#") ? textFormDraft.shadow.color : "#000000"}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTextFormDraft((prev) => ({
+                                ...prev,
+                                shadow: {
+                                  ...(prev.shadow || {}),
+                                  enable: true,
+                                  color: val,
+                                  blur: (prev.shadow?.blur || 0) === 0 ? 4 : prev.shadow?.blur,
+                                  offsetX: prev.shadow?.offsetX ?? 2,
+                                  offsetY: prev.shadow?.offsetY ?? 2,
+                                },
+                              }));
+                            }}
+                            className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                          />
+                          <span className="text-[8px]">🎨</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* G. Text Background Controls (Solid & Gradients) */}
+                  <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-gray-700">Text Background</label>
+                      <div className="flex items-center gap-1 bg-gray-200/80 p-0.5 rounded-lg text-xs">
+                        {["none", "color", "gradient"].map((mode) => {
+                          const currentMode = textFormDraft.background?.type || "none";
+                          const isActive = currentMode === mode;
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => {
+                                if (mode === "none") {
+                                  setTextFormDraft((prev) => ({
+                                    ...prev,
+                                    background: { type: "none", value: "" },
+                                  }));
+                                } else if (mode === "color") {
+                                  setTextFormDraft((prev) => ({
+                                    ...prev,
+                                    background: {
+                                      type: "color",
+                                      value: prev.background?.value || "#ffffff",
+                                      padding: prev.background?.padding ?? 6,
+                                      radius: prev.background?.radius ?? 4,
+                                    },
+                                  }));
+                                } else {
+                                  setTextFormDraft((prev) => ({
+                                    ...prev,
+                                    background: {
+                                      type: "gradient",
+                                      value: PRESET_CUSTOMER_GRADIENTS[0]?.value,
+                                      padding: prev.background?.padding ?? 6,
+                                      radius: prev.background?.radius ?? 4,
+                                    },
+                                  }));
+                                }
+                              }}
+                              className={`px-2 py-0.5 rounded capitalize font-semibold transition-all cursor-pointer ${
+                                isActive ? "bg-white text-teal-800 shadow-xs" : "text-gray-500 hover:text-black"
+                              }`}
+                            >
+                              {mode}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Solid Color Options */}
+                    {textFormDraft.background?.type === "color" && (
+                      <div className="flex flex-col gap-1.5 pt-1 border-t border-gray-200/60">
+                        <span className="text-[11px] text-gray-500 font-medium">Choose Color:</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {PRESET_CUSTOMER_BG_COLORS.map((bgc) => (
+                            <button
+                              key={bgc.value}
+                              type="button"
+                              onClick={() =>
+                                setTextFormDraft((prev) => ({
+                                  ...prev,
+                                  background: {
+                                    ...(prev.background || {}),
+                                    type: "color",
+                                    value: bgc.value,
+                                  },
+                                }))
+                              }
+                              style={{ backgroundColor: bgc.value }}
+                              className={`w-6 h-6 rounded-full border transition-transform cursor-pointer ${
+                                textFormDraft.background?.value === bgc.value
+                                  ? "ring-2 ring-[#00a896] scale-110 border-white shadow-xs"
+                                  : "border-gray-300 hover:scale-105"
+                              }`}
+                              title={bgc.label}
+                            />
+                          ))}
+                          <label className="w-6 h-6 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-pointer relative overflow-hidden" title="Custom color">
+                            <input
+                              type="color"
+                              value={textFormDraft.background?.value || "#ffffff"}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTextFormDraft((prev) => ({
+                                  ...prev,
+                                  background: {
+                                    ...(prev.background || {}),
+                                    type: "color",
+                                    value: val,
+                                  },
+                                }));
+                              }}
+                              className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                            />
+                            <span className="text-[9px]">🎨</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Gradient Options */}
+                    {textFormDraft.background?.type === "gradient" && (
+                      <div className="flex flex-col gap-1.5 pt-1 border-t border-gray-200/60">
+                        <span className="text-[11px] text-gray-500 font-medium">Choose Gradient:</span>
+                        <div className="grid grid-cols-2 gap-1.5 max-h-[140px] overflow-y-auto p-1 bg-white rounded-lg border border-gray-200">
+                          {PRESET_CUSTOMER_GRADIENTS.map((g) => {
+                            const isSelected = textFormDraft.background?.value === g.value;
+                            return (
+                              <button
+                                key={g.name}
+                                type="button"
+                                onClick={() =>
+                                  setTextFormDraft((prev) => ({
+                                    ...prev,
+                                    background: {
+                                      ...(prev.background || {}),
+                                      type: "gradient",
+                                      value: g.value,
+                                    },
+                                  }))
+                                }
+                                style={{ background: g.value }}
+                                className={`p-1.5 rounded-lg border text-left cursor-pointer transition-all h-8 flex items-end shadow-2xs ${
+                                  isSelected ? "ring-2 ring-teal-500 border-white" : "border-gray-200 hover:opacity-90"
+                                }`}
+                              >
+                                <span className="text-[9px] font-bold text-white bg-black/40 px-1 rounded truncate max-w-full">
+                                  {g.name}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Background Padding & Radius (when enabled) */}
+                    {textFormDraft.background?.type && textFormDraft.background.type !== "none" && (
+                      <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-200/60 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">Pad:</span>
+                          <input
+                            type="range"
+                            min={2}
+                            max={20}
+                            step={1}
+                            value={textFormDraft.background?.padding ?? 6}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setTextFormDraft((prev) => ({
+                                ...prev,
+                                background: { ...(prev.background || {}), padding: val },
+                              }));
+                            }}
+                            className="flex-1 accent-[#00a896] cursor-pointer"
+                          />
+                          <span className="font-mono text-[10px] text-teal-700 font-bold w-5">{textFormDraft.background?.padding ?? 6}px</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">Radius:</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={20}
+                            step={1}
+                            value={textFormDraft.background?.radius ?? 4}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setTextFormDraft((prev) => ({
+                                ...prev,
+                                background: { ...(prev.background || {}), radius: val },
+                              }));
+                            }}
+                            className="flex-1 accent-[#00a896] cursor-pointer"
+                          />
+                          <span className="font-mono text-[10px] text-teal-700 font-bold w-5">{textFormDraft.background?.radius ?? 4}px</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -10079,15 +10538,14 @@ const PhotoBookEditorPage = () => {
                           <svg
                             viewBox="0 0 100 100"
                             preserveAspectRatio="none"
-                            className="absolute inset-0 w-full h-full pointer-events-none"
-                            style={{ zIndex: 10 }}
+                            className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
+                            style={{ zIndex: 10, overflow: "visible" }}
                           >
                             <g
                               transform="scale(100, 100)"
                               fill="none"
                               stroke={borderColor}
-                              strokeWidth={normalizedBorderStroke}
-                              vectorEffect="non-scaling-stroke"
+                              strokeWidth={borderWidth / frameRefDim}
                             >
                               {renderShapeSvgClip(clipDef, false)}
                             </g>
@@ -10247,6 +10705,22 @@ const PhotoBookEditorPage = () => {
                           wordBreak: "break-word",
                           overflowWrap: "break-word",
                           whiteSpace: hasExplicitNewlines ? "pre-line" : "normal",
+                          textShadow:
+                            txt.shadow?.blur || txt.shadow?.offsetX || txt.shadow?.offsetY
+                              ? `${txt.shadow.offsetX ?? 2}px ${txt.shadow.offsetY ?? 2}px ${txt.shadow.blur || 0}px ${txt.shadow.color || "rgba(0,0,0,0.5)"}`
+                              : undefined,
+                          background:
+                            txt.background?.type !== "none" && txt.background?.value
+                              ? txt.background.value
+                              : txt.bg_color || undefined,
+                          padding:
+                            txt.background?.value || txt.bg_color
+                              ? `${txt.background?.padding ?? 4}px ${(txt.background?.padding ?? 4) * 1.5}px`
+                              : undefined,
+                          borderRadius:
+                            txt.background?.value || txt.bg_color
+                              ? `${txt.background?.radius ?? 4}px`
+                              : undefined,
                           transform: `rotate(${txt.rotation || 0}deg)`,
                           transformOrigin: "center center",
                           zIndex: isSelected ? 99 : Math.max(100, Number(txt.z_index) || 100),
@@ -10520,6 +10994,89 @@ const PhotoBookEditorPage = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* Row 4: Border Controls (Thickness & Color) */}
+                      <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-gray-700">Border Thickness & Color:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                              {selectedFrame.border?.width || 0}px
+                            </span>
+                            {(selectedFrame.border?.width || 0) > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: 0 })}
+                                className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: Math.max(0, (selectedFrame.border?.width || 0) - 2) })}
+                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm cursor-pointer transition-colors"
+                            title="Decrease Border Width"
+                          >
+                            -
+                          </button>
+                          <Slider
+                            min={0}
+                            max={40}
+                            step={1}
+                            value={selectedFrame.border?.width || 0}
+                            onChange={(w) => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: w })}
+                            className="flex-1 my-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: Math.min(40, (selectedFrame.border?.width || 0) + 2) })}
+                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm cursor-pointer transition-colors"
+                            title="Increase Border Width"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Border Color Chips & Picker */}
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          <span className="text-[11px] text-gray-500 font-medium">Border Color:</span>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            {["#ffffff", "#000000", "#d4af37", "#00a896", "#f43f5e", "#cbd5e1", "#1e293b"].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, {
+                                  color: c,
+                                  width: (selectedFrame.border?.width || 0) === 0 ? 4 : selectedFrame.border?.width,
+                                })}
+                                style={{ backgroundColor: c }}
+                                className={`w-5 h-5 rounded-full border transition-transform cursor-pointer ${
+                                  (selectedFrame.border?.color || "#ffffff").toLowerCase() === c.toLowerCase()
+                                    ? "ring-2 ring-teal-500 scale-110 border-white"
+                                    : "border-gray-300 hover:scale-105"
+                                }`}
+                              />
+                            ))}
+                            <label className="w-5 h-5 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-pointer relative overflow-hidden" title="Custom color">
+                              <input
+                                type="color"
+                                value={selectedFrame.border?.color || "#ffffff"}
+                                onChange={(e) => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, {
+                                  color: e.target.value,
+                                  width: (selectedFrame.border?.width || 0) === 0 ? 4 : selectedFrame.border?.width,
+                                })}
+                                className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                              />
+                              <span className="text-[8px]">🎨</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}
