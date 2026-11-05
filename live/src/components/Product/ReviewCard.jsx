@@ -1,13 +1,9 @@
 /* eslint-disable react/prop-types */
 import { Avatar, Card, Rate, Skeleton, Spin, Tag } from "antd";
-<<<<<<< HEAD
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-=======
+
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
->>>>>>> 1aabe2389515aef8335279c3f3e4b4dc752e8b1c
 dayjs.extend(relativeTime);
 import _ from "lodash";
 import { useState } from "react";
