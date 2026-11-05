@@ -10,8 +10,7 @@ import store from "./redux/store.js";
 import React from "react";
 import App from "./App.jsx";
 import { HelmetProvider } from "react-helmet-async";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+
 
 dayjs.extend(relativeTime);
 
