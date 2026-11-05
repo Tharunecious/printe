@@ -2731,6 +2731,20 @@ const PhotoBookEditorPage = () => {
   const [dragOverArrangeIndex, setDragOverArrangeIndex] = useState(null);
   const sidebarPhotoInputRef = useRef(null);
 
+  // Giveaway Mode Determination
+  const isGiveaway = useMemo(() => {
+    const sp = new URLSearchParams(window.location.search);
+    return Boolean(
+      sp.get("is_giveaway") === "true" ||
+      designData?.is_giveaway ||
+      designData?.options?.is_giveaway ||
+      templateData?.is_giveaway ||
+      templateData?.page_config?.is_giveaway ||
+      productData?.is_giveaway ||
+      productData?.photobook_config?.is_giveaway
+    );
+  }, [designData, templateData, productData]);
+
 
   // ── Alert on Tab Close with Unsaved Changes ─────────────────────────────────
   useEffect(() => {
@@ -2756,8 +2770,12 @@ const PhotoBookEditorPage = () => {
       if (productTemplates.length > 0) list = productTemplates;
       else list = [templateData || DEFAULT_VINTAGE_TEMPLATE];
     }
-    return list.filter((t) => t.storefront_visibility !== false && t.is_active !== false);
-  }, [allTemplatesList, productData, templateData]);
+    const filtered = list.filter((t) => t.storefront_visibility !== false && t.is_active !== false);
+    if (isGiveaway) {
+      return filtered.filter((t) => Boolean(t.is_giveaway || t.page_config?.is_giveaway));
+    }
+    return filtered.filter((t) => !t.is_giveaway && !t.page_config?.is_giveaway);
+  }, [allTemplatesList, productData, templateData, isGiveaway]);
 
   // ── Template Sizes: Only sizes created for the active template ────────────
   const templateSizes = useMemo(() => {
@@ -3091,6 +3109,22 @@ const PhotoBookEditorPage = () => {
   const [pagesData, setPagesData] = useState([]);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedFrameId, setSelectedFrameId] = useState(null);
+
+  // Total photo placeholders across all template pages
+  const totalRequiredPlaceholders = useMemo(() => {
+    return pagesData.reduce((acc, page) => {
+      if (page.is_blank) return acc;
+      const count = (page.elements || []).filter((el) => el.type === "photo_frame").length;
+      return acc + count;
+    }, 0);
+  }, [pagesData]);
+
+  const effectiveTargetPhotoCount = useMemo(() => {
+    if (isGiveaway) {
+      return Math.max(1, totalRequiredPlaceholders);
+    }
+    return targetPhotoCount;
+  }, [isGiveaway, totalRequiredPlaceholders, targetPhotoCount]);
 
   // Step 3 Spread Navigation
   const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
@@ -3520,6 +3554,34 @@ const PhotoBookEditorPage = () => {
       extraPricePerUnit = Number(photobookConfig.price_per_extra_page);
     } else {
       extraPricePerUnit = 15;
+    }
+
+    // 8. Giveaway pricing override: completely free, zero extra page charges
+    if (isGiveaway) {
+      const exactPages = Number(
+        matchedTemplate?.exact_pages ||
+        matchedTemplate?.default_pages ||
+        templateData?.exact_pages ||
+        templateData?.default_pages ||
+        photoBookPages ||
+        20
+      );
+      return {
+        basePages: exactPages,
+        minPages: exactPages,
+        maxPages: exactPages,
+        extraPages: 0,
+        extraPricePerUnit: 0,
+        extraPagesCost: 0,
+        basePrice: 0,
+        taxableTotal: 0,
+        gstRate: 0,
+        taxAmount: 0,
+        finalTotal: 0,
+        matchedEditionName: "Giveaway",
+        matchedSizeName: matchedSize?.name || selectedSize,
+        matchedTemplateName: matchedTemplate?.template_name || selectedTemplateName,
+      };
     }
 
     // 8. Extra pages (only charged above base default pages)
@@ -4074,9 +4136,31 @@ const PhotoBookEditorPage = () => {
           setPagesData(enriched);
 
           // Step resolution:
-          // If customer explicitly clicked "Start New Book", start at Step 1 (Your Book)
-          // If customer clicked "Continue My Book" (resume=true or step=3), open directly in Step 3 (Edit Your Book)
-          if (isExplicitNew || stepParam === "1") {
+          // If giveaway: exactly 3 steps (1: Upload Photos, 2: Edit Your Book, 3: Review & Cart)
+          const isGiveawayBook = Boolean(
+            searchParams.get("is_giveaway") === "true" ||
+            design?.is_giveaway ||
+            activeTpl?.is_giveaway ||
+            activeTpl?.page_config?.is_giveaway
+          );
+
+          if (isGiveawayBook) {
+            const reqFrames = enriched.reduce((tot, pg) => {
+              if (pg.is_blank) return tot;
+              return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
+            }, 0);
+            if (reqFrames > 0) {
+              setTargetPhotoCount(reqFrames);
+            }
+            const hasPlacedPhotos = enriched.some((pg) => pg.elements?.some((el) => el.type === "photo_frame" && el.photo_url));
+            if (isExplicitResume || stepParam === "3" || (hasPlacedPhotos && !isExplicitNew)) {
+              setMaxUnlockedStep(3);
+              setCurrentStep(3);
+            } else {
+              setMaxUnlockedStep(2);
+              setCurrentStep(2);
+            }
+          } else if (isExplicitNew || stepParam === "1") {
             setCurrentStep(1);
             setMaxUnlockedStep(1);
           } else if (isExplicitResume) {
@@ -4096,7 +4180,29 @@ const PhotoBookEditorPage = () => {
           const initialPages = buildPagesFromTemplate(pageCnt, activeTpl, loadedPhotos);
           setPagesData(initialPages);
 
-          if (isExplicitNew || stepParam === "1") {
+          const isGiveawayBook = Boolean(
+            searchParams.get("is_giveaway") === "true" ||
+            design?.is_giveaway ||
+            activeTpl?.is_giveaway ||
+            activeTpl?.page_config?.is_giveaway
+          );
+
+          if (isGiveawayBook) {
+            const reqFrames = initialPages.reduce((tot, pg) => {
+              if (pg.is_blank) return tot;
+              return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
+            }, 0);
+            if (reqFrames > 0) {
+              setTargetPhotoCount(reqFrames);
+            }
+            if (isExplicitResume) {
+              setMaxUnlockedStep(2);
+              setCurrentStep(2);
+            } else {
+              setMaxUnlockedStep(1);
+              setCurrentStep(1);
+            }
+          } else if (isExplicitNew || stepParam === "1") {
             setCurrentStep(1);
             setMaxUnlockedStep(1);
           } else if (isExplicitResume) {
@@ -4683,13 +4789,23 @@ const PhotoBookEditorPage = () => {
 
     if (uniqueFiles.length === 0) return;
 
-    const availableSlots = maxImages - uploadedPhotos.length;
+    const maxLimit = isGiveaway ? effectiveTargetPhotoCount : maxImages;
+    const availableSlots = maxLimit - uploadedPhotos.length;
     if (availableSlots <= 0) {
-      message.warning(`Maximum limit of ${maxImages} images already reached.`);
+      if (isGiveaway) {
+        message.warning(`Exactly ${effectiveTargetPhotoCount} photos are required for this giveaway photo book. Maximum count reached.`);
+      } else {
+        message.warning(`Maximum limit of ${maxImages} images already reached.`);
+      }
       return;
     }
 
     const filesToUpload = uniqueFiles.slice(0, availableSlots);
+    if (isGiveaway && uniqueFiles.length > availableSlots) {
+      message.info(
+        `Only ${availableSlots} more photo${availableSlots !== 1 ? "s were" : " was"} added to match the required count of ${effectiveTargetPhotoCount}. Extra files were skipped.`
+      );
+    }
     setIsUploading(true);
     setUploadPercent(0);
 
@@ -5681,11 +5797,20 @@ const PhotoBookEditorPage = () => {
     if (!editingPageDraft) return;
     pushModalUndo();
     const frames = (editingPageDraft.elements || []).filter((el) => el.type === "photo_frame");
+    const targetFrame = frames[indexToRemove];
+    if (!targetFrame) return;
 
-    if (frames.length <= 1) {
+    if (isGiveaway || frames.length <= 1) {
       const updated = (editingPageDraft.elements || []).map((el) => {
-        if (el.type === "photo_frame") {
-          return { ...el, photo_url: "", photo_id: "", test_image_url: "" };
+        if ((el.id || el.frame_id) === (targetFrame.id || targetFrame.frame_id)) {
+          return {
+            ...el,
+            photo_url: "",
+            photo_id: "",
+            test_image_url: "",
+            sample_image_url: "",
+            image_url: "",
+          };
         }
         return el;
       });
@@ -6031,7 +6156,7 @@ const PhotoBookEditorPage = () => {
     if (!isElementCustomerEditable(element)) return;
 
     setSelectedModalElementId(element.id || element.frame_id);
-    if (element.is_locked) return;
+    if (isGiveaway || element.is_locked) return;
 
     const container = canvasContainerRef.current;
     if (!container) return;
@@ -6052,7 +6177,7 @@ const PhotoBookEditorPage = () => {
   };
 
   const handleModalResizeMouseDown = (e, handle, element) => {
-    if (element.is_locked || !isElementCustomerEditable(element)) return;
+    if (isGiveaway || element.is_locked || !isElementCustomerEditable(element)) return;
     e.stopPropagation();
     e.preventDefault();
 
@@ -6265,7 +6390,23 @@ const PhotoBookEditorPage = () => {
     }
   }, [activeModalTransform, handleModalMouseMove, handleModalMouseUp]);
 
-  // ── In-Frame Image Fitting & Zoom Controls (Preserves Frame Geometry) ───────
+  // ── In-Frame Image Fitting, Shape & Zoom Controls (Preserves Frame Geometry) ───────
+  const handleUpdateModalFrameShape = (elementId, shapeId) => {
+    pushModalUndo();
+    setEditingPageDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        elements: (prev.elements || []).map((el) => {
+          if ((el.id || el.frame_id) === elementId) {
+            return { ...el, shape: shapeId, mask_shape: shapeId };
+          }
+          return el;
+        }),
+      };
+    });
+  };
+
   const handleUpdateModalFrameFit = (elementId, fitMode) => {
     pushModalUndo();
     setEditingPageDraft((prev) => {
@@ -6724,6 +6865,7 @@ const PhotoBookEditorPage = () => {
   const handleStartElementMove = (e, el, pageId) => {
     e.stopPropagation();
     setSelectedFrameId(el.frame_id || el.id);
+    if (isGiveaway) return;
 
     const container = e.currentTarget.closest(".page-canvas-container");
     if (!container) return;
@@ -6779,6 +6921,7 @@ const PhotoBookEditorPage = () => {
   const handleStartElementResize = (e, handle, el, pageId) => {
     e.stopPropagation();
     setSelectedFrameId(el.frame_id || el.id);
+    if (isGiveaway) return;
 
     const container = e.currentTarget.closest(".page-canvas-container");
     if (!container) return;
@@ -7204,8 +7347,8 @@ const PhotoBookEditorPage = () => {
                     {/* Vibrant Selection Border */}
                     <div className="absolute inset-0 border-2 border-[#00a896] pointer-events-none shadow-sm" />
 
-                    {/* Photoshop-like 8 Resize Handles (NW, N, NE, E, SE, S, SW, W) */}
-                    {RESIZE_HANDLES.map((h) => (
+                    {/* Photoshop-like 8 Resize Handles (NW, N, NE, E, SE, S, SW, W) - Hidden in Giveaway Mode */}
+                    {!isGiveaway && RESIZE_HANDLES.map((h) => (
                       <div
                         key={h.position}
                         onMouseDown={(e) => handleStartElementResize(e, h.position, el, page.page_id || page.page_number)}
@@ -7243,27 +7386,31 @@ const PhotoBookEditorPage = () => {
                         <PictureOutlined className="text-xs" />
                         <span>{hasPhoto ? "Swap" : "Add"}</span>
                       </button>
-                      <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                      {/* Width adjustments */}
-                      <button
-                        type="button"
-                        onClick={() => handleElementWidthStep(el.id || el.frame_id, -20, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Decrease Width"
-                      >
-                        W-
-                      </button>
-                      <span className="text-[9px] text-slate-400 font-mono px-0.5">
-                        {Math.round(widthPct)}%
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleElementWidthStep(el.id || el.frame_id, 20, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Increase Width"
-                      >
-                        W+
-                      </button>
+                      {!isGiveaway && (
+                        <>
+                          <div className="w-px h-3 bg-slate-700 mx-0.5" />
+                          {/* Width adjustments */}
+                          <button
+                            type="button"
+                            onClick={() => handleElementWidthStep(el.id || el.frame_id, -20, page.page_id || page.page_number)}
+                            className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
+                            title="Decrease Width"
+                          >
+                            W-
+                          </button>
+                          <span className="text-[9px] text-slate-400 font-mono px-0.5">
+                            {Math.round(widthPct)}%
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleElementWidthStep(el.id || el.frame_id, 20, page.page_id || page.page_number)}
+                            className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
+                            title="Increase Width"
+                          >
+                            W+
+                          </button>
+                        </>
+                      )}
                       <div className="w-px h-3 bg-slate-700 mx-0.5" />
                       {/* Border adjustments */}
                       <button
@@ -7296,14 +7443,16 @@ const PhotoBookEditorPage = () => {
                           Clear
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteElement(el.id || el.frame_id, page.page_id || page.page_number)}
-                        className="hover:text-rose-400 text-rose-300 px-1 py-0.5"
-                        title="Delete Element"
-                      >
-                        <DeleteOutlined className="text-xs" />
-                      </button>
+                      {!isGiveaway && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteElement(el.id || el.frame_id, page.page_id || page.page_number)}
+                          className="hover:text-rose-400 text-rose-300 px-1 py-0.5"
+                          title="Delete Element"
+                        >
+                          <DeleteOutlined className="text-xs" />
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -7356,21 +7505,21 @@ const PhotoBookEditorPage = () => {
                     el.background?.value || el.bg_color
                       ? `${el.background?.radius ?? 4}px`
                       : undefined,
-                  border: isSelected && isInteractive ? "2px solid #00a896" : "none",
+                  border: isSelected && isInteractive && !isGiveaway ? "2px solid #00a896" : "none",
                   zIndex: isSelected ? 150 : Math.max(100, Number(el.z_index) || 100),
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (isInteractive) setSelectedFrameId(el.id);
+                  if (isInteractive && !isGiveaway) setSelectedFrameId(el.id);
                 }}
                 onMouseDown={(e) => {
-                  if (isInteractive) handleStartElementMove(e, el, page.page_id || page.page_number);
+                  if (isInteractive && !isGiveaway) handleStartElementMove(e, el, page.page_id || page.page_number);
                 }}
-                className={`leading-tight cursor-move select-none ${
-                  isSelected && isInteractive ? "relative" : ""
+                className={`leading-tight ${isGiveaway ? "cursor-default" : "cursor-move"} select-none ${
+                  isSelected && isInteractive && !isGiveaway ? "relative" : ""
                 }`}
               >
-                {isInteractive && el.is_customer_editable ? (
+                {isInteractive && el.is_customer_editable && !isGiveaway ? (
                   <input
                     type="text"
                     value={el.content || ""}
@@ -7394,7 +7543,7 @@ const PhotoBookEditorPage = () => {
                 )}
 
                 {/* Transform Handles for Text - Only for customer-editable text */}
-                {isSelected && isInteractive && el.is_customer_editable && (
+                {isSelected && isInteractive && el.is_customer_editable && !isGiveaway && (
                   <>
                     {RESIZE_HANDLES.map((h) => (
                       <div
@@ -7459,19 +7608,19 @@ const PhotoBookEditorPage = () => {
                 key={elKey}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (isInteractive) setSelectedFrameId(el.id || el.frame_id);
+                  if (isInteractive && !isGiveaway) setSelectedFrameId(el.id || el.frame_id);
                 }}
                 onMouseDown={(e) => {
-                  if (isInteractive) handleStartElementMove(e, dec, page.page_id || page.page_number);
+                  if (isInteractive && !isGiveaway) handleStartElementMove(e, dec, page.page_id || page.page_number);
                 }}
                 style={{
                   ...baseStyle,
                   opacity: dec.opacity ?? 1,
                   color: dec.tint || "currentColor",
-                  cursor: isInteractive ? "move" : "default",
+                  cursor: isInteractive && !isGiveaway ? "move" : "default",
                 }}
                 className={`flex items-center justify-center select-none group relative overflow-visible ${
-                  isSelected && isInteractive ? "ring-2 ring-[#00a896]" : ""
+                  isSelected && isInteractive && !isGiveaway ? "ring-2 ring-[#00a896]" : ""
                 }`}
               >
                 {/* Artwork display */}
@@ -7506,7 +7655,7 @@ const PhotoBookEditorPage = () => {
                 </div>
 
                 {/* Transform Handles for Decoration (Resize Width & Height) */}
-                {isSelected && isInteractive && (
+                {isSelected && isInteractive && !isGiveaway && (
                   <>
                     <div className="absolute inset-0 border-2 border-[#00a896] pointer-events-none shadow-sm" />
 
@@ -7833,14 +7982,21 @@ const PhotoBookEditorPage = () => {
           </span>
         </div>
 
-        {/* Center: 4-Step Stepper (Your Book, Upload Photos, Edit Your Book, Review & Cart) */}
+        {/* Center: Stepper (4-Step for Paid Book, 3-Step for Giveaway) */}
         <div className="hidden md:flex items-center gap-1.5 lg:gap-2.5 select-none text-xs">
-          {[
-            { step: 1, label: "Your Book" },
-            { step: 2, label: "Upload Photos" },
-            { step: 3, label: "Edit Your Book" },
-            { step: 4, label: "Review & Cart" },
-          ].map(({ step, label }, idx, arr) => {
+          {(isGiveaway
+            ? [
+                { step: 2, displayNum: 1, label: "Upload Photos" },
+                { step: 3, displayNum: 2, label: "Edit Your Book" },
+                { step: 4, displayNum: 3, label: "Review & Cart" },
+              ]
+            : [
+                { step: 1, displayNum: 1, label: "Your Book" },
+                { step: 2, displayNum: 2, label: "Upload Photos" },
+                { step: 3, displayNum: 3, label: "Edit Your Book" },
+                { step: 4, displayNum: 4, label: "Review & Cart" },
+              ]
+          ).map(({ step, displayNum, label }, idx, arr) => {
             const isActive = currentStep === step;
             const isCompleted = currentStep > step;
             const isLocked = step === 4 ? false : step > maxUnlockedStep;
@@ -7864,6 +8020,8 @@ const PhotoBookEditorPage = () => {
                 } else if (currentStep === 2) {
                   if (uploadedPhotos.length === 0) {
                     message.warning("Please upload at least 1 photo before proceeding to album editor.");
+                  } else if (isGiveaway && uploadedPhotos.length < effectiveTargetPhotoCount) {
+                    message.warning(`Please upload all ${effectiveTargetPhotoCount} required photos before proceeding to album editor.`);
                   } else {
                     message.warning("Please click 'Next: Arrange & Edit Album' to proceed.");
                   }
@@ -7874,6 +8032,10 @@ const PhotoBookEditorPage = () => {
               }
 
               if (step === 3) {
+                if (isGiveaway && uploadedPhotos.length < effectiveTargetPhotoCount) {
+                  message.warning(`Please upload all ${effectiveTargetPhotoCount} required photos before proceeding.`);
+                  return;
+                }
                 if (uploadedPhotos.length > 0) {
                   syncPhotosToPages(uploadedPhotos, photosPerPageMode);
                 }
@@ -7908,7 +8070,7 @@ const PhotoBookEditorPage = () => {
                         : "bg-slate-700 text-slate-300"
                     }`}
                   >
-                    {isCompleted ? "✓" : step}
+                    {isCompleted ? "✓" : displayNum}
                   </span>
                   <span>{label}</span>
                 </button>
@@ -8009,7 +8171,9 @@ const PhotoBookEditorPage = () => {
                 ) : (
                   <>
                     <ShoppingCartOutlined />
-                    <span>Review & Cart - ₹{priceDetails.finalTotal}</span>
+                    <span>
+                      {isGiveaway ? "Review & Cart - Free" : `Review & Cart - ₹${priceDetails.finalTotal}`}
+                    </span>
                   </>
                 )}
               </button>
@@ -8019,7 +8183,7 @@ const PhotoBookEditorPage = () => {
       </header>
 
       {/* ── STEP 1: YOUR BOOK (Photo Count & Photos-Per-Page Density) ──────── */}
-      {currentStep === 1 && (
+      {currentStep === 1 && !isGiveaway && (
         <YourBookStep
           photoBookPages={photoBookPages}
           targetPhotoCount={targetPhotoCount}
@@ -8037,7 +8201,8 @@ const PhotoBookEditorPage = () => {
       {/* ── STEP 2: UPLOAD PHOTOS ────────────────────────────────────────── */}
       {currentStep === 2 && (
         <UploadPhotosStep
-          targetPhotoCount={targetPhotoCount}
+          targetPhotoCount={isGiveaway ? effectiveTargetPhotoCount : targetPhotoCount}
+          isGiveaway={isGiveaway}
           uploadedPhotos={uploadedPhotos}
           isUploading={isUploading}
           uploadPercent={uploadPercent}
@@ -8047,9 +8212,23 @@ const PhotoBookEditorPage = () => {
           handlePhotoDragOver={handlePhotoDragOver}
           handlePhotoDrop={handlePhotoDrop}
           onPreviewPhoto={(url) => setPreviewModalUrl(url)}
-          onBack={() => setCurrentStep(1)}
+          onBack={() => {
+            if (isGiveaway) {
+              navigate(`/product/${encodeURIComponent(product_name)}`);
+            } else {
+              setCurrentStep(1);
+            }
+          }}
           onProceedToEdit={() => {
-            if (uploadedPhotos.length === 0) {
+            if (isGiveaway) {
+              if (uploadedPhotos.length < effectiveTargetPhotoCount) {
+                const remaining = effectiveTargetPhotoCount - uploadedPhotos.length;
+                message.warning(
+                  `Please upload all ${effectiveTargetPhotoCount} required photos before proceeding (${remaining} remaining).`
+                );
+                return;
+              }
+            } else if (uploadedPhotos.length === 0) {
               message.warning("Please upload at least 1 photo before proceeding to album editor.");
               return;
             }
@@ -8074,7 +8253,9 @@ const PhotoBookEditorPage = () => {
                 { id: "size", label: "Size", icon: <BorderOutlined />, desc: "Book Size" },
                 { id: "design", label: "Design", icon: <BgColorsOutlined />, desc: "Themes" },
                 { id: "options", label: "Options", icon: <SettingOutlined />, desc: "Book Options" },
-              ].map((tool) => {
+              ]
+                .filter((tool) => !isGiveaway || (tool.id !== "arrange" && tool.id !== "options"))
+                .map((tool) => {
                 const isActive = activeStudioTool === tool.id;
                 return (
                   <button
@@ -8676,7 +8857,7 @@ const PhotoBookEditorPage = () => {
             )}
 
             {/* Case D: Arrange Spreads */}
-            {activeStudioTool === "arrange" && (
+            {activeStudioTool === "arrange" && !isGiveaway && (
               <div className="p-4 sm:p-5 flex flex-col gap-4 select-none overflow-y-auto h-full">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div>
@@ -9122,7 +9303,7 @@ const PhotoBookEditorPage = () => {
             )}
 
             {/* Case F: Book Options */}
-            {activeStudioTool === "options" && (() => {
+            {activeStudioTool === "options" && !isGiveaway && (() => {
               // Extract bounds and pricing strictly from real template / edition data via priceDetails
               const activeEditionObj =
                 availableEditions.find(
@@ -10580,72 +10761,80 @@ const PhotoBookEditorPage = () => {
                                 <PictureOutlined className="text-xs" />
                                 <span>Change Image</span>
                               </button>
-                              <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
-                              <button
-                                type="button"
-                                title="Flip Image Horizontally"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  lastModalElementClickRef.current = Date.now();
-                                  handleToggleModalFrameFlip(frame.id || frame.frame_id);
-                                }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-sky-400 hover:text-sky-300 font-semibold cursor-pointer text-[11px]"
-                              >
-                                <SwapOutlined className="text-xs" />
-                                <span>Flip</span>
-                              </button>
-                              {!isCoverPage && draftFrames.length > 1 && (
+                              {!isGiveaway && (
                                 <>
                                   <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
                                   <button
                                     type="button"
-                                    title="Remove Photo Placeholder"
+                                    title="Flip Image Horizontally"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       lastModalElementClickRef.current = Date.now();
-                                      handleDeleteModalFrame(frame.id || frame.frame_id);
+                                      handleToggleModalFrameFlip(frame.id || frame.frame_id);
                                     }}
-                                    className="w-6 h-6 rounded flex items-center justify-center hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 cursor-pointer"
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-sky-400 hover:text-sky-300 font-semibold cursor-pointer text-[11px]"
                                   >
-                                    <DeleteOutlined className="text-[10px]" />
+                                    <SwapOutlined className="text-xs" />
+                                    <span>Flip</span>
                                   </button>
+                                  {!isCoverPage && draftFrames.length > 1 && (
+                                    <>
+                                      <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
+                                      <button
+                                        type="button"
+                                        title="Remove Photo Placeholder"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          lastModalElementClickRef.current = Date.now();
+                                          handleDeleteModalFrame(frame.id || frame.frame_id);
+                                        }}
+                                        className="w-6 h-6 rounded flex items-center justify-center hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 cursor-pointer"
+                                      >
+                                        <DeleteOutlined className="text-[10px]" />
+                                      </button>
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>
 
-                            {/* 8 Resizing Handles */}
-                            {MODAL_RESIZE_HANDLES.map((handle) => (
-                              <div
-                                key={handle.position}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  lastModalElementClickRef.current = Date.now();
-                                }}
-                                onMouseDown={(e) => handleModalResizeMouseDown(e, handle, frame)}
-                                className="absolute w-3 h-3 bg-white border-2 border-teal-600 rounded-sm pointer-events-auto hover:scale-125 transition-transform z-40"
-                                style={{
-                                  left: `${handle.xPct * 100}%`,
-                                  top: `${handle.yPct * 100}%`,
-                                  transform: "translate(-50%, -50%)",
-                                  cursor: handle.cursor,
-                                }}
-                                title={`Resize (${handle.position})`}
-                              />
-                            ))}
+                            {!isGiveaway && (
+                              <>
+                                {/* 8 Resizing Handles */}
+                                {MODAL_RESIZE_HANDLES.map((handle) => (
+                                  <div
+                                    key={handle.position}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      lastModalElementClickRef.current = Date.now();
+                                    }}
+                                    onMouseDown={(e) => handleModalResizeMouseDown(e, handle, frame)}
+                                    className="absolute w-3 h-3 bg-white border-2 border-teal-600 rounded-sm pointer-events-auto hover:scale-125 transition-transform z-40"
+                                    style={{
+                                      left: `${handle.xPct * 100}%`,
+                                      top: `${handle.yPct * 100}%`,
+                                      transform: "translate(-50%, -50%)",
+                                      cursor: handle.cursor,
+                                    }}
+                                    title={`Resize (${handle.position})`}
+                                  />
+                                ))}
 
-                            {/* Rotation Handle with connecting line */}
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 w-0.5 h-6 bg-teal-500 z-30 pointer-events-none" />
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                lastModalElementClickRef.current = Date.now();
-                              }}
-                              onMouseDown={(e) => handleModalRotateMouseDown(e, frame)}
-                              className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white border-2 border-teal-600 rounded-full shadow-md pointer-events-auto flex items-center justify-center hover:scale-110 cursor-grab active:cursor-grabbing transition-transform text-teal-700 z-40"
-                              title="Rotate element (drag around center)"
-                            >
-                              <RotateRightOutlined className="text-[11px]" />
-                            </div>
+                                {/* Rotation Handle with connecting line */}
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 w-0.5 h-6 bg-teal-500 z-30 pointer-events-none" />
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    lastModalElementClickRef.current = Date.now();
+                                  }}
+                                  onMouseDown={(e) => handleModalRotateMouseDown(e, frame)}
+                                  className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white border-2 border-teal-600 rounded-full shadow-md pointer-events-auto flex items-center justify-center hover:scale-110 cursor-grab active:cursor-grabbing transition-transform text-teal-700 z-40"
+                                  title="Rotate element (drag around center)"
+                                >
+                                  <RotateRightOutlined className="text-[11px]" />
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -10661,7 +10850,7 @@ const PhotoBookEditorPage = () => {
                     const heightPct = coords.height;
 
                     const hasExplicitNewlines = txt.content && String(txt.content).includes("\n");
-                    const isCustomerEditable = Boolean(txt.is_customer_editable);
+                    const isCustomerEditable = Boolean(txt.is_customer_editable) && !isGiveaway;
                     const isSelected = isCustomerEditable && selectedModalElementId === txt.id;
 
                     return (
@@ -10860,7 +11049,9 @@ const PhotoBookEditorPage = () => {
 
                 {/* Subtitle Hint */}
                 <p className="text-[11px] text-gray-400 mt-2 text-center select-none font-medium">
-                  Click any photo or text to rotate, resize, drag or change • Adjust fit & zoom below
+                  {isGiveaway
+                    ? "Click any photo to change photo, shape, fit & zoom below"
+                    : "Click any photo or text to rotate, resize, drag or change • Adjust fit & zoom below"}
                 </p>
 
                 {/* Dedicated In-Frame Image Fit & Zoom Controls (No Destructive Cropping!) */}
@@ -10917,6 +11108,38 @@ const PhotoBookEditorPage = () => {
                                 title={m.desc}
                               >
                                 {m.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Row 1b: Frame Shape Selection */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                        <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Frame Shape:</span>
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          {[
+                            { key: "rectangle", label: "Rectangle" },
+                            { key: "circle", label: "Circle" },
+                            { key: "heart", label: "Heart" },
+                            { key: "star", label: "Star" },
+                            { key: "hexagon", label: "Hexagon" },
+                            { key: "arch", label: "Arch" },
+                            { key: "scallop", label: "Scallop" },
+                          ].map((sh) => {
+                            const isCur = (selectedFrame.shape || "rectangle") === sh.key;
+                            return (
+                              <button
+                                key={sh.key}
+                                type="button"
+                                onClick={() => handleUpdateModalFrameShape(selectedFrame.id || selectedFrame.frame_id, sh.key)}
+                                className={`py-1 px-2 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                                  isCur
+                                    ? "bg-[#00a896] text-white shadow-xs"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                }`}
+                              >
+                                {sh.label}
                               </button>
                             );
                           })}
@@ -11085,7 +11308,7 @@ const PhotoBookEditorPage = () => {
               {/* 3. "On this cover" / "On this page" Row */}
               {(() => {
                 const editableDraftFrames = draftFrames.filter((f) => f.is_customer_editable !== false);
-                const editableDraftTexts = draftTexts.filter((t) => Boolean(t.is_customer_editable));
+                const editableDraftTexts = isGiveaway ? [] : draftTexts.filter((t) => Boolean(t.is_customer_editable));
                 const totalEditableItems = editableDraftFrames.length + editableDraftTexts.length;
 
                 return (
@@ -11182,7 +11405,7 @@ const PhotoBookEditorPage = () => {
                       })}
 
                       {/* Text Element Cards (Only Customer Editable Texts!) */}
-                      {editableDraftTexts.map((txt) => {
+                      {!isGiveaway && editableDraftTexts.map((txt) => {
                         const isSelected = selectedModalElementId === txt.id;
                         return (
                           <div
@@ -11227,7 +11450,7 @@ const PhotoBookEditorPage = () => {
                       })}
 
                       {/* Direct "+ Add photo" Button (Only for Interior Pages, NOT for Covers) */}
-                      {!isCoverPage && (
+                      {!isGiveaway && !isCoverPage && (
                         <button
                           type="button"
                           onClick={() => {
@@ -11247,22 +11470,24 @@ const PhotoBookEditorPage = () => {
                       )}
 
                       {/* "+ Add text" Button (Available for Both Pages and Covers) */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTextEditor(null)}
-                        className="w-16 h-14 rounded-none border-2 border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 text-gray-500 flex flex-col items-center justify-center transition-all cursor-pointer shrink-0"
-                        title={isCoverPage ? "Add text to this cover" : "Add text to this page"}
-                      >
-                        <span className="text-xs font-serif font-bold leading-none">Aa</span>
-                        <span className="text-[9px] font-bold mt-0.5">+ Text</span>
-                      </button>
+                      {!isGiveaway && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTextEditor(null)}
+                          className="w-16 h-14 rounded-none border-2 border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 text-gray-500 flex flex-col items-center justify-center transition-all cursor-pointer shrink-0"
+                          title={isCoverPage ? "Add text to this cover" : "Add text to this page"}
+                        >
+                          <span className="text-xs font-serif font-bold leading-none">Aa</span>
+                          <span className="text-[9px] font-bold mt-0.5">+ Text</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })()}
 
               {/* 4. "⊞ Layout" Row (Only on Interior Pages - NOT on Front & Back Covers) */}
-              {!isCoverPage && (
+              {!isGiveaway && !isCoverPage && (
                 <div className="px-6 py-3 border-t border-gray-100 flex flex-col gap-2 bg-white">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
                     <span className="text-amber-500 text-sm">⊞</span>

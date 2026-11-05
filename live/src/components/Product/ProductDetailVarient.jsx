@@ -740,6 +740,16 @@ const ProductDetailVarient = ({
     );
   }, [templatesList, selectedVariants]);
 
+  // Giveaway photo book check
+  const isGiveaway = useMemo(() => {
+    return Boolean(
+      data?.is_giveaway ||
+      photobookConfig?.is_giveaway ||
+      activeTemplate?.is_giveaway ||
+      activeTemplate?.template_type === "giveaway"
+    );
+  }, [data?.is_giveaway, photobookConfig?.is_giveaway, activeTemplate]);
+
   const activeEdition = useMemo(() => {
     const eds = activeTemplate?.editions || [];
     if (eds.length === 0) return null;
@@ -776,6 +786,11 @@ const ProductDetailVarient = ({
   const [photoBookPages, setPhotoBookPages] = useState(defaultPages);
   useEffect(() => {
     if (isPhotoBook) {
+      if (isGiveaway) {
+        const exact = Number(activeTemplate?.exact_pages || activeTemplate?.default_pages || defaultPages || 20);
+        setPhotoBookPages(exact);
+        return;
+      }
       if (!userManuallyChangedPages.current) {
         setPhotoBookPages(Math.min(maxPages, Math.max(minPages, defaultPages)));
       } else {
@@ -783,7 +798,7 @@ const ProductDetailVarient = ({
         if (photoBookPages < minPages) setPhotoBookPages(minPages);
       }
     }
-  }, [isPhotoBook, defaultPages, maxPages, minPages]);
+  }, [isPhotoBook, isGiveaway, activeTemplate?.exact_pages, defaultPages, maxPages, minPages]);
 
   const photoBookPageOptions = useMemo(() => {
     if (!isPhotoBook) return [];
@@ -840,8 +855,8 @@ const ProductDetailVarient = ({
     return Number(photobookConfig.price_per_extra_page || 15);
   }, [isPhotoBook, currentSizeId, activeEdition, activeTemplate, currentSizeObj, currentPriceSplitup, photobookConfig]);
 
-  const extraPages = isPhotoBook ? Math.max(0, photoBookPages - defaultPages) : 0;
-  const extraPagesCost = isPhotoBook ? extraPages * pricePerExtraPage : 0;
+  const extraPages = (isPhotoBook && !isGiveaway) ? Math.max(0, photoBookPages - defaultPages) : 0;
+  const extraPagesCost = (isPhotoBook && !isGiveaway) ? extraPages * pricePerExtraPage : 0;
 
   // Merge Photo Book configured templates, editions, sizes and custom variants into availableVariants
   const availableVariants = useMemo(() => {
@@ -858,22 +873,34 @@ const ProductDetailVarient = ({
           })),
         });
 
-        // 2. Merge editions from the active template
-        const editions = activeTemplate?.editions || [];
-        if (editions.length > 0) {
-          vars.splice(1, 0, {
-            variant_name: "Edition",
-            variant_type: "dropdown",
-            options: editions.map((ed) => ({
-              value: ed.edition_name,
-              label: ed.edition_name,
-            })),
-          });
+        // 2. Merge editions from the active template ONLY if NOT giveaway
+        if (!isGiveaway) {
+          const editions = activeTemplate?.editions || [];
+          if (editions.length > 0) {
+            vars.splice(1, 0, {
+              variant_name: "Edition",
+              variant_type: "dropdown",
+              options: editions.map((ed) => ({
+                value: ed.edition_name,
+                label: ed.edition_name,
+              })),
+            });
+          }
         }
       }
 
-      // 3. Merge ALL sizes created in photobook_config.sizes
-      const cfgSizes = photobookConfig.sizes || [];
+      // 3. Merge ALL sizes created in photobook_config.sizes (filtered to supported sizes if configured)
+      let cfgSizes = photobookConfig.sizes || [];
+      if (activeTemplate?.supported_sizes?.length > 0) {
+        const supported = activeTemplate.supported_sizes.map((s) => String(s).toLowerCase().trim());
+        const filtered = cfgSizes.filter((s) =>
+          supported.includes(String(s._id).toLowerCase()) ||
+          supported.includes(String(s.name).toLowerCase().trim())
+        );
+        if (filtered.length > 0) {
+          cfgSizes = filtered;
+        }
+      }
       if (cfgSizes.length > 0) {
         const sizeVarIdx = vars.findIndex((v) =>
           (v.variant_name || "").toLowerCase().includes("size")
@@ -919,7 +946,7 @@ const ProductDetailVarient = ({
       });
     }
     return vars;
-  }, [data?.variants, isPhotoBook, photobookConfig, templatesList, activeTemplate]);
+  }, [data?.variants, isPhotoBook, isGiveaway, photobookConfig, templatesList, activeTemplate]);
 
   // Sync size changes to slider / parent
   useEffect(() => {
@@ -1952,10 +1979,11 @@ const ProductDetailVarient = ({
       const payload = {
         product_id: data._id,
         size: chosenSize,
-        variant: selectedVariants["Edition"] || selectedVariants.variant || "Standard",
-        page_count: photoBookPages,
+        variant: isGiveaway ? "Giveaway" : (selectedVariants["Edition"] || selectedVariants.variant || "Standard"),
+        page_count: isGiveaway ? (activeTemplate?.exact_pages || activeTemplate?.default_pages || photoBookPages) : photoBookPages,
         template_id: chosenTemplateId,
         template_name: chosenTemplateName,
+        is_giveaway: isGiveaway,
         uploaded_images: [],
         pages: [],
       };
@@ -1963,7 +1991,7 @@ const ProductDetailVarient = ({
       const designId = res.data?.data?.design_id || res.data?.data?.design?._id;
       if (designId) {
         const prodSlug = encodeURIComponent(data.seo_url || data.name || data._id);
-        navigate(`/product/${prodSlug}/${designId}?step=1&new=true&template_id=${encodeURIComponent(chosenTemplateId)}&template_name=${encodeURIComponent(chosenTemplateName)}`);
+        navigate(`/product/${prodSlug}/${designId}?step=1&new=true&is_giveaway=${isGiveaway}&template_id=${encodeURIComponent(chosenTemplateId)}&template_name=${encodeURIComponent(chosenTemplateName)}`);
       } else {
         toast.error("Could not initiate design session");
       }
@@ -2415,54 +2443,65 @@ const ProductDetailVarient = ({
 
           {/* Photo Book Pages: Increase / Decrease control + minimal info */}
           {isPhotoBook && (
-            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-              <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">Pages:</Text>
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Stepper counter */}
-                <div className="inline-flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden shadow-sm">
-                  <button
-                    type="button"
-                    disabled={photoBookPages <= minPages}
-                    onClick={() => {
-                      userManuallyChangedPages.current = true;
-                      const next = Math.max(minPages, photoBookPages - pageIncrement);
-                      setPhotoBookPages(next);
-                      if (onPagesChange) onPagesChange(next);
-                    }}
-                    className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    −
-                  </button>
-                  <span className="w-24 text-center text-sm font-bold text-gray-900 select-none">
-                    {photoBookPages} Pages
+            isGiveaway ? (
+              <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+                <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">Pages:</Text>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-3.5 py-1.5 rounded-lg shadow-2xs">
+                    {photoBookPages} Pages Included (Giveaway)
                   </span>
-                  <button
-                    type="button"
-                    disabled={photoBookPages >= maxPages}
-                    onClick={() => {
-                      userManuallyChangedPages.current = true;
-                      const next = Math.min(maxPages, photoBookPages + pageIncrement);
-                      setPhotoBookPages(next);
-                      if (onPagesChange) onPagesChange(next);
-                    }}
-                    className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    +
-                  </button>
                 </div>
-
-                {/* Minimal info for customer */}
-                {extraPages > 0 ? (
-                  <span className="text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
-                    +{extraPages} extra pages (+₹{extraPagesCost}) • ₹{pricePerExtraPage}/extra page
-                  </span>
-                ) : (
-                  <span className="text-xs text-gray-500 font-medium bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
-                    ({defaultPages} pages included)
-                  </span>
-                )}
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+                <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">Pages:</Text>
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Stepper counter */}
+                  <div className="inline-flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      disabled={photoBookPages <= minPages}
+                      onClick={() => {
+                        userManuallyChangedPages.current = true;
+                        const next = Math.max(minPages, photoBookPages - pageIncrement);
+                        setPhotoBookPages(next);
+                        if (onPagesChange) onPagesChange(next);
+                      }}
+                      className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      −
+                    </button>
+                    <span className="w-24 text-center text-sm font-bold text-gray-900 select-none">
+                      {photoBookPages} Pages
+                    </span>
+                    <button
+                      type="button"
+                      disabled={photoBookPages >= maxPages}
+                      onClick={() => {
+                        userManuallyChangedPages.current = true;
+                        const next = Math.min(maxPages, photoBookPages + pageIncrement);
+                        setPhotoBookPages(next);
+                        if (onPagesChange) onPagesChange(next);
+                      }}
+                      className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Minimal info for customer */}
+                  {extraPages > 0 ? (
+                    <span className="text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+                      +{extraPages} extra pages (+₹{extraPagesCost}) • ₹{pricePerExtraPage}/extra page
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500 font-medium bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
+                      ({defaultPages} pages included)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
           )}
         </div>
 

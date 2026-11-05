@@ -149,6 +149,8 @@ const photoBookTemplateSchema = new mongoose.Schema(
     },
     product_template_id: { type: String, default: "" },
     include_blank_page: { type: Boolean, default: false },
+    is_giveaway: { type: Boolean, default: false },
+    exact_pages: { type: Number, default: 0 },
     supported_sizes: {
       type: [String],
       default: ["8x8", "10x10", "12x12"],

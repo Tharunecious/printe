@@ -29,8 +29,13 @@ const UploadPhotosStep = ({
   onPreviewPhoto,
   onBack,
   onProceedToEdit,
+  isGiveaway = false,
 }) => {
   const fileInputRef = useRef(null);
+  const remainingCount = Math.max(0, targetPhotoCount - uploadedPhotos.length);
+  const canProceed = isGiveaway
+    ? uploadedPhotos.length === targetPhotoCount
+    : uploadedPhotos.length > 0;
   const uploadProgressRatio = Math.min(
     100,
     Math.round((uploadedPhotos.length / Math.max(1, targetPhotoCount)) * 100)
@@ -43,11 +48,19 @@ const UploadPhotosStep = ({
         <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Upload Your Memories
+              {isGiveaway ? "Upload Photos for Giveaway Photo Book" : "Upload Your Memories"}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Target: <span className="font-bold text-teal-700">{targetPhotoCount} Photos</span> • Uploaded:{" "}
-              <span className="font-bold text-slate-800">{uploadedPhotos.length} Photos</span>
+              Required: <span className="font-bold text-teal-700">{targetPhotoCount} Photos</span> • Uploaded:{" "}
+              <span className="font-bold text-slate-800">{uploadedPhotos.length}</span>
+              {isGiveaway ? (
+                <>
+                  {" "}• Remaining:{" "}
+                  <span className={`font-bold ${remainingCount > 0 ? "text-amber-600" : "text-green-600"}`}>
+                    {remainingCount > 0 ? `${remainingCount} required` : "Complete ✓"}
+                  </span>
+                </>
+              ) : null}
             </p>
           </div>
 
@@ -178,25 +191,35 @@ const UploadPhotosStep = ({
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
             <ArrowLeftOutlined />
-            <span>Back to Book Setup</span>
+            <span>{isGiveaway ? "Back to Product" : "Back to Book Setup"}</span>
           </button>
 
           <button
             type="button"
-            disabled={uploadedPhotos.length === 0}
+            disabled={!canProceed}
             onClick={() => {
-              if (uploadedPhotos.length === 0) return;
+              if (!canProceed) return;
               onProceedToEdit();
             }}
-            title={uploadedPhotos.length === 0 ? "Please upload at least 1 photo to proceed" : "Proceed to Album Editor"}
+            title={
+              !canProceed
+                ? isGiveaway
+                  ? `Please upload exactly ${targetPhotoCount} photos (${remainingCount} remaining)`
+                  : "Please upload at least 1 photo to proceed"
+                : "Proceed to Album Editor"
+            }
             className={`w-full sm:w-auto font-bold text-sm px-8 py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
-              uploadedPhotos.length === 0
+              !canProceed
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
                 : "bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 active:scale-98 text-white cursor-pointer"
             }`}
           >
             <span>
-              {uploadedPhotos.length > 0
+              {isGiveaway
+                ? canProceed
+                  ? `Next: Edit Your Book (${uploadedPhotos.length} photos)`
+                  : `Upload ${remainingCount} More Photo${remainingCount !== 1 ? "s" : ""} to Proceed`
+                : uploadedPhotos.length > 0
                 ? `Next: Arrange & Edit Album (${uploadedPhotos.length} photos)`
                 : "Upload Photos to Proceed"}
             </span>

@@ -78,6 +78,7 @@ const photoBookDesignSchema = new mongoose.Schema(
     cover_finish: { type: String, default: "Matte" },
     options: { type: mongoose.Schema.Types.Mixed, default: {} },
     page_count: { type: Number, required: true, default: 20 },
+    is_giveaway: { type: Boolean, default: false },
     target_photo_count: { type: Number, default: 0 },
     photos_per_page_mode: { type: String, default: "template" },
 

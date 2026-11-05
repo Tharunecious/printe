@@ -680,6 +680,11 @@ const createTemplate = async (req, res) => {
       body.template_id = `pb_${Date.now()}`;
     }
 
+    if (body.is_giveaway) {
+      body.is_giveaway = true;
+      body.exact_pages = Number(body.exact_pages || body.page_config?.exact_pages || body.page_config?.default_pages || body.default_pages || 20);
+    }
+
     // Default pages if not provided
     if (!body.pages || body.pages.length === 0) {
       body.pages = createInitialPages();
@@ -1163,7 +1168,9 @@ const getAvailableProductTemplates = async (req, res) => {
           description: tpl.description || "",
           supported_sizes: tpl.supported_sizes || [],
           editions: tpl.editions || [],
-          default_pages: Number(tpl.default_pages || tpl.page_config?.default_pages || 20),
+          is_giveaway: Boolean(tpl.is_giveaway),
+          exact_pages: Number(tpl.exact_pages || tpl.default_pages || 20),
+          default_pages: Number(tpl.default_pages || tpl.exact_pages || tpl.page_config?.default_pages || 20),
           min_pages: Number(tpl.min_pages || tpl.page_config?.min_pages || 10),
           max_pages: Number(tpl.max_pages || tpl.page_config?.max_pages || 60),
           price_per_extra_page: Number(tpl.price_per_extra_page ?? tpl.page_config?.price_per_extra_page ?? 15),
@@ -1321,9 +1328,15 @@ const validateDesignInternal = (design, productConfig) => {
     errors.push("No photos have been uploaded yet.");
   }
 
-  const minPages = productConfig?.min_pages || 10;
-  const maxPages = productConfig?.max_pages || 60;
-  if (design.page_count < minPages || design.page_count > maxPages) {
+  const isGiveaway = Boolean(
+    design.is_giveaway ||
+    productConfig?.is_giveaway ||
+    (productConfig?.templates || []).some((t) => (t.slug === design.template_id || t.template_id === design.template_id) && t.is_giveaway)
+  );
+
+  const minPages = isGiveaway ? (productConfig?.exact_pages || 10) : (productConfig?.min_pages || 10);
+  const maxPages = isGiveaway ? (productConfig?.exact_pages || 100) : (productConfig?.max_pages || 60);
+  if (!isGiveaway && (design.page_count < minPages || design.page_count > maxPages)) {
     errors.push(`Page count must be between ${minPages} and ${maxPages} pages.`);
   }
 
@@ -1462,9 +1475,18 @@ const saveCustomerDesign = async (req, res) => {
       return errorResponse(res, "User ID or Guest ID is required to save design");
     }
 
+    const isGiveaway = Boolean(
+      req.body.is_giveaway ||
+      product.is_giveaway ||
+      product.photobook_config?.is_giveaway ||
+      (product.photobook_config?.templates || []).some(
+        (t) => (t.slug === template_id || t.template_id === template_id) && t.is_giveaway
+      )
+    );
+
     // Validation
     const validation = validateDesignInternal(
-      { uploaded_images, page_count, front_cover, back_cover, pages },
+      { uploaded_images, page_count, front_cover, back_cover, pages, is_giveaway: isGiveaway, template_id },
       product.photobook_config
     );
 
@@ -1472,14 +1494,17 @@ const saveCustomerDesign = async (req, res) => {
     const status = isComplete ? "ready_for_cart" : "editing";
 
     // Pricing calculation strictly on backend
-    const basePages = product.photobook_config?.default_pages || 20;
-    const extraPages = Math.max(0, (page_count || basePages) - basePages);
-    const extraPagePrice = Number(product.photobook_config?.price_per_extra_page || 15);
-    const extraPagesCost = extraPages * extraPagePrice;
-    const basePrice = Number(product.customer_product_price || product.price || 0);
+    const basePages = isGiveaway
+      ? (product.photobook_config?.exact_pages || page_count || 20)
+      : (product.photobook_config?.default_pages || 20);
+    const extraPages = isGiveaway ? 0 : Math.max(0, (page_count || basePages) - basePages);
+    const extraPagePrice = isGiveaway ? 0 : Number(product.photobook_config?.price_per_extra_page || 15);
+    const extraPagesCost = isGiveaway ? 0 : extraPages * extraPagePrice;
+    const basePrice = isGiveaway ? 0 : Number(product.customer_product_price || product.price || 0);
     const calculatedTotal = basePrice + extraPagesCost;
 
     const pricingSnapshot = {
+      is_giveaway: isGiveaway,
       base_pages: basePages,
       base_price: basePrice,
       extra_pages: extraPages,
@@ -1524,6 +1549,7 @@ const saveCustomerDesign = async (req, res) => {
               front_cover: front_cover !== undefined ? front_cover : existing.front_cover,
               back_cover: back_cover !== undefined ? back_cover : existing.back_cover,
               cover_image: cover_image || existing.cover_image || (uploaded_images?.[0]?.url || ""),
+              is_giveaway: isGiveaway,
               status,
               is_complete: isComplete,
               validation_errors: validation.errors,
@@ -1545,6 +1571,7 @@ const saveCustomerDesign = async (req, res) => {
         cover_finish: cover_finish || "Matte",
         options: options || {},
         page_count: page_count || basePages,
+        is_giveaway: isGiveaway,
         target_photo_count: target_photo_count || 0,
         photos_per_page_mode: photos_per_page_mode || "template",
         template_id: template_id || "",
