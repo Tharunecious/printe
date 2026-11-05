@@ -63,6 +63,10 @@ const ShoppingCardSchemaDefinition = new mongoose.Schema(
     size: { type: String, default: null },
     color: { type: String, default: null },
     instructions: { type: String, default: null },
+    // ── Giveaway / Phone Stand Customization ──────────────────────────────
+    customized_name: { type: String, default: "" },
+    giveaway_coupon: { type: String, default: "" },
+    phone_stand_details: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // ── QR product platform tracking ──────────────────────────────────────
     is_qr_product: { type: Boolean, default: false },

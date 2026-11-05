@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Coupon = require('../modals/coupen.modals');
 const Product = require('../modals/product.models'); // adjust path as needed
 const crypto = require('crypto');
@@ -100,37 +101,62 @@ function calculateTieredQuantityDiscount(coupon, cartItems, userType) {
 
 // Helper: Check if cart contains at least one applicable product
 function cartContainsApplicableProduct(coupon, cartItems) {
-  if (!coupon.applicableProducts || coupon.applicableProducts.length === 0) {
+  const hasGiveawayCode = Boolean(coupon.giveaway_product_code);
+  const hasApplicableProducts = coupon.applicableProducts && coupon.applicableProducts.length > 0;
+
+  if (!hasGiveawayCode && !hasApplicableProducts) {
     return true; // no restriction → applies to everything
   }
 
-  const applicableIds = coupon.applicableProducts.map(toIdString);
+  if (!cartItems || cartItems.length === 0) {
+    return true;
+  }
+
+  const applicableIds = (coupon.applicableProducts || []).map(toIdString);
+  const giveawayCode = (coupon.giveaway_product_code || '').trim().toUpperCase();
 
   return cartItems.some(item => {
-    const itemId = (item.productId || item._id || '').toString();
-    return applicableIds.includes(itemId);
+    const itemId = (item.productId || item._id || item.product_id || '').toString();
+    const itemCode = (item.product_code || item.product_codeS_NO || item.productCode || item.code || item.variants_price?.[0]?.product_code || '').toString().trim().toUpperCase();
+    return (
+      (applicableIds.length > 0 && applicableIds.includes(itemId)) ||
+      (giveawayCode && itemCode === giveawayCode)
+    );
   });
 }
 
 // Helper: Filter order amount to only include applicable products
 function getApplicableOrderAmount(coupon, cartItems, totalOrderAmount) {
-  if (!coupon.applicableProducts || coupon.applicableProducts.length === 0) {
+  const hasGiveawayCode = Boolean(coupon.giveaway_product_code);
+  const hasApplicableProducts = coupon.applicableProducts && coupon.applicableProducts.length > 0;
+
+  if (!hasGiveawayCode && !hasApplicableProducts) {
     return totalOrderAmount;
   }
 
-  const applicableIds = coupon.applicableProducts.map(toIdString);
+  if (!cartItems || cartItems.length === 0) {
+    return totalOrderAmount;
+  }
+
+  const applicableIds = (coupon.applicableProducts || []).map(toIdString);
+  const giveawayCode = (coupon.giveaway_product_code || '').trim().toUpperCase();
 
   const applicableAmount = cartItems.reduce((sum, item) => {
-    const itemId = (item.productId || item._id || '').toString();
-    if (applicableIds.includes(itemId)) {
-      const price = item.price || item.unitPrice || 0;
-      const qty = item.quantity || 1;
-      return sum + price * qty;
+    const itemId = (item.productId || item._id || item.product_id || '').toString();
+    const itemCode = (item.product_code || item.product_codeS_NO || item.productCode || item.code || item.variants_price?.[0]?.product_code || '').toString().trim().toUpperCase();
+    if (
+      (applicableIds.length > 0 && applicableIds.includes(itemId)) ||
+      (giveawayCode && itemCode === giveawayCode)
+    ) {
+      const price = Number(item.final_total || item.price || item.unitPrice || item.product_price || 0);
+      const qty = Number(item.quantity || item.product_quantity || 1);
+      const branding = Number(item.BrandingCharges || 0);
+      return sum + (item.final_total ? price : price * qty) + branding;
     }
     return sum;
   }, 0);
 
-  return applicableAmount;
+  return applicableAmount > 0 ? applicableAmount : totalOrderAmount;
 }
 
 // Helper: Calculate discount
@@ -176,7 +202,18 @@ async function validateCoupon(coupon, userId, orderAmount, cartItems = [], userT
   const endDate = new Date(coupon.endDate);
 
   if (!coupon.isActive) {
-    return { valid: false, message: 'Coupon is not active' };
+    return { valid: false, message: 'This coupon has already been used.' };
+  }
+
+  const isSingleUseOrGiveaway = Boolean(
+    coupon.is_giveaway ||
+    String(coupon.code).toUpperCase().startsWith('PHONESTAN') ||
+    coupon.singleUse ||
+    coupon.usageLimit === 1
+  );
+
+  if (isSingleUseOrGiveaway && coupon.usedCount > 0) {
+    return { valid: false, message: 'This coupon has already been used.' };
   }
 
   if (now < startDate) {
@@ -188,7 +225,7 @@ async function validateCoupon(coupon, userId, orderAmount, cartItems = [], userT
   }
 
   if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
-    return { valid: false, message: 'Coupon usage limit reached' };
+    return { valid: false, message: 'This coupon has already been used.' };
   }
 
   if (orderAmount < coupon.minimumOrderAmount) {
@@ -294,14 +331,41 @@ const applyCoupon = async (req, res) => {
     }
 
     const coupon = await Coupon.findOne({
-      code: code.toUpperCase().trim(),
-      isActive: true
+      code: code.toUpperCase().trim()
     }).populate('applicableProducts', '_id name product_code');
 
     if (!coupon) {
       return res.status(404).json({
         success: false,
         message: 'Invalid coupon code'
+      });
+    }
+
+    if (!coupon.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'This coupon has already been used.'
+      });
+    }
+
+    const isSingleUseOrGiveaway = Boolean(
+      coupon.is_giveaway ||
+      String(coupon.code).toUpperCase().startsWith('PHONESTAN') ||
+      coupon.singleUse ||
+      coupon.usageLimit === 1
+    );
+
+    if (isSingleUseOrGiveaway && coupon.usedCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This coupon has already been used.'
+      });
+    }
+
+    if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
+      return res.status(400).json({
+        success: false,
+        message: 'This coupon has already been used.'
       });
     }
 
@@ -330,28 +394,21 @@ const applyCoupon = async (req, res) => {
       });
     }
 
-    // Atomically increment usedCount and record userId for singleUse coupons.
-    const updateQuery = { $inc: { usedCount: 1 } };
-
-    if (coupon.singleUse) {
-      updateQuery.$addToSet = { userIdsUsed: userId };
-    }
-
-    const updateFilter = { _id: coupon._id };
-    if (coupon.usageLimit !== null) {
-      updateFilter.$expr = { $lt: ['$usedCount', coupon.usageLimit] };
-    }
-
-    const updatedCoupon = await Coupon.findOneAndUpdate(updateFilter, updateQuery, { new: true });
-
-    if (!updatedCoupon && coupon.usageLimit !== null) {
+        // Check usage limits without burning coupon before order confirmation
+    if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
       return res.status(400).json({
         success: false,
-        message: 'Coupon usage limit just reached. Please try a different coupon.'
+        message: 'Coupon usage limit reached. Please try a different coupon.'
       });
     }
 
-    const finalAmount = Math.max(0, orderAmount - discountAmount);
+    if (coupon.singleUse && userId && Array.isArray(coupon.userIdsUsed) && coupon.userIdsUsed.map(String).includes(String(userId))) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already used this coupon.'
+      });
+    }
+const finalAmount = Math.max(0, orderAmount - discountAmount);
 
     const response = {
       success: true,
@@ -367,11 +424,12 @@ const applyCoupon = async (req, res) => {
           minimumOrderAmount: coupon.minimumOrderAmount,
           maximumDiscount: coupon.maximumDiscount,
           userType,
-          usedCount: updatedCoupon ? updatedCoupon.usedCount : coupon.usedCount + 1,
+          usedCount: coupon.usedCount || 0,
           remainingUses: coupon.usageLimit
-            ? coupon.usageLimit -
-              (updatedCoupon ? updatedCoupon.usedCount : coupon.usedCount + 1)
+            ? coupon.usageLimit - (coupon.usedCount || 0)
             : null,
+          is_giveaway: coupon.is_giveaway || false,
+          giveaway_product_code: coupon.giveaway_product_code || null,
           // Return which products this coupon is restricted to so the frontend
           // can inform the customer clearly.
           applicableProducts:
@@ -714,42 +772,88 @@ const deleteCoupon = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Atomic coupon usage helper (safe for concurrency & race conditions)
+// ─────────────────────────────────────────────────────────────────────────────
+const markCouponAsUsedAtomic = async (codeOrId, userId = null) => {
+  if (!codeOrId) return null;
+  const isObjectId = mongoose.Types.ObjectId.isValid(codeOrId);
+  const filter = isObjectId
+    ? { _id: codeOrId, isActive: true }
+    : { code: String(codeOrId).trim().toUpperCase(), isActive: true };
+
+  // Atomically check usageLimit is not exceeded
+  filter.$expr = {
+    $or: [
+      { $eq: [{ $ifNull: ['$usageLimit', null] }, null] },
+      { $lt: ['$usedCount', '$usageLimit'] }
+    ]
+  };
+
+  // If singleUse and userId provided, ensure user hasn't already used it
+  if (userId) {
+    filter.$or = [
+      { singleUse: { $ne: true } },
+      { userIdsUsed: { $ne: userId } }
+    ];
+  }
+
+  const update = { $inc: { usedCount: 1 } };
+  if (userId) {
+    update.$addToSet = { userIdsUsed: userId };
+  }
+
+  const updatedCoupon = await Coupon.findOneAndUpdate(filter, update, { new: true });
+  if (updatedCoupon) {
+    const isGiveaway = Boolean(
+      updatedCoupon.is_giveaway ||
+      String(updatedCoupon.code).toUpperCase().startsWith('PHONESTAN')
+    );
+    const isSingleUse = Boolean(updatedCoupon.singleUse || updatedCoupon.usageLimit === 1);
+    const reachedLimit = Boolean(
+      updatedCoupon.usageLimit !== null && updatedCoupon.usedCount >= updatedCoupon.usageLimit
+    );
+
+    if (isGiveaway || isSingleUse || reachedLimit) {
+      await Coupon.findByIdAndUpdate(updatedCoupon._id, {
+        $set: { isActive: false, isExpired: true }
+      });
+      updatedCoupon.isActive = false;
+      console.log(`✓ [Coupon] Coupon ${updatedCoupon.code} marked as EXPIRED (isActive: false)`);
+    }
+  }
+  return updatedCoupon;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Mark coupon as used (call from Order creation endpoint AFTER order is confirmed)
 // ─────────────────────────────────────────────────────────────────────────────
 const markCouponAsUsed = async (req, res) => {
   try {
-    const { couponId, userId } = req.body;
+    const couponId = req.params?.id || req.body?.couponId;
+    const userId = req.body?.userId;
 
-    if (!couponId || !userId) {
+    if (!couponId) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide couponId and userId'
+        message: 'Please provide couponId'
       });
     }
 
-    const coupon = await Coupon.findById(couponId);
+    const updatedCoupon = await markCouponAsUsedAtomic(couponId, userId);
 
-    if (!coupon) {
-      return res.status(404).json({ success: false, message: 'Coupon not found' });
+    if (!updatedCoupon) {
+      return res.status(400).json({
+        success: false,
+        message: 'Coupon not found, inactive, or usage limit already reached'
+      });
     }
-
-    coupon.usedCount = (coupon.usedCount || 0) + 1;
-
-    if (coupon.singleUse) {
-      if (!coupon.userIdsUsed) coupon.userIdsUsed = [];
-      if (!coupon.userIdsUsed.includes(userId)) {
-        coupon.userIdsUsed.push(userId);
-      }
-    }
-
-    await coupon.save();
 
     return res.status(200).json({
       success: true,
       message: 'Coupon usage recorded',
       data: {
-        usedCount: coupon.usedCount,
-        remainingUses: coupon.usageLimit ? coupon.usageLimit - coupon.usedCount : null
+        usedCount: updatedCoupon.usedCount,
+        remainingUses: updatedCoupon.usageLimit ? updatedCoupon.usageLimit - updatedCoupon.usedCount : null
       }
     });
   } catch (error) {
@@ -762,6 +866,7 @@ const markCouponAsUsed = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+
 // Bulk coupon creation (Admin only)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -945,6 +1050,8 @@ module.exports = {
   updateCoupon,
   deleteCoupon,
   markCouponAsUsed,
+  markCouponAsUsedAtomic,
+  validateCoupon,
   createBulkCoupons,
-  getProductsForCoupon  // ← new export; wire to GET /api/coupon/products in your router
+  getProductsForCoupon
 };

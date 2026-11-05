@@ -172,8 +172,8 @@ const LayoutContent = () => {
           TOAST
           ══════════════════════════════════════════════════ */}
       <Toaster
-        position="top-right" reverseOrder={true}
-        containerStyle={{ position: "fixed", top: "400px", right: "20px", zIndex: 1000 }}
+        position="top-center" reverseOrder={false}
+        containerStyle={{ top: "24px", zIndex: 99999 }}
         toastOptions={{
           duration: 4000,
           style: { background: "#28aa59", color: "#fff", zIndex: 1001 },

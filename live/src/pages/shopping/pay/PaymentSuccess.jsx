@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaCheckCircle } from 'react-icons/fa';
-import { removeMyShoppingCart } from '../../../helper/api_helper';
-import { useSelector } from 'react-redux';
+import { clearMyShoppingCart } from '../../../helper/api_helper';
+import { useDispatch, useSelector } from 'react-redux';
+import { SET_CART_ITEMS, SET_CART_COUNT } from '../../../redux/slices/cart.slice';
 const PaymentSuccess = () => {
     const { user } = useSelector((state) => state.authSlice);
+  const dispatch = useDispatch();
     
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -14,12 +16,10 @@ const PaymentSuccess = () => {
   const trackingId = searchParams.get('tracking_id');
   const amount = searchParams.get('amount');
 
-const removeCart=async()=>{
-  const result=await removeMyShoppingCart(user._id)
-}
-
-  useEffect(() => {
-removeCart()
+useEffect(() => {
+    dispatch(SET_CART_ITEMS([]));
+    dispatch(SET_CART_COUNT(0));
+    clearMyShoppingCart(user?._id, orderId).catch(() => {});
 
 
     const timer = setInterval(() => {

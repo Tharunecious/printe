@@ -1,6 +1,8 @@
 /* eslint-disable react/prop-types */
 import { Avatar, Card, Rate, Skeleton, Spin, Tag } from "antd";
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 import _ from "lodash";
 import { useState } from "react";
 import { useSelector } from "react-redux";

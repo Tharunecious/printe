@@ -359,6 +359,29 @@ const ShoppingCart = () => {
                       Qty: <strong>{item.product_quantity}</strong>
                     </div>
 
+                    {item.customized_name && (
+                      <div className="cart-item-meta" style={{ marginTop: 4 }}>
+                        Customized Name: <strong style={{ color: '#1890ff' }}>{item.customized_name}</strong>
+                      </div>
+                    )}
+
+                    {/* {item.giveaway_coupon && (
+                      <div style={{ marginTop: 4 }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          backgroundColor: '#f6ffed',
+                          color: '#389e0d',
+                          border: '1px solid #b7eb8f'
+                        }}>
+                          Giveaway Coupon: {item.giveaway_coupon} (100% Free)
+                        </span>
+                      </div>
+                    )} */}
+
                     {item.product_design_file && (
                       <Button
                         type="link"

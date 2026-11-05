@@ -1,3 +1,6 @@
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+dayjs.extend(relativeTime);
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";

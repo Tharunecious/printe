@@ -157,7 +157,18 @@ const {
   verifyOtpHandler, Notify
 } = require("../controller/mailotp.controller");
 
-const { applyCoupon, createCoupon, getAllCoupons, getCouponById, updateCoupon, deleteCoupon,createBulkCoupons,markCouponAsUsed,getProductsForCoupon } = require("../controller/coupen.controller");
+const {
+  applyCoupon,
+  createCoupon,
+  getAllCoupons,
+  getCouponById,
+  updateCoupon,
+  deleteCoupon,
+  createBulkCoupons,
+  markCouponAsUsed,
+  markCouponAsUsedAtomic,
+  getProductsForCoupon
+} = require("../controller/coupen.controller");
 
 const { redeemReward, getMyRewards, getAvailableRewards,
   getRewardDetails,

@@ -802,7 +802,12 @@ const AProductDetails = ({
         <Card className="rounded-lg border-0 bg-blue-50">
           <div className="space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <Text strong className="text-gray-800">Deal Price:</Text>
+              <div className="flex items-center gap-2">
+                <Text strong className="text-gray-800">Deal Price:</Text>
+                <span className="text-xs text-green-700 bg-green-100 font-semibold px-2 py-0.5 rounded-full border border-green-200">
+                  Inclusive of GST
+                </span>
+              </div>
               <div className="text-right flex flex-col md:flex-row md:items-baseline gap-1">
                 <Text delete className="text-md text-gray-500 md:mr-2">{formatPrice(calculateMRPTotalPrice())}</Text>
                 <Title level={4} className="!m-0 !text-green-600">{quantity ? formatPrice(calculateTotalPrice()) : formatPrice(0)}</Title>

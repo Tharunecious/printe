@@ -178,6 +178,12 @@ const getProduct = async (req, res) => {
     if (filterByProduct_category) where.category_details = new ObjectId(filterByProduct_category);
     if (filterByProduct_subcategory) where.sub_category_details = new ObjectId(filterByProduct_subcategory);
     if (vendor_filter) where.vendor_details = new ObjectId(vendor_filter);
+    if (req.query.visibilityFilter !== undefined && req.query.visibilityFilter !== "") {
+      where.is_visible = req.query.visibilityFilter === "true" || req.query.visibilityFilter === true;
+    }
+    if (req.query.is_visible !== undefined && req.query.is_visible !== "") {
+      where.is_visible = req.query.is_visible === "true" || req.query.is_visible === true;
+    }
 
     if (popular) {
       where.label = { $in: ["popular"] };

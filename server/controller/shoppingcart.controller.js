@@ -118,6 +118,32 @@ const addToShoppingCart = async (req, res) => {
     // tier (frontend always sends this, same as delivery charges).
     const incomingBrandingCharges      = Number(req.body.BrandingCharges   || 0);
 
+    // ── Single add-to-cart restriction for giveaway / Phone Stand ────────────
+    const isGiveawayOrPhoneStand = Boolean(
+      req.body.giveaway_coupon ||
+      req.body.phone_stand_details?.coupon_code ||
+      req.body.is_giveaway ||
+      req.body.product_code === "PS0511"
+    );
+
+    if (isGiveawayOrPhoneStand) {
+      const existingGiveaway = await ShoppingCardSchema.findOne({
+        [identifierField]: userIdentifier,
+        $or: [
+          { giveaway_coupon: { $exists: true, $ne: "" } },
+          { "phone_stand_details.coupon_code": { $exists: true, $ne: "" } },
+          { product_id: new mongoose.Types.ObjectId(req.body.product_id) }
+        ]
+      });
+
+      if (existingGiveaway) {
+        return errorResponse(
+          res,
+          "This giveaway item can only be added to cart once. It is already in your cart."
+        );
+      }
+    }
+
     // ── Check for existing item (same product + variant) ─────────────────────
     const existingItemQuery = {
       [identifierField]: userIdentifier,
@@ -125,6 +151,7 @@ const addToShoppingCart = async (req, res) => {
     };
     if (req.body.size)  existingItemQuery.size  = req.body.size;
     if (req.body.color) existingItemQuery.color = req.body.color;
+    if (req.body.customized_name) existingItemQuery.customized_name = req.body.customized_name;
 
     const existingItem = await ShoppingCardSchema.findOne(existingItemQuery);
 
@@ -162,6 +189,9 @@ const addToShoppingCart = async (req, res) => {
       if (req.body.platform_links)     existingItem.platform_links     = req.body.platform_links;
       if (req.body.is_photo_frame !== undefined) existingItem.is_photo_frame     = req.body.is_photo_frame;
       if (req.body.photo_frame_details)          existingItem.photo_frame_details = req.body.photo_frame_details;
+      if (req.body.customized_name)              existingItem.customized_name    = req.body.customized_name;
+      if (req.body.giveaway_coupon)              existingItem.giveaway_coupon    = req.body.giveaway_coupon;
+      if (req.body.phone_stand_details)          existingItem.phone_stand_details = req.body.phone_stand_details;
 
       result = await existingItem.save();
 
@@ -197,6 +227,9 @@ const addToShoppingCart = async (req, res) => {
         platform_links:           req.body.platform_links         || {},
         is_photo_frame:           req.body.is_photo_frame         || false,
         photo_frame_details:      req.body.photo_frame_details    || {},
+        customized_name:          req.body.customized_name        || "",
+        giveaway_coupon:          req.body.giveaway_coupon        || "",
+        phone_stand_details:      req.body.phone_stand_details    || null,
         ...(req.body.size             && { size:             req.body.size }),
         ...(req.body.color            && { color:            req.body.color }),
         ...(req.body.instructions     && { instructions:     req.body.instructions }),
@@ -297,6 +330,9 @@ const getMyShoppingCart = async (req, res) => {
           platform_links:         1,
           is_photo_frame:         1,
           photo_frame_details:    1,
+          customized_name:        1,
+          giveaway_coupon:        1,
+          phone_stand_details:    1,
           phone_number:           1,
           email:                  1,
           createdAt:              "$created_at",
@@ -338,6 +374,9 @@ const getMyShoppingCart = async (req, res) => {
       platform_links:         item.platform_links          || {},
       is_photo_frame:         item.is_photo_frame          || false,
       photo_frame_details:    item.photo_frame_details     || {},
+      customized_name:        item.customized_name         || "",
+      giveaway_coupon:        item.giveaway_coupon         || "",
+      phone_stand_details:    item.phone_stand_details     || null,
       phone_number:           item.phone_number            || null,
       email:                  item.email                   || null,
       createdAt:              item.createdAt,
@@ -358,11 +397,7 @@ const getMyShoppingCart = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const removeMyShoppingCart = async (req, res) => {
   try {
-    const { ids, guestId } = req.body;
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return errorResponse(res, "No cart items provided for removal");
-    }
+    const { ids, guestId, clearAll, userId, orderId } = req.body;
 
     let userIdentifier;
     let identifierField;
@@ -370,15 +405,70 @@ const removeMyShoppingCart = async (req, res) => {
     if (req.userData && req.userData.id) {
       userIdentifier  = req.userData.id;
       identifierField = "user_id";
+    } else if (userId) {
+      userIdentifier  = userId;
+      identifierField = "user_id";
     } else {
       userIdentifier  = guestId;
       identifierField = "guest_id";
-      if (!userIdentifier) return errorResponse(res, "Guest ID is required for guest users");
     }
 
+    // If orderId provided, also ensure coupon on order is marked used
+    if (orderId) {
+      try {
+        const { Order } = require("../modals/orderdetails.modals");
+        const { markCouponAsUsedAtomic } = require("./coupen.controller");
+        const orderDoc = await Order.findOne({ invoice_no: orderId });
+        if (orderDoc) {
+          const couponToMark =
+            orderDoc?.coupon?.code ||
+            orderDoc?.phone_stand_details?.coupon_code ||
+            orderDoc?.giveaway_coupon ||
+            (orderDoc?.cart_items || []).find(i => i.giveaway_coupon)?.giveaway_coupon;
+          if (couponToMark) {
+            await markCouponAsUsedAtomic(couponToMark, orderDoc.user_id);
+          }
+        }
+      } catch (oErr) {
+        console.error("Error finalizing order coupon in removeMyShoppingCart:", oErr.message);
+      }
+    }
+
+    // ── Handle Clear All (after checkout / payment success) ─────────────────
+    if (clearAll) {
+      const deleteOrs = [];
+      if (userIdentifier && identifierField) {
+        const uidVal = mongoose.Types.ObjectId.isValid(userIdentifier)
+          ? new mongoose.Types.ObjectId(userIdentifier)
+          : userIdentifier;
+        deleteOrs.push({ [identifierField]: uidVal });
+        deleteOrs.push({ [identifierField]: String(userIdentifier) });
+      }
+      if (guestId) {
+        deleteOrs.push({ guest_id: guestId });
+      }
+      if (req.userData?.id) {
+        deleteOrs.push({ user_id: new mongoose.Types.ObjectId(req.userData.id) });
+      }
+      // Also delete any giveaway phone stand items
+      deleteOrs.push({ giveaway_coupon: { $exists: true, $ne: "" } });
+      deleteOrs.push({ "phone_stand_details.coupon_code": { $exists: true, $ne: "" } });
+
+      const delRes = await ShoppingCardSchema.deleteMany({ $or: deleteOrs });
+      console.log(`✓ [RemoveCart] clearAll cleared ${delRes.deletedCount} items`);
+      return res.status(200).json({ message: "Shopping cart cleared successfully", data: [] });
+    }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return errorResponse(res, "No cart items provided for removal");
+    }
+
+    const objectIds = ids
+      .map((id) => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+      .filter(Boolean);
+
     await ShoppingCardSchema.deleteMany({
-      _id:               { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) },
-      [identifierField]: userIdentifier,
+      _id: { $in: objectIds },
     });
 
     return res.status(200).json({ message: "Products removed from shopping cart", data: [] });
@@ -429,6 +519,16 @@ const updateCartItemQuantity = async (req, res) => {
 
     if (!cartItem) {
       return res.status(404).json({ message: "Cart item not found", data: [] });
+    }
+
+    if (
+      (cartItem.giveaway_coupon || cartItem.phone_stand_details?.coupon_code) &&
+      quantity > 1
+    ) {
+      return res.status(400).json({
+        message: "Giveaway items cannot have a quantity greater than 1",
+        data: []
+      });
     }
 
     const safeQty      = Math.max(1, quantity);

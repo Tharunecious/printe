@@ -263,6 +263,16 @@ const ImagesliderVarient = ({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Never intercept keystrokes if an input, textarea, or editable element is focused
+      const target = e.target;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       if (!hasMultipleImages) return;
 
       switch (e.key) {

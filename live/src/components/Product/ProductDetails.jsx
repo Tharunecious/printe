@@ -45,6 +45,8 @@ import { IoShareSocial } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import {
   addToShoppingCart,
+  getMyShoppingCart,
+  applyCouponCode,
   getVariantPrice,
   PUBLIC_URL,
   notifyWhenAvailable,
@@ -1501,6 +1503,115 @@ const ProductDetails = ({
   // Instagram reel link shown for limited-edition products
   const instagramReelUrl = "https://www.instagram.com/reel/DaSrtnqzaYm/?igsh=NThqYmRycWU3eG1t";
 
+  const isPhoneStandProduct = (() => {
+    const code =
+      data?.product_code ||
+      data?.product_codeS_NO ||
+      data?.productCode ||
+      data?.variants_price?.[0]?.product_code ||
+      data?.product_variants?.[0]?.product_code ||
+      "";
+    if (String(code).trim().toUpperCase() === "PS0511") return true;
+    if (Array.isArray(data?.variants_price)) {
+      return data.variants_price.some(
+        (vp) => String(vp?.product_code).trim().toUpperCase() === "PS0511"
+      );
+    }
+    return false;
+  })();
+  const [phoneStandName, setPhoneStandName] = useState("");
+  const [phoneStandCoupon, setPhoneStandCoupon] = useState("");
+  const [appliedGiveawayCoupon, setAppliedGiveawayCoupon] = useState(null);
+  const [giveawayCouponError, setGiveawayCouponError] = useState("");
+  const [giveawayCouponLoading, setGiveawayCouponLoading] = useState(false);
+  const [isAlreadyInCart, setIsAlreadyInCart] = useState(false);
+
+  useEffect(() => {
+    if (isPhoneStandProduct) {
+      getMyShoppingCart()
+        .then((res) => {
+          const items = _.get(res, "data.data", []);
+          const found = items.some(
+            (i) =>
+              i.giveaway_coupon ||
+              i.phone_stand_details?.coupon_code ||
+              i.product_code === "PS0511" ||
+              i.product_id === data?._id ||
+              i.product_id?._id === data?._id
+          );
+          if (found) setIsAlreadyInCart(true);
+        })
+        .catch(() => {});
+    }
+  }, [isPhoneStandProduct, data?._id]);
+
+  const handleApplyPhoneStandCoupon = async () => {
+    if (!phoneStandCoupon.replace(/\s+/g, '')) {
+      const errMsg = "Please enter a coupon code";
+      setGiveawayCouponError(errMsg);
+      // toast.error(errMsg);
+      message.error(errMsg);
+      return;
+    }
+    try {
+      setGiveawayCouponLoading(true);
+      setGiveawayCouponError("");
+
+      const price = Number(calculateTotalPrice()) || Number(data?.customer_product_price || 150);
+      const totalAmount = price + Number(brandingCharges || 0);
+
+      const cartItems = [
+        {
+          productId: data?._id,
+          product_id: data?._id,
+          product_code: data?.product_code || "PS0511",
+          name: data?.name || "Phone Stand",
+          price: price,
+          BrandingCharges: Number(brandingCharges || 0),
+          quantity: 1,
+        }
+      ];
+
+      const resp = await applyCouponCode({
+        code: phoneStandCoupon.replace(/\s+/g, '').toUpperCase(),
+        orderAmount: totalAmount,
+        userId: user?._id || user?.id || localStorage.getItem("guest") || "guest_giveaway",
+        cartItems,
+        userType: user?.role || "user",
+      });
+
+      if (resp?.success) {
+        const coupon = resp.data?.coupon || resp.data;
+        if (!coupon) throw new Error("Invalid coupon response");
+
+        if (coupon.giveaway_product_code && coupon.giveaway_product_code.toUpperCase() !== "PS0511") {
+          throw new Error("This coupon is not valid for the Phone Stand giveaway");
+        }
+
+        setAppliedGiveawayCoupon(coupon);
+        setQuantity(1);
+        setCheckOutState((prev) => ({ ...prev, product_quantity: 1 }));
+        setGiveawayCouponError("");
+        message.success("Coupon Applied! 100% discount on Phone Stand & Customization.");
+        toast.success("Coupon Applied! 100% discount on Phone Stand & Customization.");
+      } else {
+        const errMsg = resp?.message || "Invalid coupon code";
+        setGiveawayCouponError(errMsg);
+        toast.error(errMsg);
+        message.error(errMsg);
+      }
+    } catch (err) {
+      console.error("Phone stand coupon error:", err);
+      const msg = err.response?.data?.message || err.message || "Invalid giveaway coupon code";
+      setGiveawayCouponError(msg);
+      toast.error(msg);
+      message.error(msg);
+      setAppliedGiveawayCoupon(null);
+    } finally {
+      setGiveawayCouponLoading(false);
+    }
+  };
+
   const isQrProduct = (() => {
     const name = _.get(data, "name", "");
     return name.includes("QR");
@@ -1961,6 +2072,30 @@ const ProductDetails = ({
       }
     }
 
+    if (isPhoneStandProduct) {
+      if (isAlreadyInCart) {
+        const errMsg = "Phone Stand is already in your cart. You can only add it once.";
+        message.error(errMsg);
+        toast.error(errMsg);
+        return false;
+      }
+      if (!phoneStandName.trim()) {
+        const errMsg = "Please enter name to be customized";
+        // toast.error(errMsg);
+        message.error(errMsg);
+        return false;
+      }
+      if (!appliedGiveawayCoupon && !quantity) {
+        toast.error("Please select quantity first");
+        return false;
+      }
+    } else {
+      if (!quantity) {
+        toast.error("Please select quantity first");
+        return false;
+      }
+    }
+
     if (_.isEmpty(user)) {
       localStorage.setItem("redirect_url", _.get(data, "seo_url", ""));
       toast.error("Please Login");
@@ -1984,23 +2119,45 @@ const ProductDetails = ({
     const userPhone = user.phone || user.phoneNumber || user.mobile || null;
     const userEmail = user.email || null;
 
+    let finalTotal = Number(calculateTotalPrice());
+    let finalTotalWithoutGst = Number(calculateTotalPricewithoutGst());
+    let calculatedCgst = Number(Gst / 2);
+    let calculatedSgst = Number(Gst / 2);
+    let resolvedBranding = brandingCharges;
+    let resolvedQty = quantity || 1;
+
+    if (isPhoneStandProduct && appliedGiveawayCoupon) {
+      finalTotal = 0;
+      finalTotalWithoutGst = 0;
+      calculatedCgst = 0;
+      calculatedSgst = 0;
+      resolvedBranding = 0;
+      resolvedQty = 1;
+    }
+
     const baseCartPayload = {
       ...checkOutState,
       selected_platforms: selectedPlatforms,
       platform_links: selectedPlatformLinks,
       is_qr_product: isQrProduct,
       is_photo_frame: isPhotoFrame,
-      sgst: Number(Gst / 2),
-      cgst: Number(Gst / 2),
+      sgst: calculatedSgst,
+      cgst: calculatedCgst,
       MRP_savings: calculateMRPSavings(),
       TotalSavings: calculateTotalSavings(),
       FreeDelivery: freeDelivery,
       DeliveryCharges: deliveryCharges,       // inside Tamil Nadu rate
       out_of_tn_charge: outOfTNCharge,        // ✅ outside Tamil Nadu rate
-      BrandingCharges: brandingCharges,       // ✅ flat, one-time branding charge for this quantity tier
+      BrandingCharges: resolvedBranding,       // ✅ flat, one-time branding charge for this quantity tier
       noCustomtation: noDesignUpload,
-      final_total: Number(calculateTotalPrice()),
-      final_total_withoutGst: Number(calculateTotalPricewithoutGst()),
+      final_total: finalTotal,
+      final_total_withoutGst: finalTotalWithoutGst,
+      customized_name: isPhoneStandProduct ? phoneStandName.trim() : "",
+      giveaway_coupon: isPhoneStandProduct && appliedGiveawayCoupon ? appliedGiveawayCoupon.code : "",
+      phone_stand_details: isPhoneStandProduct ? {
+        customized_name: phoneStandName.trim(),
+        coupon_code: appliedGiveawayCoupon?.code || ""
+      } : null,
       phone_number: userPhone,
       email: userEmail,
       pincode,
@@ -2013,6 +2170,7 @@ const ProductDetails = ({
         : { ...baseCartPayload, guestId, GuestId: guestId, userRole: token };
 
     const result = await addToShoppingCart(cartPayload);
+    setIsAlreadyInCart(true);
 
     Swal.fire({
       title: "Product Added To Cart",
@@ -2510,10 +2668,108 @@ const ProductDetails = ({
           </ul>
         </div>
 
+        {/* ── Phone Stand Customization & Coupon Section (PS0511) ────────── */}
+        {isPhoneStandProduct && !isOutOfStock && (
+          <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-xl space-y-4 shadow-sm mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🎁</span>
+              <div>
+                <h4 className="font-bold text-gray-800 text-sm">Phone Stand Customization</h4>
+                <p className="text-xs text-gray-600">
+                  Enter your custom name below. Apply a giveaway coupon if you have one.
+                </p>
+              </div>
+            </div>
+
+            {/* Mandatory Field: Name to be customized */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Name to be customized <span className="text-red-500 font-bold">*</span>
+              </label>
+              <Input
+                placeholder="Enter name to be customized on Phone Stand"
+                value={phoneStandName}
+                onKeyDown={(e) => e.stopPropagation()}
+                onChange={(e) => setPhoneStandName(e.target.value)}
+                onBlur={() => setPhoneStandName((prev) => prev.trim())}
+                className="!rounded-lg"
+                size="large"
+              />
+            </div>
+
+            {/* Optional Field: Coupon Code */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Coupon Code
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter your coupon here"
+                  value={phoneStandCoupon}
+                  onChange={(e) => {
+                    setPhoneStandCoupon(e.target.value.replace(/\s+/g, '').toUpperCase());
+                    setGiveawayCouponError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                    }
+                    e.stopPropagation();
+                  }}
+                  disabled={!!appliedGiveawayCoupon}
+                  className="!rounded-lg uppercase font-mono font-semibold"
+                  size="large"
+                />
+                {appliedGiveawayCoupon ? (
+                  <Button
+                    danger
+                    size="large"
+                    onClick={() => {
+                      setAppliedGiveawayCoupon(null);
+                      setPhoneStandCoupon("");
+                      setGiveawayCouponError("");
+                      if (quantityOptions.length > 0) {
+                        setQuantity(Number(quantityOptions[0].value));
+                      }
+                    }}
+                  >
+                    Remove
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="large"
+                    className="!bg-yellow-400 !border-yellow-400 text-black font-semibold hover:!bg-yellow-500"
+                    loading={giveawayCouponLoading}
+                    onClick={handleApplyPhoneStandCoupon}
+                  >
+                    Apply
+                  </Button>
+                )}
+              </div>
+
+              {giveawayCouponError && (
+                <p className="text-xs text-red-600 font-medium mt-1.5">{giveawayCouponError}</p>
+              )}
+
+              {appliedGiveawayCoupon && (
+                <div className="mt-2.5 p-3 bg-green-50 border border-green-300 rounded-lg flex items-center justify-between text-xs text-green-800">
+                  <div>
+                    <span className="font-bold">✓ Coupon Applied ({appliedGiveawayCoupon.code})</span>
+                    <p className="text-green-700 mt-0.5">100% Free Phone Stand &amp; Customization! Quantity fixed to 1. Only shipping applies.</p>
+                  </div>
+                  <span className="font-bold text-sm text-green-700">₹0.00</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Quantity & Variants ──────────────────────────────────── */}
         <div className="w-full flex flex-col space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-            <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
+          {!(isPhoneStandProduct && appliedGiveawayCoupon) && (
+            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+              <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
             <Select
               value={quantity}
               onChange={handleQuantitySelect}
@@ -2525,6 +2781,7 @@ const ProductDetails = ({
               onDropdownVisibleChange={setQuantityDropdownVisible}
             />
           </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {product_type !== "Stand Alone Product" && !_.isEmpty(currentPriceSplitup) && (
@@ -2580,14 +2837,26 @@ const ProductDetails = ({
         <Card className="rounded-lg border-0 bg-blue-50">
           <div className="space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <Text strong className="text-gray-800">Deal Price:</Text>
+              <div className="flex items-center gap-2">
+                <Text strong className="text-gray-800">Deal Price:</Text>
+                <span className="text-xs text-green-700 bg-green-100 font-semibold px-2 py-0.5 rounded-full border border-green-200">
+                  Inclusive of GST
+                </span>
+              </div>
               <div className="text-right flex flex-col md:flex-row md:items-baseline gap-1">
-                <Text delete className="text-md text-gray-500 md:mr-2">
+                {/* <Text delete className="text-md text-gray-500 md:mr-2">
                   {formatPrice(calculateMRPTotalPrice())}
-                </Text>
-                <Title level={4} className="!m-0 !text-green-600">
-                  {quantity ? formatPrice(calculateTotalPrice()) : formatPrice(0)}
-                </Title>
+                </Text> */}
+                {isPhoneStandProduct && appliedGiveawayCoupon ? (
+                  <div className="flex items-center gap-2">
+                    <Text delete className="text-gray-500 font-semibold">{formatPrice(calculateTotalPrice())}</Text>
+                    <Title level={4} className="!m-0 !text-green-600 font-bold">{formatPrice(0)}</Title>
+                  </div>
+                ) : (
+                  <Title level={4} className="!m-0 !text-green-600">
+                    {quantity ? formatPrice(calculateTotalPrice()) : formatPrice(0)}
+                  </Title>
+                )}
               </div>
             </div>
 
@@ -2637,12 +2906,14 @@ const ProductDetails = ({
                   Exclusive of all taxes for <Text strong>{quantity}</Text> Qty
                   (
                   <Text strong>
-                    {formatPrice(
-                      DISCOUNT_HELPER(
-                        discountPercentage.percentage,
-                        Number(_.get(checkOutState, "product_price", 0)),
-                      ),
-                    )}
+                    {isPhoneStandProduct && appliedGiveawayCoupon
+                      ? formatPrice(0)
+                      : formatPrice(
+                          DISCOUNT_HELPER(
+                            discountPercentage.percentage,
+                            Number(_.get(checkOutState, "product_price", 0)),
+                          ),
+                        )}
                   </Text>
                   / piece)
                 </h1>
@@ -2655,7 +2926,9 @@ const ProductDetails = ({
                   Inclusive of all taxes for <span>{quantity}</span> Qty
                   <span className="font-bold">
                     &nbsp;(
-                    {user.role === "Dealer" || user.role === "Corporate" || user.role === "bni_user" ? (
+                    {isPhoneStandProduct && appliedGiveawayCoupon ? (
+                      <>{formatPrice(0)}</>
+                    ) : user.role === "Dealer" || user.role === "Corporate" || user.role === "bni_user" ? (
                       <>{formatPrice(Gst_HELPER(Gst, getUnitPrice()))}</>
                     ) : (
                       <>{formatPrice(calculateGstPrice())}</>
@@ -2869,7 +3142,7 @@ const ProductDetails = ({
         )}
 
         {/* ── File Upload Section ──────────────────────────────────── */}
-        {!isOutOfStock && !isPhotoFrame && (
+        {!isOutOfStock && !isPhotoFrame && !isPhoneStandProduct && (
           <div className="space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
               <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
@@ -3003,6 +3276,16 @@ const ProductDetails = ({
                     </Button>
                   </motion.div>
                 </motion.div>
+              ) : isPhoneStandProduct && isAlreadyInCart ? (
+                <Button
+                  type="primary"
+                  size="large"
+                  disabled
+                  icon={<ShoppingCartOutlined />}
+                  className="!h-12 !bg-gray-300 !text-gray-600 font-semibold w-full cursor-not-allowed border-none"
+                >
+                  Already in Cart
+                </Button>
               ) : (
                 <Button
                   type="primary"

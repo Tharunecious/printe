@@ -5,7 +5,8 @@ const { errorResponse, successResponse } = require("../helper/response.helper");
 const { SOMETHING_WENT_WRONG }           = require("../helper/message.helper");
 const CCAvenue                           = require("../utils/ccavenue");
 const { OrderDetailsSchema,
-        ShoppingCardSchema }             = require("./models_import");   // ← ShoppingCardSchema added
+        ShoppingCardSchema,
+        CoupenSchema: Coupon }           = require("./models_import");
 const { findUserIdByEmail }              = require('../utils/Finduserbyemail');
 const mongoose                           = require("mongoose");
 const QRCode                             = require('qrcode');
@@ -83,33 +84,44 @@ const validateCCAvenueCredentials = () => {
 //
 // This helper never throws — cart clearing must never block the order response.
 // ─────────────────────────────────────────────────────────────────────────────
-const clearCartAfterOrder = async ({ userId = null, guestId = null, cartItemIds = [] }) => {
+const clearCartAfterOrder = async ({ userId = null, guestId = null, cartItemIds = [], giveawayCoupon = null }) => {
   try {
-    // ── Strategy 1: specific item ids ────────────────────────────────────────
+    const deleteQueries = [];
+
+    // 1. Delete by explicit cart item IDs
     if (Array.isArray(cartItemIds) && cartItemIds.length > 0) {
-      const objectIds = cartItemIds.map(id => new mongoose.Types.ObjectId(id));
-      const res       = await ShoppingCardSchema.deleteMany({ _id: { $in: objectIds } });
-      console.log(`✓ [Cart] Cleared ${res.deletedCount} item(s) by cart item ids`);
-      return;
+      const validObjectIds = cartItemIds
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+        .filter(Boolean);
+      if (validObjectIds.length > 0) {
+        deleteQueries.push({ _id: { $in: validObjectIds } });
+      }
     }
 
-    // ── Strategy 2: logged-in user ────────────────────────────────────────────
+    // 2. Delete by user_id
     if (userId) {
-      const res = await ShoppingCardSchema.deleteMany({ user_id: userId });
-      console.log(`✓ [Cart] Cleared ${res.deletedCount} item(s) for user_id: ${userId}`);
-      return;
+      const userOid = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+      deleteQueries.push({ user_id: userOid });
+      deleteQueries.push({ user_id: String(userId) });
     }
 
-    // ── Strategy 3: guest ─────────────────────────────────────────────────────
+    // 3. Delete by guestId
     if (guestId) {
-      const res = await ShoppingCardSchema.deleteMany({ guest_id: guestId });
-      console.log(`✓ [Cart] Cleared ${res.deletedCount} item(s) for guest_id: ${guestId}`);
-      return;
+      deleteQueries.push({ guest_id: guestId });
     }
 
-    console.warn('[Cart] clearCartAfterOrder: nothing to clear — no userId, guestId, or cartItemIds supplied');
+    // 4. If giveaway coupon was used, delete any Phone Stand giveaway item
+    if (giveawayCoupon) {
+      deleteQueries.push({ giveaway_coupon: String(giveawayCoupon).trim() });
+      deleteQueries.push({ "phone_stand_details.coupon_code": String(giveawayCoupon).trim() });
+    }
+
+    if (deleteQueries.length > 0) {
+      const res = await ShoppingCardSchema.deleteMany({ $or: deleteQueries });
+      console.log(`✓ [Cart] Cleared ${res.deletedCount} cart item(s) after successful order`);
+    }
   } catch (err) {
-    console.error('[Cart] Failed to clear cart after order (non-fatal):', err.message);
+    console.error('[Cart] Failed to clear cart after order:', err.message);
   }
 };
 
@@ -152,8 +164,8 @@ const createPaymentOrder = async (req, res) => {
     const missingFields  = requiredFields.filter(f => !req.body[f]);
     if (missingFields.length > 0) return errorResponse(res, `Missing: ${missingFields.join(', ')}`);
 
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) return errorResponse(res, "Invalid amount");
+    let numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount < 0) return errorResponse(res, "Invalid amount");
 
     // ── CCAvenue credentials ──────────────────────────────────────────────────
     const credentialCheck = validateCCAvenueCredentials();
@@ -184,6 +196,9 @@ const createPaymentOrder = async (req, res) => {
           color:               item.color  || '',
           notes:               item.notes  || '',
           photo_frame_details: item.photo_frame_details || null,
+          customized_name:     item.customized_name || req.body.customized_name || "",
+          giveaway_coupon:     item.giveaway_coupon || req.body.giveaway_coupon || "",
+          phone_stand_details: item.phone_stand_details || req.body.phone_stand_details || null,
         }))
       : [];
 
@@ -201,6 +216,77 @@ const createPaymentOrder = async (req, res) => {
       landmark:              delivery_address.landmark || delivery_address.addressLine2 || '',
       address_type:          delivery_address.address_type || 'home',
     };
+
+    // ── Coupon validation and giveaway pricing recalculation ──────────────────
+    const couponCodeToValidate =
+      coupon?.couponCode ||
+      coupon?.code ||
+      req.body?.couponCode ||
+      req.body?.giveaway_coupon ||
+      processedCartItems.find(i => i.giveaway_coupon)?.giveaway_coupon ||
+      processedCartItems.find(i => i.phone_stand_details?.coupon_code)?.phone_stand_details?.coupon_code;
+
+    let isGiveawayOrder = false;
+
+    if (couponCodeToValidate) {
+      const normalizedCode = String(couponCodeToValidate).trim().toUpperCase();
+      const couponDoc = await Coupon.findOne({ code: normalizedCode });
+      if (!couponDoc) {
+        return errorResponse(res, "Invalid coupon code");
+      }
+      if (
+        !couponDoc.isActive ||
+        (couponDoc.usageLimit !== null && couponDoc.usedCount >= couponDoc.usageLimit) ||
+        ((couponDoc.singleUse || couponDoc.usageLimit === 1 || couponDoc.is_giveaway || normalizedCode.startsWith('PHONESTAN')) && couponDoc.usedCount > 0)
+      ) {
+        return errorResponse(res, "This coupon has already been used.");
+      }
+
+      // Check if another order already successfully completed with this coupon (e.g. from another device)
+      if (couponDoc.singleUse || couponDoc.usageLimit === 1 || couponDoc.is_giveaway || normalizedCode.startsWith('PHONESTAN')) {
+        const alreadyUsedOrder = await OrderDetailsSchema.findOne({
+          $or: [
+            { giveaway_coupon: normalizedCode },
+            { "phone_stand_details.coupon_code": normalizedCode },
+            { "cart_items.giveaway_coupon": normalizedCode },
+            { "coupon.code": normalizedCode },
+          ],
+          payment_status: { $in: ["completed", "success"] },
+          order_status: { $nin: ["cancelled", "Aborted"] }
+        });
+
+        if (alreadyUsedOrder) {
+          await Coupon.updateOne(
+            { code: normalizedCode },
+            { $set: { isActive: false, usedCount: Math.max(couponDoc.usedCount, 1) } }
+          );
+          return errorResponse(res, "This coupon has already been used.");
+        }
+      }
+
+      isGiveawayOrder = Boolean(
+        couponDoc.is_giveaway ||
+        normalizedCode.startsWith('PHONESTAN') ||
+        processedCartItems.some(i => i.giveaway_coupon || String(i.product_code).toUpperCase() === 'PS0511')
+      );
+
+      if (isGiveawayOrder) {
+        // Enforce ₹0 for Phone Stand product and customization
+        processedCartItems.forEach(i => {
+          if (
+            i.giveaway_coupon ||
+            String(i.product_code).toUpperCase() === 'PS0511' ||
+            String(i.product_name).toLowerCase().includes('phone stand') ||
+            String(i.product_name).toLowerCase().includes('mobile stand')
+          ) {
+            i.price = 0;
+            i.mrp_price = 0;
+          }
+        });
+        const deliveryChargeVal = parseFloat(delivery_charges) || 0;
+        numericAmount = deliveryChargeVal;
+      }
+    }
 
     // ── CCAvenue params ───────────────────────────────────────────────────────
     const ccavenueParams = {
@@ -250,15 +336,21 @@ const createPaymentOrder = async (req, res) => {
       console.error('✗ QR generation failed (non-fatal):', qrError.message);
     }
 
+    const resolvedCartItemIds = Array.isArray(cart_item_ids) && cart_item_ids.length > 0
+      ? cart_item_ids
+      : (Array.isArray(cart_items) ? cart_items.map(i => i._id || i.cart_item_id || i.id).filter(Boolean) : []);
+
     // ── Build order document ──────────────────────────────────────────────────
     const orderData = {
       user_id:               resolvedUserId,
+      guest_id:              guestId || null,
+      cart_item_ids:         resolvedCartItemIds,
       cart_items:            processedCartItems,
       delivery_address:      processedDeliveryAddress,
       order_status:          "pending payment",
       total_price:           numericAmount,
       DeliveryCharges:       parseFloat(delivery_charges) || 0,
-      BrandingCharges:       parseFloat(branding_charges) || 0,
+      BrandingCharges:       isGiveawayOrder ? 0 : (parseFloat(branding_charges) || 0),
       FreeDelivery:          !!free_delivery,
       payment_type:          payment_type || "Online Payment",
       invoice_no:            finalOrderId,
@@ -266,14 +358,20 @@ const createPaymentOrder = async (req, res) => {
       gst_no:                gst_no || "",
       transaction_id:        "",
       payment_id:            "",
-      subtotal:              parseFloat(subtotal            || numericAmount),
-      tax_amount:            parseFloat(tax_amount          || 0),
-      discount_amount:       parseFloat(discount_amount     || 0),
-      total_amount:          parseFloat(total_amount        || numericAmount),
+      subtotal:              isGiveawayOrder ? 0 : parseFloat(subtotal || numericAmount),
+      tax_amount:            isGiveawayOrder ? 0 : parseFloat(tax_amount || 0),
+      discount_amount:       parseFloat(discount_amount || 0),
+      total_amount:          numericAmount,
       total_before_discount: parseFloat(total_before_discount || numericAmount),
       payment_option:        payment_type || "full",
       created_by,
       photo_frame_details:   photo_frame_details || null,
+      customized_name:       req.body.customized_name || processedCartItems.find(i => i.customized_name)?.customized_name || "",
+      giveaway_coupon:       couponCodeToValidate || req.body.giveaway_coupon || "",
+      phone_stand_details:   req.body.phone_stand_details || processedCartItems.find(i => i.phone_stand_details)?.phone_stand_details || (couponCodeToValidate ? {
+        coupon_code: couponCodeToValidate,
+        customized_name: req.body.customized_name || processedCartItems.find(i => i.customized_name)?.customized_name || "",
+      } : null),
     };
 
     if (qrCodeData) {
@@ -285,13 +383,13 @@ const createPaymentOrder = async (req, res) => {
       orderData.payment_gateway_url    = gatewayUrl;
     }
 
-    if (coupon?.couponCode) {
+    if (couponCodeToValidate) {
       orderData.coupon = {
-        code:            coupon.couponCode,
-        discount_type:   coupon.discountType,
-        discount_value:  coupon.discountValue,
-        discount_amount: coupon.discountAmount,
-        final_amount:    coupon.finalAmount,
+        code:            couponCodeToValidate,
+        discount_type:   coupon?.discountType || 'percentage',
+        discount_value:  coupon?.discountValue || 100,
+        discount_amount: coupon?.discountAmount || parseFloat(discount_amount || 0),
+        final_amount:    0,
         applied_at:      new Date(),
       };
     }
@@ -314,15 +412,6 @@ const createPaymentOrder = async (req, res) => {
       console.error('✗ DB save error:', dbError);
       return errorResponse(res, "Failed to create order");
     }
-
-    // ── ✅ Clear the shopping cart now that the order is confirmed in DB ───────
-    // Works for both logged-in users and guests.
-    // Precedence: explicit cart_item_ids → user_id → guestId
-    await clearCartAfterOrder({
-      userId:      resolvedUserId,
-      guestId:     guestId || null,
-      cartItemIds: Array.isArray(cart_item_ids) ? cart_item_ids : [],
-    });
 
     console.log('✓ Payment order flow complete');
     console.log('='.repeat(60));
@@ -757,6 +846,32 @@ const handleCCAvenueCallback = async (req, res) => {
       params.append('amount', amount);
       console.log('✓ Payment successful');
 
+      // Mark coupon as used and expire it atomically upon successful payment
+      const couponCodeToMark =
+        order?.coupon?.code ||
+        order?.phone_stand_details?.coupon_code ||
+        order?.giveaway_coupon ||
+        (order?.cart_items || []).find(i => i.giveaway_coupon)?.giveaway_coupon ||
+        (order?.cart_items || []).find(i => i.phone_stand_details?.coupon_code)?.phone_stand_details?.coupon_code;
+
+      if (couponCodeToMark) {
+        try {
+          const { markCouponAsUsedAtomic } = require('./coupen.controller');
+          await markCouponAsUsedAtomic(couponCodeToMark, order.user_id);
+          console.log(`✓ Marked coupon ${couponCodeToMark} as used/expired after successful payment`);
+        } catch (cErr) {
+          console.error('Error marking coupon as used:', cErr.message);
+        }
+      }
+
+      // Clear cart items for this order from DB
+      await clearCartAfterOrder({
+        userId:         order?.user_id,
+        guestId:        order?.guest_id,
+        cartItemIds:    order?.cart_item_ids || [],
+        giveawayCoupon: couponCodeToMark,
+      });
+
     } else if (order_status === 'Aborted') {
       updateData.payment_status         = 'cancelled';
       updateData.order_status           = 'cancelled';
@@ -1008,4 +1123,5 @@ module.exports = {
   getOrderByInvoice,
   regenerateQRCode,
   getQRCode,
+  clearCartAfterOrder,
 };

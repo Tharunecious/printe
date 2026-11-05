@@ -1,4 +1,13 @@
-import { notification } from "antd";
+import { notification, message } from "antd";
+
+notification.config({
+  placement: "top",
+  top: 24,
+});
+
+message.config({
+  top: 24,
+});
 import _ from "lodash";
 import Swal from "sweetalert2";
 

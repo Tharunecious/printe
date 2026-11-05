@@ -18,6 +18,9 @@ const cartItemSchema = new Schema(
     // FIX: was `type: Array` — Mongoose silently dropped objects stored here.
     // Schema.Types.Mixed accepts any shape (object, array, primitives).
     photo_frame_details: { type: Schema.Types.Mixed, default: null },
+    customized_name: { type: String, default: "" },
+    giveaway_coupon: { type: String, default: "" },
+    phone_stand_details: { type: Schema.Types.Mixed, default: null },
   },
   { _id: false }
 );
@@ -28,6 +31,8 @@ const Order = model(
   Schema(
     {
       user_id: { type: Schema.Types.ObjectId, ref: "user" },
+      guest_id: { type: String, default: null },
+      cart_item_ids: { type: [String], default: [] },
 
       cart_items: { type: [cartItemSchema], required: true },
 
@@ -64,6 +69,9 @@ const Order = model(
       // FIX: type is Mixed so Mongoose persists the entire plain object.
       photo_frame_details: { type: Schema.Types.Mixed, default: null },
       // ─────────────────────────────────────────────────────────────────
+      customized_name: { type: String, default: "" },
+      giveaway_coupon: { type: String, default: "" },
+      phone_stand_details: { type: Schema.Types.Mixed, default: null },
 
       payment_type:   { type: String, required: true },
 

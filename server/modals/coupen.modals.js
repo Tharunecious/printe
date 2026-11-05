@@ -101,6 +101,14 @@ const couponSchema = new mongoose.Schema({
   isPerProductDiscount: {
     type: Boolean,
     default: false
+  },
+  is_giveaway: {
+    type: Boolean,
+    default: false
+  },
+  giveaway_product_code: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true
@@ -112,5 +120,7 @@ couponSchema.index({ endDate: 1 });
 couponSchema.index({ discountType: 1 });
 // Speed up product-specific coupon queries
 couponSchema.index({ applicableProducts: 1 });
+couponSchema.index({ is_giveaway: 1 });
+couponSchema.index({ giveaway_product_code: 1 });
 
 module.exports = mongoose.model('Coupon', couponSchema);

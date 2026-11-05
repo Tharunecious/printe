@@ -1,6 +1,8 @@
 import { Table, Tag, Card, Statistic, Row, Col, Tooltip } from "antd";
 import React, { useEffect } from "react";
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import _ from "lodash";
@@ -111,7 +113,7 @@ const UserOrders = () => {
                 </Tag>
               </Tooltip>
             )}
-            {hasCoupon && discountAmount > 0 && (
+            {/* {hasCoupon && discountAmount > 0 && (
               <div>
                 <span
                   style={{
@@ -123,7 +125,7 @@ const UserOrders = () => {
                   ₹{original.toFixed(2)}
                 </span>
               </div>
-            )}
+            )} */}
           </div>
         );
       },

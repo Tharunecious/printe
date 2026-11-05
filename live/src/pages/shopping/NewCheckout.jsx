@@ -34,8 +34,9 @@ import {
 } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { message } from 'antd';
 import _ from 'lodash';
-import { applyCouponCode } from '../../helper/api_helper';
+import { applyCouponCode, getMyShoppingCart } from '../../helper/api_helper';
 import { initiateCCAvenuePayment } from './pay/utils/payment';
 
 // ─── Font + token injection ────────────────────────────────────────────────────
@@ -301,7 +302,56 @@ const NewCheckout = () => {
 
   // Guards
   useEffect(() => { if (!user?.name) navigate('/login'); }, [user?.name, navigate]);
-  useEffect(() => { if (selectedProducts.length > 0) setCartData(selectedProducts); }, [selectedProducts]);
+  useEffect(() => {
+    const handleCartData = (items) => {
+      setCartData(items);
+      const giveawayItem = items.find((i) => i.giveaway_coupon || i.phone_stand_details?.coupon_code);
+      if (giveawayItem && !appliedCoupon) {
+        const code = String(giveawayItem.giveaway_coupon || giveawayItem.phone_stand_details?.coupon_code).trim().toUpperCase();
+        // Immediately check if the coupon is still valid (has not been used on another device)
+        applyCouponCode({
+          code,
+          orderAmount: Number(giveawayItem.product_price || 0) * (giveawayItem.product_quantity || 1) + Number(giveawayItem.BrandingCharges || 0),
+          userId: user?._id?.toString() || user?.id || 'guest',
+          userType: user?.role || 'user',
+        }).then((resp) => {
+          if (resp?.success) {
+            setAppliedCoupon({
+              code,
+              discountType: 'percentage',
+              discountValue: 100,
+              discountAmount: Number(giveawayItem.product_price || 0) * (giveawayItem.product_quantity || 1) + Number(giveawayItem.BrandingCharges || 0),
+              is_giveaway: true,
+              giveaway_product_code: 'PS0511'
+            });
+            setCouponCode(code);
+            setCouponError('');
+          } else {
+            const msg = resp?.message || 'This coupon has already been used.';
+            setCouponError(msg);
+            setAppliedCoupon(null);
+            message.error({ content: msg, duration: 4 });
+          }
+        }).catch((err) => {
+          const msg = err.response?.data?.message || err.message || 'This coupon has already been used.';
+          setCouponError(msg);
+          setAppliedCoupon(null);
+          message.error({ content: msg, duration: 4 });
+        });
+      }
+    };
+
+    if (selectedProducts.length > 0) {
+      handleCartData(selectedProducts);
+    } else {
+      getMyShoppingCart().then((res) => {
+        const items = _.get(res, "data.data", []);
+        if (items.length > 0) {
+          handleCartData(items);
+        }
+      }).catch(() => {});
+    }
+  }, [selectedProducts]);
 
   // Pre-fill saved address
   useEffect(() => {
@@ -415,11 +465,71 @@ const NewCheckout = () => {
       const orderId = `PRINTE${Date.now()}`;
       const street  = formData.addressLine2
         ? `${formData.addressLine1}\n${formData.addressLine2}` : formData.addressLine1;
+      const cartItemIds = cartData.map((item) => item._id).filter(Boolean);
+      const giveawayItem = cartData.find((item) => item.giveaway_coupon || item.phone_stand_details?.coupon_code);
+      const resolvedGiveawayCoupon =
+        giveawayItem?.giveaway_coupon ||
+        giveawayItem?.phone_stand_details?.coupon_code ||
+        appliedCoupon?.code ||
+        '';
+
+      const resolvedCustomizedName =
+        giveawayItem?.customized_name ||
+        cartData.find(i => i.customized_name)?.customized_name ||
+        '';
+
+      const resolvedPhoneStandDetails =
+        giveawayItem?.phone_stand_details ||
+        cartData.find(i => i.phone_stand_details)?.phone_stand_details ||
+        (resolvedGiveawayCoupon ? {
+          coupon_code: resolvedGiveawayCoupon,
+          customized_name: resolvedCustomizedName,
+        } : null);
+
+      // Re-verify coupon availability right before payment order creation
+      if (resolvedGiveawayCoupon) {
+        try {
+          const verifyResp = await applyCouponCode({
+            code: resolvedGiveawayCoupon.trim().toUpperCase(),
+            orderAmount: calc.totalBeforeDiscount || calc.payable || 80,
+            userId: user?._id?.toString() || user?.id || 'guest',
+            userType: user?.role || 'user',
+          });
+          if (!verifyResp?.success) {
+            const errMsg = verifyResp?.message || 'This coupon has already been used.';
+            setError(errMsg);
+            setCouponError(errMsg);
+            setAppliedCoupon(null);
+            message.error({ content: errMsg, duration: 4, style: { marginTop: '5vh' } });
+            setLoading(false);
+            return;
+          }
+        } catch (verifyErr) {
+          const errMsg = verifyErr.response?.data?.message || verifyErr.message || 'This coupon has already been used.';
+          setError(errMsg);
+          setCouponError(errMsg);
+          setAppliedCoupon(null);
+          message.error({ content: errMsg, duration: 4, style: { marginTop: '5vh' } });
+          setLoading(false);
+          return;
+        }
+      }
+
       await initiateCCAvenuePayment({
         amount: calc.payable, order_id: orderId,
         billing_name: formData.name, billing_email: formData.email,
         billing_tel: formData.phone, currency: 'INR',
-        cart_items: cartData,
+        guestId: localStorage.getItem("guestId") || undefined,
+        cart_item_ids: cartItemIds,
+        giveaway_coupon: resolvedGiveawayCoupon,
+        customized_name: resolvedCustomizedName,
+        phone_stand_details: resolvedPhoneStandDetails,
+        cart_items: cartData.map((item) => ({
+          ...item,
+          customized_name: item.customized_name || resolvedCustomizedName || '',
+          giveaway_coupon: item.giveaway_coupon || resolvedGiveawayCoupon || '',
+          phone_stand_details: item.phone_stand_details || resolvedPhoneStandDetails || null,
+        })),
         photo_frame_details: cartData.map((item) => ({
           cart_item_id: item._id, product_id: item.product_id,
           delivery_to_home: getDeliveryToHome(item),
@@ -434,14 +544,14 @@ const NewCheckout = () => {
         user_id: user?._id, delivery_charges: calc.delivery,
         free_delivery: calc.isShippingCoupon || cartData.every((i) => i.FreeDelivery),
         gst_no: gstNo || undefined,
-        coupon: appliedCoupon ? {
-          couponCode:    appliedCoupon.code,
-          discountType:  appliedCoupon.discountType,
-          discountValue: appliedCoupon[discountField(user.role)],
-          discountAmount: appliedCoupon.discountAmount,
-          finalAmount:   appliedCoupon.finalAmount,
-          discountTiers: appliedCoupon.discountTiers,
-          appliedTiers:  appliedCoupon.appliedTiers,
+        coupon: (appliedCoupon || resolvedGiveawayCoupon) ? {
+          couponCode:    appliedCoupon?.code || resolvedGiveawayCoupon,
+          is_giveaway:   true,
+          giveaway_product_code: 'PS0511',
+          discountType:  appliedCoupon?.discountType || 'percentage',
+          discountValue: 100,
+          discountAmount: appliedCoupon?.discountAmount || 0,
+          finalAmount:   0,
         } : null,
         subtotal:              calc.subtotal,
         discounted_subtotal:   calc.discountedSubtotal,
@@ -454,7 +564,13 @@ const NewCheckout = () => {
       });
     } catch (err) {
       console.error('Payment error:', err);
-      setError(err?.message || 'Failed to process payment. Please try again.');
+      const errMsg = err?.message || 'Failed to process payment. Please try again.';
+      setError(errMsg);
+      if (errMsg.includes('already been used')) {
+        setAppliedCoupon(null);
+        setCouponError(errMsg);
+      }
+      message.error({ content: errMsg, duration: 4, style: { marginTop: '5vh' } });
       setLoading(false);
     }
   };
@@ -525,10 +641,10 @@ const NewCheckout = () => {
   const summaryRows = [
     { label: `Subtotal (${cartData.length} item${cartData.length !== 1 ? 's' : ''})`, val: `₹${calc.subtotal.toFixed(2)}` },
   ];
-  if (appliedCoupon && calc.discount > 0) {
-    summaryRows.push({ label: `Coupon — ${appliedCoupon.code}`, val: `−₹${calc.discount.toFixed(2)}`, highlight: true });
-    summaryRows.push({ label: 'Taxable amount', val: `₹${calc.discountedSubtotal.toFixed(2)}`, small: true });
-  }
+  // if (appliedCoupon && calc.discount > 0) {
+  //   summaryRows.push({ label: `Coupon — ${appliedCoupon.code}`, val: `−₹${calc.discount.toFixed(2)}`, highlight: true });
+  //   summaryRows.push({ label: 'Taxable amount', val: `₹${calc.discountedSubtotal.toFixed(2)}`, small: true });
+  // }
   summaryRows.push({ label: `GST 18%${appliedCoupon && calc.discount > 0 ? ' (on discounted price)' : ''}`, val: `₹${calc.tax.toFixed(2)}` });
 
   if (calc.isShippingCoupon) {
@@ -697,7 +813,7 @@ const NewCheckout = () => {
               </Card>
 
               {/* Coupon */}
-              <Card>
+              {/* <Card>
                 <SectionHead icon={FaTag} iconColor="var(--primary)">Coupon Code</SectionHead>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <input type="text" value={couponCode}
@@ -757,7 +873,7 @@ const NewCheckout = () => {
                     </p>
                   </div>
                 )}
-              </Card>
+              </Card> */}
 
               {/* GSTIN */}
               <Card>
@@ -817,6 +933,16 @@ const NewCheckout = () => {
                             {item.product_name}
                           </p>
                           <p style={{ margin: '2px 0 4px', fontSize: 11, color: 'var(--muted-fg)' }}>Qty: {item.product_quantity || 1}</p>
+                          {item.customized_name && (
+                            <p style={{ margin: '0 0 3px', fontSize: 11, color: '#1890ff', fontWeight: 700 }}>
+                              Customized: {item.customized_name}
+                            </p>
+                          )}
+                          {/* {item.giveaway_coupon && (
+                            <p style={{ margin: '0 0 3px', fontSize: 10, color: 'var(--success)', fontWeight: 700 }}>
+                              🎁 Giveaway: {item.giveaway_coupon} (100% Free)
+                            </p>
+                          )} */}
                           {isFrame && pickup && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Pickup — no delivery fee</p>}
                           {isFrame && !pickup && !toHome && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ No delivery fee</p>}
                           {charge > 0 && calc.isShippingCoupon && (
@@ -867,7 +993,7 @@ const NewCheckout = () => {
                 </div>
 
                 {/* Savings callout */}
-                {appliedCoupon && (calc.discount > 0 || calc.deliveryDiscount > 0) && (
+                {/* {appliedCoupon && (calc.discount > 0 || calc.deliveryDiscount > 0) && (
                   <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span style={{ fontSize: 12, color: 'var(--muted-fg)', textDecoration: 'line-through' }}>₹{calc.totalBeforeDiscount.toFixed(2)}</span>
                     <span style={{
@@ -878,7 +1004,7 @@ const NewCheckout = () => {
                       You save ₹{(calc.totalBeforeDiscount - calc.total).toFixed(2)}
                     </span>
                   </div>
-                )}
+                )} */}
               </Card>
 
               {/* Payment card */}

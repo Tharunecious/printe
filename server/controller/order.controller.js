@@ -35,6 +35,49 @@ const CreateOrder = async (req, res) => {
       return errorResponse(res, "Delivery address and cart items are required");
     }
 
+    // ── Check coupon availability on order placement ─────────────────────────
+    const couponToValidate =
+      coupenCode ||
+      (Array.isArray(cart_items) ? cart_items.find(i => i.giveaway_coupon)?.giveaway_coupon : cart_items?.giveaway_coupon) ||
+      (Array.isArray(cart_items) ? cart_items.find(i => i.phone_stand_details?.coupon_code)?.phone_stand_details?.coupon_code : cart_items?.phone_stand_details?.coupon_code);
+
+    if (couponToValidate) {
+      const Coupen = require("../modals/coupen.modals");
+      const normalizedCode = String(couponToValidate).trim().toUpperCase();
+      const couponDoc = await Coupen.findOne({ code: normalizedCode });
+      if (!couponDoc) {
+        return errorResponse(res, "Invalid coupon code");
+      }
+      if (
+        !couponDoc.isActive ||
+        (couponDoc.usageLimit !== null && couponDoc.usedCount >= couponDoc.usageLimit) ||
+        ((couponDoc.singleUse || couponDoc.usageLimit === 1 || couponDoc.is_giveaway || normalizedCode.startsWith('PHONESTAN')) && couponDoc.usedCount > 0)
+      ) {
+        return errorResponse(res, "This coupon has already been used.");
+      }
+
+      if (couponDoc.singleUse || couponDoc.usageLimit === 1 || couponDoc.is_giveaway || normalizedCode.startsWith('PHONESTAN')) {
+        const alreadyUsedOrder = await OrderDetailsSchema.findOne({
+          $or: [
+            { giveaway_coupon: normalizedCode },
+            { "phone_stand_details.coupon_code": normalizedCode },
+            { "cart_items.giveaway_coupon": normalizedCode },
+            { "coupon.code": normalizedCode },
+          ],
+          payment_status: { $in: ["completed", "success"] },
+          order_status: { $nin: ["cancelled", "Aborted"] }
+        });
+
+        if (alreadyUsedOrder) {
+          await Coupen.updateOne(
+            { code: normalizedCode },
+            { $set: { isActive: false, usedCount: Math.max(couponDoc.usedCount, 1) } }
+          );
+          return errorResponse(res, "This coupon has already been used.");
+        }
+      }
+    }
+
     const paymentDetails = {
       payment_id,
       payment_status: "completed",
@@ -127,7 +170,10 @@ const CreateOrder = async (req, res) => {
         cart_items: item,
         is_photoframe,
         delivery_to_home,
-        photo_frame_details: itemPhotoFrameDetails,  // ← now always saved
+        photo_frame_details: itemPhotoFrameDetails,
+        customized_name: item.customized_name || "",
+        giveaway_coupon: item.giveaway_coupon || coupenCode || "",
+        phone_stand_details: item.phone_stand_details || null,
         DeliveryCharges,                              // ← 0 when no home delivery
         BrandingCharges,
         total_price:  req.body.total_price,
@@ -149,6 +195,19 @@ const CreateOrder = async (req, res) => {
     });
 
     await Promise.all(orderPromises);
+    const couponToRedeem =
+      coupenCode ||
+      cart_items.find(i => i.giveaway_coupon)?.giveaway_coupon ||
+      cart_items.find(i => i.phone_stand_details?.coupon_code)?.phone_stand_details?.coupon_code;
+    if (couponToRedeem) {
+      try {
+        const { markCouponAsUsedAtomic } = require('../controller/coupen.controller');
+        await markCouponAsUsedAtomic(couponToRedeem, id);
+        console.log(`✓ [CreateOrder] Marked coupon ${couponToRedeem} as used for user ${id}`);
+      } catch (cErr) {
+        console.error('[CreateOrder] Error marking coupon as used:', cErr.message);
+      }
+    }
     successResponse(res, "Your Order Placed Successfully");
   } catch (err) {
     console.log(err);
@@ -213,6 +272,7 @@ const CollectMyOrders = async (req, res) => {
           total_before_discount:1, payment_option:1, payment_qr_code:1,
           created_by:1, admin_notes:1, created_by_admin_id:1,
           payment_failure_reason:1, coupon:1, createdAt:1, updatedAt:1,
+          customized_name:1, giveaway_coupon:1, phone_stand_details:1,
           order_delivery_timeline:1, user_details:1,
         },
       },

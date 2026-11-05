@@ -143,11 +143,26 @@ export const mergeCart = async (cartData) => {
 
 export const removeMyShoppingCart = async (data) => {
   const guestId = getGuestId();
-  const requestData = typeof data === 'string' ? { ids: [data] } : data;
-
+  let payload = {};
+  if (typeof data === 'string') {
+    payload = { ids: [data] };
+  } else if (Array.isArray(data)) {
+    payload = { ids: data };
+  } else if (typeof data === 'object' && data !== null) {
+    payload = data;
+  }
   return await custom_axios.post(`${baseURL}/shopping/remove_my_cart`, {
-    ...requestData,
-    guestId: guestId
+    ...payload,
+    guestId: guestId,
+  });
+};
+
+export const clearMyShoppingCart = async (userId = null) => {
+  const guestId = getGuestId();
+  return await custom_axios.post(`${baseURL}/shopping/remove_my_cart`, {
+    clearAll: true,
+    userId: userId || undefined,
+    guestId: guestId,
   });
 };
 

@@ -30,6 +30,8 @@ import { FacebookIcon, WhatsappIcon } from "react-share";
 import { IoShareSocial } from "react-icons/io5";
 import {
   addToShoppingCart,
+  getMyShoppingCart,
+  applyCouponCode,
   bulkOrder,
   resendOtp,
   verifyOtp,
@@ -147,9 +149,8 @@ export const CustomModal = ({
 
   return ReactDOM.createPortal(
     <div
-      className={`fixed inset-0 flex justify-center p-2 ${topPosition} ${
-        isMobile ? "items-end" : "items-center"
-      }`}
+      className={`fixed inset-0 flex justify-center p-2 ${topPosition} ${isMobile ? "items-end" : "items-center"
+        }`}
       style={{ zIndex: 9000 }}
     >
       <motion.div
@@ -163,9 +164,8 @@ export const CustomModal = ({
         initial={{ opacity: 0, scale: 0.9, y: isMobile ? 100 : 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: isMobile ? 100 : 20 }}
-        className={`relative bg-white rounded-lg shadow-xl ${
-          isMobile ? "w-full h-full rounded-b-none" : "max-h-[90vh]"
-        } overflow-hidden flex flex-col ${className}`}
+        className={`relative bg-white rounded-lg shadow-xl ${isMobile ? "w-full h-full rounded-b-none" : "max-h-[90vh]"
+          } overflow-hidden flex flex-col ${className}`}
         style={isMobile ? {} : { width }}
       >
         {title && (
@@ -209,9 +209,9 @@ export const CustomPopover = ({
 
   const placementClasses = {
     "bottom-right": "top-full right-0 mt-2",
-    "bottom-left":  "top-full left-0 mt-2",
-    "top-right":    "bottom-full right-0 mb-2",
-    "top-left":     "bottom-full left-0 mb-2",
+    "bottom-left": "top-full left-0 mt-2",
+    "top-right": "bottom-full right-0 mb-2",
+    "top-left": "bottom-full left-0 mb-2",
   };
 
   return (
@@ -258,29 +258,29 @@ const getRoleFields = (role) => {
   switch (role) {
     case "Dealer":
       return {
-        quantity:               "Dealer_quantity",
-        discount:               "Dealer_discount",
-        freeDelivery:           "free_delivery_dealer",
-        recommended:            "recommended_stats_dealer",
-        deliveryCharges:        "delivery_charges_dealer",
+        quantity: "Dealer_quantity",
+        discount: "Dealer_discount",
+        freeDelivery: "free_delivery_dealer",
+        recommended: "recommended_stats_dealer",
+        deliveryCharges: "delivery_charges_dealer",
         deliveryChargesOuterTN: "delivery_charges_dealer_outer_tn",
       };
     case "Corporate":
       return {
-        quantity:               "Corporate_quantity",
-        discount:               "Corporate_discount",
-        freeDelivery:           "free_delivery_corporate",
-        recommended:            "recommended_stats_corporate",
-        deliveryCharges:        "delivery_charges_corporate",
+        quantity: "Corporate_quantity",
+        discount: "Corporate_discount",
+        freeDelivery: "free_delivery_corporate",
+        recommended: "recommended_stats_corporate",
+        deliveryCharges: "delivery_charges_corporate",
         deliveryChargesOuterTN: "delivery_charges_corporate_outer_tn",
       };
     default:
       return {
-        quantity:               "Customer_quantity",
-        discount:               "Customer_discount",
-        freeDelivery:           "free_delivery_customer",
-        recommended:            "recommended_stats_customer",
-        deliveryCharges:        "delivery_charges_customer",
+        quantity: "Customer_quantity",
+        discount: "Customer_discount",
+        freeDelivery: "free_delivery_customer",
+        recommended: "recommended_stats_customer",
+        deliveryCharges: "delivery_charges_customer",
         deliveryChargesOuterTN: "delivery_charges_customer_outer_tn",
       };
   }
@@ -313,7 +313,7 @@ const getBothDeliveryChargesFromProduct = (productData, userRole, currentQty = n
 
   if (!productData) return defaults;
 
-  const roleFields       = getRoleFields(userRole);
+  const roleFields = getRoleFields(userRole);
   const quantityDiscounts = productData.quantity_discount_splitup || [];
 
   // Find the matching quantity tier
@@ -341,7 +341,7 @@ const getBothDeliveryChargesFromProduct = (productData, userRole, currentQty = n
 
   // Outside TN charge — use dedicated field if set, otherwise fall back to insideTN + 50
   const outerTNRaw = matchedTier[roleFields.deliveryChargesOuterTN];
-  const outsideTN  =
+  const outsideTN =
     outerTNRaw !== undefined && outerTNRaw !== null && outerTNRaw !== ""
       ? Number(outerTNRaw)
       : insideTN > 0
@@ -364,25 +364,25 @@ const PincodeDeliveryCalculatorForModal = ({
   onPincodeChange,
   initialPincode = "",
 }) => {
-  const [pincode,             setPincode]             = useState(initialPincode);
-  const [deliveryDate,        setDeliveryDate]        = useState("");
-  const [state,               setState]               = useState("");
-  const [error,               setError]               = useState("");
+  const [pincode, setPincode] = useState(initialPincode);
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [state, setState] = useState("");
+  const [error, setError] = useState("");
   const [isValidatingPincode, setIsValidatingPincode] = useState(false);
-  const [isGettingLocation,   setIsGettingLocation]   = useState(false);
-  const [isPincodeValid,      setIsPincodeValid]      = useState(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isPincodeValid, setIsPincodeValid] = useState(null);
   // Store both charges for display
   const [bothCharges, setBothCharges] = useState({ insideTN: 0, outsideTN: 0 });
   const [isOutsideTN, setIsOutsideTN] = useState(false);
 
   const stateDeliveryDays = {
-    maharashtra:  { days: 2, name: "Maharashtra" },
-    gujarat:      { days: 3, name: "Gujarat" },
-    karnataka:    { days: 4, name: "Karnataka" },
+    maharashtra: { days: 2, name: "Maharashtra" },
+    gujarat: { days: 3, name: "Gujarat" },
+    karnataka: { days: 4, name: "Karnataka" },
     "tamil nadu": { days: 3, name: "Tamil Nadu" },
-    kerala:       { days: 6, name: "Kerala" },
-    delhi:        { days: 7, name: "Delhi" },
-    default:      { days: 3, name: "Other States" },
+    kerala: { days: 6, name: "Kerala" },
+    delhi: { days: 7, name: "Delhi" },
+    default: { days: 3, name: "Other States" },
   };
 
   const pincodeToStateMap = useMemo(() => {
@@ -416,7 +416,7 @@ const PincodeDeliveryCalculatorForModal = ({
       setIsPincodeValid(isValid);
 
       if (isValid) {
-        const stateKey  = getStateFromPincode(pin);
+        const stateKey = getStateFromPincode(pin);
         const stateName = stateDeliveryDays[stateKey]?.name || stateDeliveryDays.default.name;
         setState(stateName);
         setDeliveryDate(calculateDeliveryDate(stateKey));
@@ -433,9 +433,9 @@ const PincodeDeliveryCalculatorForModal = ({
 
         if (onDeliveryChargeChange) {
           onDeliveryChargeChange({
-            insideTN:    charges.insideTN,
-            outsideTN:   charges.outsideTN,
-            active:      activeCharge,
+            insideTN: charges.insideTN,
+            outsideTN: charges.outsideTN,
+            active: activeCharge,
             isOutsideTN: outsideFlag,
           });
         }
@@ -532,7 +532,7 @@ const PincodeDeliveryCalculatorForModal = ({
             suffix={
               <div className="flex items-center gap-2">
                 {isValidatingPincode && <Spin size="small" />}
-                {isPincodeValid === true  && <CheckCircleOutlined className="text-green-500" />}
+                {isPincodeValid === true && <CheckCircleOutlined className="text-green-500" />}
                 {isPincodeValid === false && <CloseCircleOutlined className="text-red-500" />}
               </div>
             }
@@ -641,50 +641,50 @@ const ProductDetailVarient = ({
   selectedVariants: propSelectedVariants = {},
 }) => {
   const { user } = useSelector((state) => state.authSlice);
-  const [form]       = Form.useForm();
+  const [form] = Form.useForm();
   const [notifyForm] = Form.useForm();
-  const dispatch  = useDispatch();
-  const navigate  = useNavigate();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   // Product constants
-  const stockCount      = _.get(data, "stock_count", 0);
-  const productionTime  = _.get(data, "Production_time", "2");
-  const arrangeTime     = _.get(data, "Stock_Arrangement_time", "3");
+  const stockCount = _.get(data, "stock_count", 0);
+  const productionTime = _.get(data, "Production_time", "2");
+  const arrangeTime = _.get(data, "Stock_Arrangement_time", "3");
   const processing_item =
     stockCount === 0
       ? Number(productionTime) + Number(arrangeTime)
       : Number(productionTime);
-  const productType       = _.get(data, "type", "Variable Product");
+  const productType = _.get(data, "type", "Variable Product");
   const availableVariants = data.variants || [];
   const quantityDiscounts = _.get(data, "quantity_discount_splitup", []);
-  const dropdownGap       = _.get(data, "dropdown_gap", 100);
-  const quantityType      = _.get(data, "quantity_type", "dropdown");
-  const maxQuantity       = _.get(data, "max_quantity", 10000);
-  const unit              = _.get(data, "unit", "pcs");
-  const gst               = _.get(data, "GST", 18);
+  const dropdownGap = _.get(data, "dropdown_gap", 100);
+  const quantityType = _.get(data, "quantity_type", "dropdown");
+  const maxQuantity = _.get(data, "max_quantity", 10000);
+  const unit = _.get(data, "unit", "pcs");
+  const gst = _.get(data, "GST", 18);
 
   // State
-  const [selectedVariants,         setSelectedVariants]         = useState({});
-  const [quantity,                  setQuantity]                  = useState(null);
-  const [discountPercentage,        setDiscountPercentage]        = useState({ uuid: "", percentage: 0 });
-  const [currentPriceSplitup,       setCurrentPriceSplitup]       = useState({});
-  const [checked,                   setChecked]                   = useState(false);
-  const [freeDelivery,              setFreeDelivery]              = useState(false);
-  const [loading,                   setLoading]                   = useState(false);
-  const [stock,                     setStockCount]                = useState(0);
-  const [designPreviewVisible,      setDesignPreviewVisible]      = useState(false);
-  const [quantityDropdownVisible,   setQuantityDropdownVisible]   = useState(false);
-  const [showShareMenu,             setShowShareMenu]             = useState(false);
-  const [noDesignUpload,            setNoDesignUpload]            = useState(false);
-  const [needDesignUpload,          setNeedDesignUpload]          = useState(true);
-  const [showNotifyModal,           setShowNotifyModal]           = useState(false);
-  const [sendingNotification,       setSendingNotification]       = useState(false);
-  const [isModalOpen,               setIsModalOpen]               = useState(false);
-  const [instructionsVisible,       setInstructionsVisible]       = useState(false);
-  const [showBulkOrderForm,         setShowBulkOrderForm]         = useState(false);
-  const [otpSent,                   setOtpSent]                   = useState(false);
-  const [emailVerified,             setEmailVerified]             = useState(false);
-  const [sendingOtp,                setSendingOtp]                = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState({});
+  const [quantity, setQuantity] = useState(null);
+  const [discountPercentage, setDiscountPercentage] = useState({ uuid: "", percentage: 0 });
+  const [currentPriceSplitup, setCurrentPriceSplitup] = useState({});
+  const [checked, setChecked] = useState(false);
+  const [freeDelivery, setFreeDelivery] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [stock, setStockCount] = useState(0);
+  const [designPreviewVisible, setDesignPreviewVisible] = useState(false);
+  const [quantityDropdownVisible, setQuantityDropdownVisible] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [noDesignUpload, setNoDesignUpload] = useState(false);
+  const [needDesignUpload, setNeedDesignUpload] = useState(true);
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [instructionsVisible, setInstructionsVisible] = useState(false);
+  const [showBulkOrderForm, setShowBulkOrderForm] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
 
   // ── Dual delivery charges state ───────────────────────────────────────────
   // DeliveryCharges   = inside Tamil Nadu charge (always stored)
@@ -692,26 +692,143 @@ const ProductDetailVarient = ({
   // Both come from pincode calculator; we send both to backend regardless of
   // which state the user's pincode is in, so the backend/order system always
   // has access to both rates.
-  const [deliveryCharges,    setDeliveryCharges]    = useState(100); // inside TN
-  const [outOfTNCharge,      setOutOfTNCharge]      = useState(150); // outside TN
+  const [deliveryCharges, setDeliveryCharges] = useState(100); // inside TN
+  const [outOfTNCharge, setOutOfTNCharge] = useState(150); // outside TN
   const [pincodeIsOutsideTN, setPincodeIsOutsideTN] = useState(false);
 
+  // ── Phone Stand (PS0511) Giveaway & Customization ───────────────────────
+  const isOutOfStock = Boolean(_.get(data, "is_soldout", false));
+  const isPhoneStandProduct = (() => {
+    const code =
+      data?.product_code ||
+      data?.product_codeS_NO ||
+      data?.productCode ||
+      data?.variants_price?.[0]?.product_code ||
+      data?.product_variants?.[0]?.product_code ||
+      "";
+    if (String(code).trim().toUpperCase() === "PS0511") return true;
+    if (Array.isArray(data?.variants_price)) {
+      return data.variants_price.some(
+        (vp) => String(vp?.product_code).trim().toUpperCase() === "PS0511"
+      );
+    }
+    return false;
+  })();
+
+  const [phoneStandName, setPhoneStandName] = useState("");
+  const [phoneStandCoupon, setPhoneStandCoupon] = useState("");
+  const [appliedGiveawayCoupon, setAppliedGiveawayCoupon] = useState(null);
+  const [giveawayCouponError, setGiveawayCouponError] = useState("");
+  const [giveawayCouponLoading, setGiveawayCouponLoading] = useState(false);
+  const [isAlreadyInCart, setIsAlreadyInCart] = useState(false);
+
+  useEffect(() => {
+    if (isPhoneStandProduct) {
+      getMyShoppingCart()
+        .then((res) => {
+          const items = _.get(res, "data.data", []);
+          const found = items.some(
+            (i) =>
+              i.giveaway_coupon ||
+              i.phone_stand_details?.coupon_code ||
+              i.product_code === "PS0511" ||
+              i.product_id === data?._id ||
+              i.product_id?._id === data?._id
+          );
+          if (found) setIsAlreadyInCart(true);
+        })
+        .catch(() => {});
+    }
+  }, [isPhoneStandProduct, data?._id]);
+
+  const handleApplyPhoneStandCoupon = async () => {
+    if (!phoneStandCoupon.replace(/\s+/g, '')) {
+      const errMsg = "Please enter a coupon code";
+      setGiveawayCouponError(errMsg);
+      // toast.error(errMsg);
+      message.error(errMsg);
+      return;
+    }
+    try {
+      setGiveawayCouponLoading(true);
+      setGiveawayCouponError("");
+
+      const price = Number(calculateTotalPrice()) || Number(getUnitPrice) || Number(checkOutState.product_price) || 150;
+      const totalAmount = price;
+
+      const matchedVariant = Array.isArray(data?.variants_price)
+        ? data.variants_price.find(vp => String(vp?.product_code).trim().toUpperCase() === "PS0511") || data.variants_price[0]
+        : null;
+      const productCode = matchedVariant?.product_code || data?.product_code || data?.product_codeS_NO || "PS0511";
+
+      const cartItems = [
+        {
+          productId: data?._id,
+          product_id: data?._id,
+          product_code: productCode,
+          product_codeS_NO: data?.product_codeS_NO || productCode,
+          name: data?.name || "Phone Stand",
+          price: price,
+          quantity: 1,
+        }
+      ];
+
+      const resp = await applyCouponCode({
+        code: phoneStandCoupon.replace(/\s+/g, '').toUpperCase(),
+        orderAmount: totalAmount,
+        userId: user?._id || user?.id || localStorage.getItem("guest") || "guest_giveaway",
+        cartItems,
+        userType: user?.role || "user",
+      });
+
+      if (resp?.success) {
+        const coupon = resp.data?.coupon || resp.data;
+        if (!coupon) throw new Error("Invalid coupon response");
+
+        if (coupon.giveaway_product_code && coupon.giveaway_product_code.toUpperCase() !== "PS0511") {
+          throw new Error("This coupon is not valid for the Phone Stand giveaway");
+        }
+
+        setAppliedGiveawayCoupon(coupon);
+        setQuantity(1);
+        setCheckOutState((prev) => ({ ...prev, product_quantity: 1 }));
+        setGiveawayCouponError("");
+        message.success("Coupon Applied!");
+        // toast.success("Coupon Applied! 100% discount on Phone Stand & Customization.");
+      } else {
+        const errMsg = resp?.message || "Invalid coupon code";
+        setGiveawayCouponError(errMsg);
+        toast.error(errMsg);
+        message.error(errMsg);
+      }
+    } catch (err) {
+      console.error("Coupon error:", err);
+      const errMsg = err?.response?.data?.message || err?.message || "Invalid coupon code";
+      setGiveawayCouponError(errMsg);
+      toast.error(errMsg);
+      message.error(errMsg);
+      setAppliedGiveawayCoupon(null);
+    } finally {
+      setGiveawayCouponLoading(false);
+    }
+  };
+
   const [checkOutState, setCheckOutState] = useState({
-    product_image:       getFirstProductImage(data),
+    product_image: getFirstProductImage(data),
     product_design_file: "",
-    product_name:        _.get(data, "name", ""),
-    category_name:       _.get(data, "category_details.main_category_name", ""),
-    subcategory_name:    _.get(data, "sub_category_details.sub_category_name", ""),
-    product_price:       0,
-    product_variants:    {},
-    product_quantity:    0,
-    product_seo_url:     _.get(data, "seo_url", ""),
-    product_id:          _.get(data, "_id", ""),
-    MRP_savings:         0,
-    TotalSavings:        0,
-    FreeDelivery:        false,
-    DeliveryCharges:     100,   // inside TN
-    out_of_tn_charge:    150,   // outside TN
+    product_name: _.get(data, "name", ""),
+    category_name: _.get(data, "category_details.main_category_name", ""),
+    subcategory_name: _.get(data, "sub_category_details.sub_category_name", ""),
+    product_price: 0,
+    product_variants: {},
+    product_quantity: 0,
+    product_seo_url: _.get(data, "seo_url", ""),
+    product_id: _.get(data, "_id", ""),
+    MRP_savings: 0,
+    TotalSavings: 0,
+    FreeDelivery: false,
+    DeliveryCharges: 100,   // inside TN
+    out_of_tn_charge: 150,   // outside TN
   });
 
   const { isGettingVariantPrice } = useSelector((state) => state.publicSlice);
@@ -791,14 +908,14 @@ const ProductDetailVarient = ({
           (item) => item[roleFields.quantity] && Number(item[roleFields.quantity]) > 0,
         ) || quantityDiscounts[0];
       if (first) {
-        const q  = Number(first[roleFields.quantity]);
-        const d  = Number(first[roleFields.discount] || 0);
+        const q = Number(first[roleFields.quantity]);
+        const d = Number(first[roleFields.discount] || 0);
         const fd = first[roleFields.freeDelivery] || false;
 
         // Initialise both delivery charges from the first tier
         const charges = getBothDeliveryChargesFromProduct(data, user?.role, q);
-        const inTN    = fd ? 0 : charges.insideTN;
-        const outTN   = fd ? 0 : charges.outsideTN;
+        const inTN = fd ? 0 : charges.insideTN;
+        const outTN = fd ? 0 : charges.outsideTN;
 
         setQuantity(q);
         setDiscountPercentage({ uuid: _.get(first, "uniqe_id", ""), percentage: d });
@@ -807,10 +924,10 @@ const ProductDetailVarient = ({
         setOutOfTNCharge(outTN);
         setCheckOutState((prev) => ({
           ...prev,
-          product_quantity:  q,
-          DeliveryCharges:   inTN,
-          out_of_tn_charge:  outTN,
-          FreeDelivery:      fd,
+          product_quantity: q,
+          DeliveryCharges: inTN,
+          out_of_tn_charge: outTN,
+          FreeDelivery: fd,
         }));
       }
     } else {
@@ -821,10 +938,10 @@ const ProductDetailVarient = ({
       setQuantity(null);
       setCheckOutState((prev) => ({
         ...prev,
-        product_quantity:  0,
-        DeliveryCharges:   100,
-        out_of_tn_charge:  150,
-        FreeDelivery:      false,
+        product_quantity: 0,
+        DeliveryCharges: 100,
+        out_of_tn_charge: 150,
+        FreeDelivery: false,
       }));
     }
   }, [user?.role, quantityType, quantityDiscounts, data]);
@@ -861,12 +978,12 @@ const ProductDetailVarient = ({
     return quantityDiscounts
       .filter((item) => item[roleFields.quantity])
       .map((item) => ({
-        value:           Number(item[roleFields.quantity]),
-        label:           `${item[roleFields.quantity]}`,
-        Free_Delivery:   item[roleFields.freeDelivery] || false,
-        discount:        Number(item[roleFields.discount] || 0),
-        uuid:            item.uniqe_id,
-        stats:           item[roleFields.recommended] || "No comments",
+        value: Number(item[roleFields.quantity]),
+        label: `${item[roleFields.quantity]}`,
+        Free_Delivery: item[roleFields.freeDelivery] || false,
+        discount: Number(item[roleFields.discount] || 0),
+        uuid: item.uniqe_id,
+        stats: item[roleFields.recommended] || "No comments",
         deliveryCharges: Number(item[roleFields.deliveryCharges] || 100),
       }))
       .sort((a, b) => a.value - b.value);
@@ -897,8 +1014,8 @@ const ProductDetailVarient = ({
 
         // Recalculate both delivery charges for new quantity tier
         const charges = getBothDeliveryChargesFromProduct(data, user?.role, selectedQuantity);
-        const inTN    = fd ? 0 : charges.insideTN;
-        const outTN   = fd ? 0 : charges.outsideTN;
+        const inTN = fd ? 0 : charges.insideTN;
+        const outTN = fd ? 0 : charges.outsideTN;
 
         setDiscountPercentage({
           uuid: selectedDiscount.uniqe_id,
@@ -909,9 +1026,9 @@ const ProductDetailVarient = ({
         setOutOfTNCharge(outTN);
         setCheckOutState((prev) => ({
           ...prev,
-          DeliveryCharges:  inTN,
+          DeliveryCharges: inTN,
           out_of_tn_charge: outTN,
-          FreeDelivery:     fd,
+          FreeDelivery: fd,
         }));
       } else {
         setDiscountPercentage({ uuid: "", percentage: 0 });
@@ -920,9 +1037,9 @@ const ProductDetailVarient = ({
         setOutOfTNCharge(150);
         setCheckOutState((prev) => ({
           ...prev,
-          DeliveryCharges:  100,
+          DeliveryCharges: 100,
           out_of_tn_charge: 150,
-          FreeDelivery:     false,
+          FreeDelivery: false,
         }));
       }
       setQuantityDropdownVisible(false);
@@ -963,17 +1080,17 @@ const ProductDetailVarient = ({
     return Math.round(calculateUnitPriceWithoutGst(basePrice, discountPercentage.percentage));
   };
 
-  const calculateTotalPrice           = useCallback(() => (!quantity ? 0 : (getUnitPrice * quantity).toFixed(2)), [getUnitPrice, quantity]);
+  const calculateTotalPrice = useCallback(() => (!quantity ? 0 : (getUnitPrice * quantity).toFixed(2)), [getUnitPrice, quantity]);
   const calculateTotalPricewithoutGst = () => (!quantity ? 0 : (getUnitPricewithoutGst() * quantity).toFixed(2));
-  const calculateGstPrice             = useCallback(() => (!quantity ? 0 : Number(getUnitPrice).toFixed(2)), [getUnitPrice, quantity]);
-  const calculateMRPTotalPrice        = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return (mrp * quantity).toFixed(2); }, [currentPriceSplitup, quantity]);
-  const calculateOriginalTotalPrice   = useCallback(() => (!quantity ? 0 : (getOriginalUnitPrice * quantity).toFixed(2)), [getOriginalUnitPrice, quantity]);
-  const calculateMRPSavings           = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return ((mrp - getMRPUnitPrice) * quantity).toFixed(2); }, [currentPriceSplitup, getMRPUnitPrice, quantity]);
-  const calculateDiscountSavings      = useCallback(() => (!quantity ? 0 : ((getOriginalUnitPrice - getUnitPrice) * quantity).toFixed(2)), [getOriginalUnitPrice, getUnitPrice, quantity]);
-  const calculateTotalSavings         = useCallback(() => (parseFloat(calculateMRPSavings()) + parseFloat(calculateDiscountSavings())).toFixed(2), [calculateMRPSavings, calculateDiscountSavings]);
+  const calculateGstPrice = useCallback(() => (!quantity ? 0 : Number(getUnitPrice).toFixed(2)), [getUnitPrice, quantity]);
+  const calculateMRPTotalPrice = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return (mrp * quantity).toFixed(2); }, [currentPriceSplitup, quantity]);
+  const calculateOriginalTotalPrice = useCallback(() => (!quantity ? 0 : (getOriginalUnitPrice * quantity).toFixed(2)), [getOriginalUnitPrice, quantity]);
+  const calculateMRPSavings = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return ((mrp - getMRPUnitPrice) * quantity).toFixed(2); }, [currentPriceSplitup, getMRPUnitPrice, quantity]);
+  const calculateDiscountSavings = useCallback(() => (!quantity ? 0 : ((getOriginalUnitPrice - getUnitPrice) * quantity).toFixed(2)), [getOriginalUnitPrice, getUnitPrice, quantity]);
+  const calculateTotalSavings = useCallback(() => (parseFloat(calculateMRPSavings()) + parseFloat(calculateDiscountSavings())).toFixed(2), [calculateMRPSavings, calculateDiscountSavings]);
   const calculateDealPercentageDiscount = useCallback(() => {
     if (!quantity) return 0;
-    const mrpTotal  = parseFloat(calculateMRPTotalPrice());
+    const mrpTotal = parseFloat(calculateMRPTotalPrice());
     const dealTotal = parseFloat(calculateTotalPrice());
     if (mrpTotal === 0 || dealTotal >= mrpTotal) return 0;
     return Math.round(((mrpTotal - dealTotal) / mrpTotal) * 100);
@@ -998,11 +1115,10 @@ const ProductDetailVarient = ({
               {options.map((option, index) => (
                 <Tooltip key={index} title={option.value}>
                   <div
-                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 p-1 ${
-                      selectedVariants[variant_name] === option.value
+                    className={`flex flex-col items-center cursor-pointer transition-all duration-200 p-1 ${selectedVariants[variant_name] === option.value
                         ? "ring-2 ring-blue-500 rounded-lg"
                         : "border border-gray-200 rounded-lg hover:border-blue-300"
-                    }`}
+                      }`}
                     onClick={() => handleVariantChange(variant_name, option.value)}
                   >
                     <div
@@ -1035,11 +1151,10 @@ const ProductDetailVarient = ({
                 <div key={optionIndex} className="flex flex-col items-center">
                   <div
                     onClick={() => handleVariantChange(variant_name, option.value)}
-                    className={`cursor-pointer border-2 p-1 rounded transition duration-200 ${
-                      selectedVariants[variant_name] === option.value
+                    className={`cursor-pointer border-2 p-1 rounded transition duration-200 ${selectedVariants[variant_name] === option.value
                         ? "border-blue-500 shadow-md"
                         : "border-gray-300 hover:border-blue-400"
-                    }`}
+                      }`}
                     style={{ width: "60px", height: "60px" }}
                   >
                     <img
@@ -1103,22 +1218,21 @@ const ProductDetailVarient = ({
       >
         <div className="overflow-y-auto max-h-80 space-y-3">
           {quantityOptions.map((item) => {
-            const itemUnitPrice  = calculateUnitPrice(
+            const itemUnitPrice = calculateUnitPrice(
               Number(_.get(checkOutState, "product_price", 0)),
               quantityType === "dropdown" ? item.discount : discountPercentage.percentage,
               user?.role,
               gst,
             );
             const itemTotalPrice = itemUnitPrice * item.value;
-            const isSelected     = quantity === item.value;
+            const isSelected = quantity === item.value;
             return (
               <div
                 key={item.value}
-                className={`flex justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
-                  isSelected
+                className={`flex justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 border-2 ${isSelected
                     ? "border-blue-500 bg-blue-50 shadow-sm"
                     : "border-gray-100 hover:border-blue-300 hover:bg-blue-50"
-                }`}
+                  }`}
                 onClick={() => handleQuantitySelect(item.value)}
               >
                 <div className="flex-1">
@@ -1176,9 +1290,41 @@ const ProductDetailVarient = ({
   const handleBuy = async () => {
     try {
       setLoading(true);
-      if (!quantity) { toast.error("Please select quantity first"); return; }
-      if (needDesignUpload && !checkOutState.product_design_file) { toast.error("Please upload your design file first"); return; }
-      if (needDesignUpload && !checked) { toast.error("Please Confirm Your Designs"); return; }
+      if (isPhoneStandProduct) {
+        if (isAlreadyInCart) {
+          const errMsg = "Phone Stand is already in your cart. You can only add it once.";
+          message.error(errMsg);
+          toast.error(errMsg);
+          setLoading(false);
+          return;
+        }
+        if (!phoneStandName.trim()) {
+          const errMsg = "Please enter name to be customized";
+          // toast.error(errMsg);
+          message.error(errMsg);
+          setLoading(false);
+          return;
+        }
+        if (!appliedGiveawayCoupon && !quantity) {
+          const errMsg = "Please select quantity first";
+          toast.error(errMsg);
+          message.error(errMsg);
+          return;
+        }
+      } else {
+        if (!quantity) {
+          toast.error("Please select quantity first");
+          return;
+        }
+        if (needDesignUpload && !checkOutState.product_design_file) {
+          toast.error("Please upload your design file first");
+          return;
+        }
+        if (needDesignUpload && !checked) {
+          toast.error("Please Confirm Your Designs");
+          return;
+        }
+      }
       if (_.isEmpty(user)) {
         localStorage.setItem("redirect_url", _.get(data, "seo_url", ""));
         toast.error("Please Login");
@@ -1193,32 +1339,43 @@ const ProductDetailVarient = ({
         return g;
       };
 
+      const finalQuantity = isPhoneStandProduct && appliedGiveawayCoupon ? 1 : (quantity || 1);
+      const isGiveawayApplied = isPhoneStandProduct && Boolean(appliedGiveawayCoupon);
+
       const updatedCheckoutState = {
         ...checkOutState,
-        guestId:               getGuestId(),
-        userRole:              localStorage.getItem("userData") || "guest",
-        sgst:                  Number(gst / 2),
-        cgst:                  Number(gst / 2),
-        MRP_savings:           calculateMRPSavings(),
-        TotalSavings:          calculateTotalSavings(),
-        FreeDelivery:          freeDelivery,
+        product_quantity: finalQuantity,
+        guestId: getGuestId(),
+        userRole: localStorage.getItem("userData") || "guest",
+        sgst: isGiveawayApplied ? 0 : Number(gst / 2),
+        cgst: isGiveawayApplied ? 0 : Number(gst / 2),
+        MRP_savings: calculateMRPSavings(),
+        TotalSavings: calculateTotalSavings(),
+        FreeDelivery: freeDelivery,
         // ── Both delivery charges sent to backend ──────────────────────────
-        DeliveryCharges:       deliveryCharges,    // inside Tamil Nadu
-        out_of_tn_charge:      outOfTNCharge,      // outside Tamil Nadu
+        DeliveryCharges: deliveryCharges,    // inside Tamil Nadu
+        out_of_tn_charge: outOfTNCharge,      // outside Tamil Nadu
         // ──────────────────────────────────────────────────────────────────
-        noCustomtation:        noDesignUpload,
-        final_total:           Number(calculateTotalPrice()),
-        final_total_withoutGst:Number(calculateTotalPricewithoutGst()),
+        noCustomtation: noDesignUpload,
+        final_total: isGiveawayApplied ? 0 : Number(calculateTotalPrice()),
+        final_total_withoutGst: isGiveawayApplied ? 0 : Number(calculateTotalPricewithoutGst()),
+        customized_name: isPhoneStandProduct ? phoneStandName.trim() : "",
+        giveaway_coupon: isGiveawayApplied ? appliedGiveawayCoupon.code : "",
+        phone_stand_details: isPhoneStandProduct ? {
+          customized_name: phoneStandName.trim(),
+          coupon_code: appliedGiveawayCoupon?.code || "",
+        } : null,
       };
 
       const result = await addToShoppingCart(updatedCheckoutState);
+      setIsAlreadyInCart(true);
       Swal.fire({
         title: "Product Added To Cart",
-        text:  "Choose an option: Go to the shopping cart page or stay here.",
-        icon:  "success",
-        showCancelButton:    true,
-        confirmButtonText:   "Go to Shopping Cart",
-        cancelButtonText:    "Stay Here",
+        text: "Choose an option: Go to the shopping cart page or stay here.",
+        icon: "success",
+        showCancelButton: true,
+        confirmButtonText: "Go to Shopping Cart",
+        cancelButtonText: "Stay Here",
       }).then((r) => { if (r.isConfirmed) goToShoppingCart(); });
       dispatch(ADD_TO_CART(_.get(result, "data.data.data", "")));
     } catch (err) {
@@ -1248,12 +1405,12 @@ const ProductDetailVarient = ({
       setSendingNotification(true);
       const result = await notifyWhenAvailable({
         productName: _.get(data, "name", ""),
-        productId:   _.get(data, "Vendor_Code", data._id),
-        productUrl:  window.location.href,
-        userEmail:   userData.email,
-        userPhone:   userData.phone,
-        userName:    userData.name,
-        timestamp:   new Date().toISOString(),
+        productId: _.get(data, "Vendor_Code", data._id),
+        productUrl: window.location.href,
+        userEmail: userData.email,
+        userPhone: userData.phone,
+        userName: userData.name,
+        timestamp: new Date().toISOString(),
       });
       if (result.data.success) {
         toast.success("We'll notify you when this product is available!");
@@ -1263,13 +1420,13 @@ const ProductDetailVarient = ({
         toast.error("Failed to submit notification request");
       }
     } catch { toast.error("Failed to submit notification request"); }
-    finally   { setSendingNotification(false); }
+    finally { setSendingNotification(false); }
   };
   const handleNotifySubmit = async (values) => sendNotification(values);
 
   // ── Share ──────────────────────────────────────────────────────────────────
   const shareProduct = useCallback((platform) => {
-    const productUrl  = encodeURIComponent(window.location.href);
+    const productUrl = encodeURIComponent(window.location.href);
     const productName = encodeURIComponent(data.name);
     const urls = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${productUrl}`,
@@ -1312,9 +1469,9 @@ const ProductDetailVarient = ({
       form.setFields([{ name: "otp", errors: ["Invalid OTP"] }]);
     }
   };
-  const validateEmail         = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const handleNoCustomization = (e)     => { setNoDesignUpload(e.target.checked); setNeedDesignUpload(!e.target.checked); };
-  const handleDesignRemove    = ()      => setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const handleNoCustomization = (e) => { setNoDesignUpload(e.target.checked); setNeedDesignUpload(!e.target.checked); };
+  const handleDesignRemove = () => setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
 
   const ProcessingTimeInfo = () => (
     <div className="max-h-[400px] overflow-y-auto text-gray-700">
@@ -1327,10 +1484,10 @@ const ProductDetailVarient = ({
 
   const generateLabel = (label) => {
     switch (label) {
-      case "new":            return <Tag color="green">New</Tag>;
-      case "popular":        return <Tag color="purple">Popular</Tag>;
+      case "new": return <Tag color="green">New</Tag>;
+      case "popular": return <Tag color="purple">Popular</Tag>;
       case "only-for-today": return <Tag color="red">Only For Today</Tag>;
-      default:               return <></>;
+      default: return <></>;
     }
   };
 
@@ -1441,22 +1598,121 @@ const ProductDetailVarient = ({
           </ul>
         </div>
 
-        {/* ── Quantity ───────────────────────────────────────────────────── */}
-        <div className="w-full flex flex-col space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-            <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
-            <Select
-              value={quantity}
-              onChange={handleQuantitySelect}
-              options={quantityOptions}
-              className="w-full md:w-[30vw]"
-              placeholder="Select quantity"
-              dropdownRender={quantityDropdownRender}
-              open={quantityDropdownVisible}
-              onDropdownVisibleChange={setQuantityDropdownVisible}
-            />
+        {/* ── Phone Stand Customization & Coupon Section (PS0511) ────────── */}
+        {isPhoneStandProduct && !isOutOfStock && (
+          <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-xl space-y-4 shadow-sm mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🎁</span>
+              <div>
+                <h4 className="font-bold text-gray-800 text-sm">Phone Stand Customization</h4>
+                <p className="text-xs text-gray-600">
+                  Enter your custom name below. Apply a giveaway coupon if you have one.
+                </p>
+              </div>
+            </div>
+
+            {/* Mandatory Field: Name to be customized */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Name to be customized <span className="text-red-500 font-bold">*</span>
+              </label>
+              <Input
+                placeholder="Enter name to be customized on Phone Stand"
+                value={phoneStandName}
+                onKeyDown={(e) => e.stopPropagation()}
+                onChange={(e) => setPhoneStandName(e.target.value)}
+                onBlur={() => setPhoneStandName((prev) => prev.trim())}
+                className="!rounded-lg"
+                size="large"
+              />
+            </div>
+
+            {/* Optional Field: Coupon Code */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Coupon Code
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter the coupon code"
+                  value={phoneStandCoupon}
+                  onChange={(e) => {
+                    setPhoneStandCoupon(e.target.value.replace(/\s+/g, '').toUpperCase());
+                    setGiveawayCouponError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                    }
+                    e.stopPropagation();
+                  }}
+                  disabled={!!appliedGiveawayCoupon}
+                  className="!rounded-lg uppercase font-mono font-semibold"
+                  size="large"
+                />
+                {appliedGiveawayCoupon ? (
+                  <Button
+                    danger
+                    size="large"
+                    onClick={() => {
+                      setAppliedGiveawayCoupon(null);
+                      setPhoneStandCoupon("");
+                      setGiveawayCouponError("");
+                      if (quantityOptions.length > 0) {
+                        setQuantity(Number(quantityOptions[0].value));
+                      }
+                    }}
+                  >
+                    Remove
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="large"
+                    className="!bg-yellow-400 !border-yellow-400 text-black font-semibold hover:!bg-yellow-500"
+                    loading={giveawayCouponLoading}
+                    onClick={handleApplyPhoneStandCoupon}
+                  >
+                    Apply
+                  </Button>
+                )}
+              </div>
+
+              {giveawayCouponError && (
+                <p className="text-xs text-red-600 font-medium mt-1.5">{giveawayCouponError}</p>
+              )}
+
+              {appliedGiveawayCoupon && (
+                <div className="mt-2.5 p-3 bg-green-50 border border-green-300 rounded-lg flex items-center justify-between text-xs text-green-800">
+                  <div>
+                    <span className="font-bold">✓ Coupon Applied</span>
+                    {/* <p className="text-green-700 mt-0.5">100% Free Phone Stand &amp; Customization! Quantity fixed to 1. Only shipping applies.</p> */}
+                  </div>
+                  <span className="font-bold text-sm text-green-700">₹0.00</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Quantity ───────────────────────────────────────────────────── */}
+        {!(isPhoneStandProduct && appliedGiveawayCoupon) && (
+          <div className="w-full flex flex-col space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
+              <Text strong className="block mb-2 md:mb-0 md:w-24">Quantity:</Text>
+              <Select
+                value={quantity}
+                onChange={handleQuantitySelect}
+                options={quantityOptions}
+                className="w-full md:w-[30vw]"
+                placeholder="Select quantity"
+                dropdownRender={quantityDropdownRender}
+                open={quantityDropdownVisible}
+                onDropdownVisibleChange={setQuantityDropdownVisible}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── Variants ──────────────────────────────────────────────────── */}
         {Object.keys(selectedVariants).length > 0 && (
@@ -1481,14 +1737,26 @@ const ProductDetailVarient = ({
         <Card className="bg-blue-50 rounded-lg border-0">
           <div className="space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <Text strong className="text-gray-800">Deal Price:</Text>
+              <div className="flex items-center gap-2">
+                <Text strong className="text-gray-800">Deal Price:</Text>
+                <span className="text-xs text-green-700 bg-green-100 font-semibold px-2 py-0.5 rounded-full border border-green-200">
+                  Inclusive of GST
+                </span>
+              </div>
               <div className="text-right flex flex-col md:flex-row md:items-baseline gap-1">
-                <Text delete className="text-md text-gray-500 md:mr-2">
+                {/* <Text delete className="text-md text-gray-500 md:mr-2">
                   {formatMRPPrice(calculateMRPTotalPrice())}
-                </Text>
-                <Title level={4} className="!m-0 !text-green-600">
-                  {quantity ? formatPrice(calculateTotalPrice()) : formatPrice(0)}
-                </Title>
+                </Text> */}
+                {isPhoneStandProduct && appliedGiveawayCoupon ? (
+                  <div className="flex items-center gap-2">
+                    <Text delete className="text-gray-500 font-semibold">{formatPrice(calculateTotalPrice())}</Text>
+                    <Title level={4} className="!m-0 !text-green-600 font-bold">{formatPrice(0)}</Title>
+                  </div>
+                ) : (
+                  <Title level={4} className="!m-0 !text-green-600">
+                    {quantity ? formatPrice(calculateTotalPrice()) : formatPrice(0)}
+                  </Title>
+                )}
               </div>
             </div>
 
@@ -1530,7 +1798,9 @@ const ProductDetailVarient = ({
               <div className="!text-[12px] text-gray-600">
                 Exclusive of all taxes for <strong>{quantity}</strong> Qty (
                 <strong>
-                  {formatPrice(DISCOUNT_HELPER(discountPercentage.percentage, Number(_.get(checkOutState, "product_price", 0))))}
+                  {isPhoneStandProduct && appliedGiveawayCoupon
+                    ? formatPrice(0)
+                    : formatPrice(DISCOUNT_HELPER(discountPercentage.percentage, Number(_.get(checkOutState, "product_price", 0))))}
                 </strong>/ piece)
               </div>
             )}
@@ -1540,9 +1810,11 @@ const ProductDetailVarient = ({
                 Inclusive of all taxes for <span>{quantity}</span> Qty
                 <strong>
                   &nbsp;(
-                  {user.role === "Dealer" || user.role === "Corporate" || user.role === "bni_user"
-                    ? <>{formatPrice(Gst_HELPER(18, getUnitPrice))}</>
-                    : <>{formatPrice(calculateGstPrice())}</>}
+                  {isPhoneStandProduct && appliedGiveawayCoupon
+                    ? <>{formatPrice(0)}</>
+                    : user.role === "Dealer" || user.role === "Corporate" || user.role === "bni_user"
+                      ? <>{formatPrice(Gst_HELPER(18, getUnitPrice))}</>
+                      : <>{formatPrice(calculateGstPrice())}</>}
                   / piece)
                 </strong>
               </div>
@@ -1590,7 +1862,7 @@ const ProductDetailVarient = ({
                 setPincodeIsOutsideTN(outside);
                 setCheckOutState((prev) => ({
                   ...prev,
-                  DeliveryCharges:  insideTN,
+                  DeliveryCharges: insideTN,
                   out_of_tn_charge: outsideTN,
                 }));
               }}
@@ -1600,68 +1872,72 @@ const ProductDetailVarient = ({
 
         {/* ── File upload ────────────────────────────────────────────────── */}
         <div className="space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
-              Proceed without Design
-            </Checkbox>
-            {!noDesignUpload && (
-              <div className="flex items-center gap-2">
-                <Text>Already have a Design</Text>
-                <Switch
-                  checked={needDesignUpload}
-                  onChange={(checked) => {
-                    setNeedDesignUpload(checked);
-                    if (!checked) {
-                      setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
-                      setChecked(false);
-                    }
-                  }}
-                />
+          {!isPhoneStandProduct && (
+            <>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
+                  Proceed without Design
+                </Checkbox>
+                {!noDesignUpload && (
+                  <div className="flex items-center gap-2">
+                    <Text>Already have a Design</Text>
+                    <Switch
+                      checked={needDesignUpload}
+                      onChange={(checked) => {
+                        setNeedDesignUpload(checked);
+                        if (!checked) {
+                          setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
+                          setChecked(false);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {!noDesignUpload && (
-            <div>
-              {needDesignUpload ? (
-                <>
-                  <UploadFileButton
-                    handleUploadImage={handleUploadImage}
-                    buttonText="Drag & Drop Files Here or Browse Files"
-                    className="w-full border-dotted rounded-lg flex flex-col items-center justify-center transition-colors"
-                  />
-                  {checkOutState.product_design_file && (
-                    <div className="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                      <div className="md:order-1">
-                        <Button
-                          type="link"
-                          icon={<EyeOutlined />}
-                          onClick={() => setDesignPreviewVisible(true)}
-                        >
-                          View Design
-                        </Button>
-                        <Button type="link" onClick={handleDesignRemove}>Remove</Button>
-                      </div>
-                      <Checkbox
-                        checked={checked}
-                        onChange={(e) => setChecked(e.target.checked)}
-                        className="md:order-2"
-                      >
-                        I confirm this design
-                      </Checkbox>
-                    </div>
+              {!noDesignUpload && (
+                <div>
+                  {needDesignUpload ? (
+                    <>
+                      <UploadFileButton
+                        handleUploadImage={handleUploadImage}
+                        buttonText="Drag & Drop Files Here or Browse Files"
+                        className="w-full border-dotted rounded-lg flex flex-col items-center justify-center transition-colors"
+                      />
+                      {checkOutState.product_design_file && (
+                        <div className="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                          <div className="md:order-1">
+                            <Button
+                              type="link"
+                              icon={<EyeOutlined />}
+                              onClick={() => setDesignPreviewVisible(true)}
+                            >
+                              View Design
+                            </Button>
+                            <Button type="link" onClick={handleDesignRemove}>Remove</Button>
+                          </div>
+                          <Checkbox
+                            checked={checked}
+                            onChange={(e) => setChecked(e.target.checked)}
+                            className="md:order-2"
+                          >
+                            I confirm this design
+                          </Checkbox>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Alert
+                      message="Our Designing Team will contact you within 24 Hours After Booking"
+                      type="info"
+                      showIcon
+                    />
                   )}
-                </>
-              ) : (
-                <Alert
-                  message="Our Designing Team will contact you within 24 Hours After Booking"
-                  type="info"
-                  showIcon
-                />
+                </div>
               )}
-            </div>
-          )}
 
+            </>
+          )}
           {/* Instructions */}
           <div>
             <div className="flex gap-3 mb-2">
@@ -1696,6 +1972,16 @@ const ProductDetailVarient = ({
                     loading={sendingNotification}
                   >
                     Notify When Available
+                  </Button>
+                ) : isPhoneStandProduct && isAlreadyInCart ? (
+                  <Button
+                    type="primary"
+                    size="large"
+                    disabled
+                    icon={<ShoppingCartOutlined />}
+                    className="!h-12 !bg-gray-300 !text-gray-600 font-semibold w-full cursor-not-allowed border-none"
+                  >
+                    Already in Cart
                   </Button>
                 ) : (
                   <Button
