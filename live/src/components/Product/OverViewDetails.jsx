@@ -1,86 +1,54 @@
-/* eslint-disable no-empty */
 /* eslint-disable react/prop-types */
-import { Spin, Tabs } from "antd";
+import { Tabs } from "antd";
 import RatingAndReviews from "./RatingAndReviews";
-import { useEffect, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import _ from "lodash";
 import MixedProductDescripton from "./MixedProductDescripton";
-import { IconHelper } from "../../helper/IconHelper";
 
 const OverViewDetails = ({
-  data = {
-    description: "",
-  },
+  data = {},
 }) => {
-  const [loading, setLoading] = useState([]);
-  const [tabItems, setTabItems] = useState([]);
-  const [activeKey, setActiveKey] = useState();
-  const [dummy, setDummy] = useState(false);
+  const [activeKey, setActiveKey] = useState("1");
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const items = [
-        ..._.get(data, "description_tabs", []).map((res, index) => ({
-          key: `${index + 1}`,
-          label: <span className="!capitalize">{res.name}</span>,
-          children: <MixedProductDescripton res={res} />,
-        })),
-      ];
-      if (_.isEmpty(_.get(data, "description_tabs", []))) {
-        setActiveKey(1000);
-      } else {
-        setActiveKey(1);
-      }
-      setDummy(!dummy);
-      setTabItems(items);
-    } catch (err) {
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const review = [
-    {
-      key: 1000,
-      label: "Reviews & Rating",
-      children: <RatingAndReviews />,
-    },
-  ];
+  const tabItems = useMemo(() => {
+    const tabs = _.get(data, "description_tabs", []);
+    return tabs.map((res, index) => ({
+      key: `${index + 1}`,
+      label: <span className="!capitalize">{res.name}</span>,
+      children: <MixedProductDescripton res={res} />,
+    }));
+  }, [data]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    const tabs = _.get(data, "description_tabs", []);
+    if (!_.isEmpty(tabs)) {
+      setActiveKey("1");
+    } else {
+      setActiveKey("1000");
+    }
+  }, [data]);
 
   return (
-    <Spin
-      spinning={loading}
-      indicator={
-        <IconHelper.CIRCLELOADING_ICON className="animate-spin !text-yellow-500" />
-      }
-    >
-      <div className="w-full flex lg:flex-row flex-col gap-6 ">
-        <div id="overview" className="scroll-m-[10vh] w-full lg:w-1/2 ">
-          {!_.isEmpty(tabItems) && (
-            <>
-              <Tabs
-                defaultActiveKey="1"
-                accessKey={activeKey}
-                onChange={(keys) => {
-                  setActiveKey(keys);
-                }}
-                items={tabItems}
-                type="card"
-                className=""
-              />
-            </>
-          )}
-        </div>
-        <div className="w-full lg:w-1/2 h-full border rounded-xl">
-          <RatingAndReviews/>
-        </div>
+    <div className="w-full flex lg:flex-row flex-col gap-6 ">
+      <div id="overview" className="scroll-m-[10vh] w-full lg:w-1/2 ">
+        {!_.isEmpty(tabItems) ? (
+          <Tabs
+            activeKey={activeKey}
+            onChange={(key) => setActiveKey(key)}
+            items={tabItems}
+            type="card"
+            className=""
+          />
+        ) : (
+          <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-lg border border-dashed">
+            {data?.name ? "No description details available." : "Loading description..."}
+          </div>
+        )}
       </div>
-    </Spin>
+      <div className="w-full lg:w-1/2 h-full border rounded-xl">
+        <RatingAndReviews />
+      </div>
+    </div>
   );
 };
 

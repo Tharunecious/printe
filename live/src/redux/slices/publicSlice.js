@@ -103,6 +103,9 @@ const publicSlice = createSlice({
     gettingPopularProductFailed: (state) => {
       state.isGettingPopularProduct = false;
     },
+    clearCurrentProduct: (state) => {
+      state.product = { _id: "", name: "" };
+    },
     gettingProductStarted: (state) => {
       state.isGettingProduct = true;
     },
@@ -281,10 +284,16 @@ const publicSlice = createSlice({
       });
     },
   },
+  extraReducers: (builder) => {
+    builder.addCase("CLEAR_CURRENT_PRODUCT", (state) => {
+      state.product = { _id: "", name: "" };
+    });
+  },
 });
 
 export default publicSlice.reducer;
 export const {
+  clearCurrentProduct,
   gettingAllCategoryFailed,
   gettingAllCategoryStated,
   gettingAllCategorySuccess,

@@ -806,7 +806,10 @@ const Product = () => {
           {/* Overview / description tabs */}
           <div className="bg-white rounded-xl shadow-sm p-6 border">
             <React.Suspense fallback={<div>Loading overview...</div>}>
-              <OverViewDetails data={productData} />
+              <OverViewDetails
+                key={`overview-${productId || id || location.key}`}
+                data={productData}
+              />
             </React.Suspense>
           </div>
 
