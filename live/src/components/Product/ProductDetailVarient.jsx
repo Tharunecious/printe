@@ -1973,7 +1973,13 @@ const ProductDetailVarient = ({
     }
   };
 
+  const isStartingDesigningRef = useRef(false);
+  const isCreatingDesignRef = useRef(false);
+  const hasHandledResumeRef = useRef(false);
+
   const startNewPhotoBookDesign = async (chosenSize, chosenTemplateId, chosenTemplateName) => {
+    if (isCreatingDesignRef.current) return;
+    isCreatingDesignRef.current = true;
     try {
       setLoading(true);
       const payload = {
@@ -2000,10 +2006,15 @@ const ProductDetailVarient = ({
       toast.error("Failed to initialize new book session.");
     } finally {
       setLoading(false);
+      isCreatingDesignRef.current = false;
     }
   };
 
   const handleStartDesigning = async () => {
+    if (isStartingDesigningRef.current || isCreatingDesignRef.current || loading || isCheckingSavedDesign) {
+      return;
+    }
+    isStartingDesigningRef.current = true;
     try {
       setLoading(true);
 
@@ -2068,6 +2079,7 @@ const ProductDetailVarient = ({
       toast.error(err.response?.data?.message || err.message || "Failed to start design session. Please try again.");
     } finally {
       setLoading(false);
+      isStartingDesigningRef.current = false;
     }
   };
 
@@ -2106,7 +2118,8 @@ const ProductDetailVarient = ({
       searchParams.get("resumePhotoBook") === "true" ||
       sessionStorage.getItem("resume_photobook") === "true";
 
-    if (shouldResume && !_.isEmpty(user)) {
+    if (shouldResume && !_.isEmpty(user) && !hasHandledResumeRef.current) {
+      hasHandledResumeRef.current = true;
       sessionStorage.removeItem("resume_photobook");
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
@@ -2735,8 +2748,13 @@ const ProductDetailVarient = ({
                     size="large"
                     icon={<BookOutlined />}
                     className="!h-12 !bg-yellow-400 text-black hover:!bg-yellow-500 hover:!text-black font-semibold w-full text-base shadow-sm"
-                    onClick={handleStartDesigning}
-                    loading={loading}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleStartDesigning();
+                    }}
+                    loading={loading || isCheckingSavedDesign}
+                    disabled={loading || isCheckingSavedDesign}
                   >
                     Customize & Add to Cart
                   </Button>

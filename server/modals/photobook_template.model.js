@@ -177,6 +177,10 @@ const photoBookTemplateSchema = new mongoose.Schema(
       },
     ],
     pages: [pageSchema],
+    size_designs: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({}),
+    },
   },
   {
     collection: "photobook_templates",

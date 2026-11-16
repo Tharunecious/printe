@@ -88,25 +88,25 @@ const UPLOAD_BASE_URL = EnvHelper.UPLOAD_BASE_API_URL || EnvHelper.BASE_API_URL;
 const BASE_URL = EnvHelper.BASE_API_URL;
 
 const RESIZE_HANDLES = [
-  { position: "nw", cursor: "nwse-resize", className: "-top-1.5 -left-1.5" },
-  { position: "n", cursor: "ns-resize", className: "-top-1.5 left-1/2 -translate-x-1/2" },
-  { position: "ne", cursor: "nesw-resize", className: "-top-1.5 -right-1.5" },
-  { position: "e", cursor: "ew-resize", className: "top-1/2 -translate-y-1/2 -right-1.5" },
-  { position: "se", cursor: "nwse-resize", className: "-bottom-1.5 -right-1.5" },
-  { position: "s", cursor: "ns-resize", className: "-bottom-1.5 left-1/2 -translate-x-1/2" },
-  { position: "sw", cursor: "nesw-resize", className: "-bottom-1.5 -left-1.5" },
-  { position: "w", cursor: "ew-resize", className: "top-1/2 -translate-y-1/2 -left-1.5" },
+  { position: "nw", cursor: "default", className: "-top-1.5 -left-1.5" },
+  { position: "n", cursor: "default", className: "-top-1.5 left-1/2 -translate-x-1/2" },
+  { position: "ne", cursor: "default", className: "-top-1.5 -right-1.5" },
+  { position: "e", cursor: "default", className: "top-1/2 -translate-y-1/2 -right-1.5" },
+  { position: "se", cursor: "default", className: "-bottom-1.5 -right-1.5" },
+  { position: "s", cursor: "default", className: "-bottom-1.5 left-1/2 -translate-x-1/2" },
+  { position: "sw", cursor: "default", className: "-bottom-1.5 -left-1.5" },
+  { position: "w", cursor: "default", className: "top-1/2 -translate-y-1/2 -left-1.5" },
 ];
 
 export const MODAL_RESIZE_HANDLES = [
-  { position: "nw", cursor: "nwse-resize", xPct: 0, yPct: 0 },
-  { position: "n", cursor: "ns-resize", xPct: 0.5, yPct: 0 },
-  { position: "ne", cursor: "nesw-resize", xPct: 1, yPct: 0 },
-  { position: "e", cursor: "ew-resize", xPct: 1, yPct: 0.5 },
-  { position: "se", cursor: "nwse-resize", xPct: 1, yPct: 1 },
-  { position: "s", cursor: "ns-resize", xPct: 0.5, yPct: 1 },
-  { position: "sw", cursor: "nesw-resize", xPct: 0, yPct: 1 },
-  { position: "w", cursor: "ew-resize", xPct: 0, yPct: 0.5 },
+  { position: "nw", cursor: "default", xPct: 0, yPct: 0 },
+  { position: "n", cursor: "default", xPct: 0.5, yPct: 0 },
+  { position: "ne", cursor: "default", xPct: 1, yPct: 0 },
+  { position: "e", cursor: "default", xPct: 1, yPct: 0.5 },
+  { position: "se", cursor: "default", xPct: 1, yPct: 1 },
+  { position: "s", cursor: "default", xPct: 0.5, yPct: 1 },
+  { position: "sw", cursor: "default", xPct: 0, yPct: 1 },
+  { position: "w", cursor: "default", xPct: 0, yPct: 0.5 },
 ];
 
 export const PRESET_DECORATIONS = [
@@ -874,11 +874,17 @@ const DEFAULT_VINTAGE_TEMPLATE = {
 DEFAULT_VINTAGE_TEMPLATE.pages = DEFAULT_VINTAGE_TEMPLATE.published_snapshot.pages;
 
 export const getFontFamilyFallback = (fontName) => {
-  const sansFonts = ["Inter", "Jost", "Roboto", "Montserrat", "Arial"];
-  const scriptFonts = ["Caveat", "Dancing Script", "Great Vibes"];
-  if (scriptFonts.includes(fontName)) return `'${fontName}', cursive`;
-  if (sansFonts.includes(fontName)) return `'${fontName}', sans-serif`;
-  return `'${fontName}', serif`;
+  if (!fontName) return "'Playfair Display', serif";
+  const cleanName = String(fontName).replace(/['"]/g, "").trim();
+  const sansFonts = ["Inter", "Jost", "Roboto", "Montserrat", "Arial", "Open Sans", "Lato"];
+  const scriptFonts = ["Caveat", "Dancing Script", "Great Vibes", "Pacifico"];
+  if (scriptFonts.some((f) => f.toLowerCase() === cleanName.toLowerCase())) {
+    return `'${cleanName}', cursive`;
+  }
+  if (sansFonts.some((f) => f.toLowerCase() === cleanName.toLowerCase())) {
+    return `'${cleanName}', sans-serif`;
+  }
+  return `'${cleanName}', serif`;
 };
 
 // ── Photoshop-Style Interactive Crop & Pan Modal (Customer Side) ─────────────
@@ -953,7 +959,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
   };
 
   return (
-    <Modal
+    <Modal wrapClassName="photobook-modal-scope"
       open={Boolean(frame)}
       onCancel={onClose}
       footer={null}
@@ -980,7 +986,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
           <button
             type="button"
             onClick={handleReset}
-            className="text-xs text-slate-500 hover:text-teal-600 flex items-center gap-1 font-semibold cursor-pointer transition-colors"
+            className="text-xs text-slate-500 hover:text-teal-600 flex items-center gap-1 font-semibold cursor-default transition-colors"
           >
             <UndoOutlined /> Reset
           </button>
@@ -1005,7 +1011,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               maxWidth: "90%",
               width: is1to1Shape ? "320px" : undefined,
             }}
-            className="relative h-full overflow-hidden border-2 border-teal-500/80 shadow-2xl bg-black cursor-grab active:cursor-grabbing flex items-center justify-center"
+            className="relative h-full overflow-hidden border-2 border-teal-500/80 shadow-2xl bg-black cursor-default active:cursor-default flex items-center justify-center"
             onMouseDown={handleMouseDown}
           >
             {photoUrl ? (
@@ -1096,7 +1102,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.max(1, +(z - 0.1).toFixed(2)))}
-                className="w-7 h-7 rounded border border-slate-200 bg-white hover:bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 cursor-pointer"
+                className="w-7 h-7 rounded border border-slate-200 bg-white hover:bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 cursor-default"
               >
                 -
               </button>
@@ -1111,7 +1117,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.min(3, +(z + 0.1).toFixed(2)))}
-                className="w-7 h-7 rounded border border-slate-200 bg-white hover:bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 cursor-pointer"
+                className="w-7 h-7 rounded border border-slate-200 bg-white hover:bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 cursor-default"
               >
                 +
               </button>
@@ -1167,7 +1173,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
                   key={deg}
                   type="button"
                   onClick={() => setRotation(deg)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded transition-colors cursor-pointer ${
+                  className={`text-[10px] font-bold px-2 py-1 rounded transition-colors cursor-default ${
                     rotation === deg
                       ? "bg-teal-600 text-white"
                       : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -1179,7 +1185,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               <button
                 type="button"
                 onClick={() => setRotation((r) => (r + 90) % 360)}
-                className="bg-white border border-slate-200 hover:border-teal-500 hover:text-teal-600 text-slate-600 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                className="bg-white border border-slate-200 hover:border-teal-500 hover:text-teal-600 text-slate-600 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-default"
                 title="Rotate 90° Clockwise"
               >
                 <RotateRightOutlined /> +90°
@@ -1194,7 +1200,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               <button
                 type="button"
                 onClick={() => setFitMode("cover")}
-                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${
                   fitMode === "cover"
                     ? "bg-teal-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-black"
@@ -1205,7 +1211,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               <button
                 type="button"
                 onClick={() => setFitMode("contain")}
-                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${
                   fitMode === "contain"
                     ? "bg-teal-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-black"
@@ -1222,14 +1228,14 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 transition-colors cursor-pointer"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 transition-colors cursor-default"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="bg-[#00a896] hover:bg-[#008f80] text-white font-bold text-xs px-6 py-2 rounded-lg transition-colors shadow-sm cursor-pointer flex items-center gap-1.5"
+            className="bg-[#00a896] hover:bg-[#008f80] text-white font-bold text-xs px-6 py-2 rounded-lg transition-colors shadow-sm cursor-default flex items-center gap-1.5"
           >
             <CheckOutlined /> Apply Crop & Transform
           </button>
@@ -1330,7 +1336,7 @@ const BackgroundRepositionModal = ({
   const cssAspectRatio = aspectRatio ? String(aspectRatio).replace(":", " / ") : "1 / 1";
 
   return (
-    <Modal
+    <Modal wrapClassName="photobook-modal-scope"
       open={open}
       onCancel={onClose}
       footer={null}
@@ -1357,7 +1363,7 @@ const BackgroundRepositionModal = ({
           <button
             type="button"
             onClick={handleReset}
-            className="text-xs text-slate-500 hover:text-teal-600 flex items-center gap-1 font-semibold cursor-pointer transition-colors"
+            className="text-xs text-slate-500 hover:text-teal-600 flex items-center gap-1 font-semibold cursor-default transition-colors"
           >
             <UndoOutlined className="text-sm" /> Reset
           </button>
@@ -1387,7 +1393,7 @@ const BackgroundRepositionModal = ({
               backgroundRepeat: "no-repeat",
             }}
             className={`relative h-full overflow-hidden border-2 border-teal-400 shadow-2xl bg-white ${
-              isDragging ? "cursor-grabbing" : "cursor-grab"
+              isDragging ? "cursor-default" : "cursor-default"
             }`}
           >
             {/* Rule of Thirds Finder Grid */}
@@ -1438,7 +1444,7 @@ const BackgroundRepositionModal = ({
                       setPosX(p.x);
                       setPosY(p.y);
                     }}
-                    className={`py-1.5 px-2 rounded border text-xs font-medium flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    className={`py-1.5 px-2 rounded border text-xs font-medium flex items-center justify-center gap-1 transition-all cursor-default ${
                       isActive
                         ? "bg-teal-600 text-white border-teal-600 shadow-xs"
                         : "bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:bg-teal-50/50"
@@ -1467,7 +1473,7 @@ const BackgroundRepositionModal = ({
                 max={100}
                 value={posX}
                 onChange={(e) => setPosX(Number(e.target.value))}
-                className="w-full accent-teal-600 cursor-pointer"
+                className="w-full accent-teal-600 cursor-default"
               />
             </div>
 
@@ -1482,7 +1488,7 @@ const BackgroundRepositionModal = ({
                 max={100}
                 value={posY}
                 onChange={(e) => setPosY(Number(e.target.value))}
-                className="w-full accent-teal-600 cursor-pointer"
+                className="w-full accent-teal-600 cursor-default"
               />
             </div>
 
@@ -1498,7 +1504,7 @@ const BackgroundRepositionModal = ({
                 step={0.05}
                 value={scale}
                 onChange={(e) => setScale(Number(e.target.value))}
-                className="w-full accent-teal-600 cursor-pointer"
+                className="w-full accent-teal-600 cursor-default"
               />
             </div>
 
@@ -1516,7 +1522,7 @@ const BackgroundRepositionModal = ({
                     key={mode.id}
                     type="button"
                     onClick={() => setFitMode(mode.id)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${
                       fitMode === mode.id
                         ? "bg-teal-600 text-white shadow-xs"
                         : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -1534,14 +1540,14 @@ const BackgroundRepositionModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 transition-colors cursor-pointer"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 transition-colors cursor-default"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleApply}
-            className="bg-[#00a896] hover:bg-[#008f80] text-white font-bold text-xs px-6 py-2 rounded-lg transition-colors shadow-sm cursor-pointer flex items-center gap-1.5"
+            className="bg-[#00a896] hover:bg-[#008f80] text-white font-bold text-xs px-6 py-2 rounded-lg transition-colors shadow-sm cursor-default flex items-center gap-1.5"
           >
             <CheckOutlined /> Apply Background Position
           </button>
@@ -1565,6 +1571,8 @@ export const RealisticBookPreview = ({
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState("next"); // "next" | "prev"
   const [transitionData, setTransitionData] = useState(null);
+  const [previewTheme, setPreviewTheme] = useState("dark"); // "dark" | "light"
+  const isDark = previewTheme === "dark";
 
   const currentStep = steps[currentStepIndex];
   if (!currentStep) return null;
@@ -1573,7 +1581,7 @@ export const RealisticBookPreview = ({
   const isFirst = currentStepIndex === 0;
   const isLast = currentStepIndex === totalSteps - 1;
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (isLast || isFlipping) return;
     const nextIdx = currentStepIndex + 1;
     const curr = steps[currentStepIndex];
@@ -1615,9 +1623,9 @@ export const RealisticBookPreview = ({
       setIsFlipping(false);
       setTransitionData(null);
     }, 650);
-  };
+  }, [currentStepIndex, isFlipping, isLast, onStepChange, steps]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (isFirst || isFlipping) return;
     const prevIdx = currentStepIndex - 1;
     const curr = steps[currentStepIndex];
@@ -1659,7 +1667,22 @@ export const RealisticBookPreview = ({
       setIsFlipping(false);
       setTransitionData(null);
     }, 650);
-  };
+  }, [currentStepIndex, isFlipping, isFirst, onStepChange, steps]);
+
+  // Keyboard navigation support (Arrow keys to flip, Escape to close)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowRight") {
+        handleNext();
+      } else if (e.key === "ArrowLeft") {
+        handlePrev();
+      } else if (e.key === "Escape" && onClose) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleNext, handlePrev, onClose]);
 
   const renderPageFace = (pageData, isLeft = false) => {
     if (!pageData || pageData.is_blank) {
@@ -1683,7 +1706,11 @@ export const RealisticBookPreview = ({
   };
 
   return (
-    <div className="flex flex-col items-center select-none w-full max-w-4xl mx-auto py-1">
+    <div
+      className={`flex flex-col items-center select-none w-full max-w-4xl mx-auto overflow-hidden shadow-2xl rounded-2xl border transition-colors duration-300 ${
+        isDark ? "bg-[#0f1422] border-slate-800" : "bg-white border-slate-200"
+      }`}
+    >
       {/* Dynamic 3D Book Keyframe Styles */}
       <style>{`
         @keyframes bookFlipNext3D {
@@ -1696,22 +1723,22 @@ export const RealisticBookPreview = ({
         }
         @keyframes shadowSweepNextFront {
           0% { opacity: 0; }
-          45% { opacity: 0.6; }
-          100% { opacity: 0.8; }
+          45% { opacity: 0.4; }
+          100% { opacity: 0.6; }
         }
         @keyframes shadowSweepNextBack {
-          0% { opacity: 0.8; }
-          55% { opacity: 0.6; }
+          0% { opacity: 0.6; }
+          55% { opacity: 0.4; }
           100% { opacity: 0; }
         }
         @keyframes shadowSweepPrevFront {
           0% { opacity: 0; }
-          45% { opacity: 0.6; }
-          100% { opacity: 0.8; }
+          45% { opacity: 0.4; }
+          100% { opacity: 0.6; }
         }
         @keyframes shadowSweepPrevBack {
-          0% { opacity: 0.8; }
-          55% { opacity: 0.6; }
+          0% { opacity: 0.6; }
+          55% { opacity: 0.4; }
           100% { opacity: 0; }
         }
         .book-leaf-turning-next {
@@ -1734,105 +1761,178 @@ export const RealisticBookPreview = ({
         }
       `}</style>
 
-      {/* Top indicator & helper */}
-      <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-3 px-2">
-        <div className="flex items-center gap-2">
-          <BookOutlined className="text-teal-600 text-base" />
-          <span className="text-xs font-bold text-slate-800">
-            {currentStep.title}
-          </span>
-          <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-semibold border border-slate-200">
-            {currentStepIndex === 0
-              ? "Closed Book (Front)"
-              : currentStepIndex === totalSteps - 1
-              ? "Closed Book (Back)"
-              : `Spread ${currentStepIndex} of ${totalSteps - 2}`}
-          </span>
+      {/* Top Header Bar (With Static Size & Dark/Light Toggle) */}
+      <div
+        className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-b flex items-center justify-between gap-3 shrink-0 transition-colors duration-300 ${
+          isDark ? "bg-[#0f1422] border-slate-800" : "bg-gray-50 border-gray-200"
+        }`}
+      >
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-[#00a896] border border-teal-500/20 flex items-center justify-center shrink-0 shadow-2xs">
+            <BookOutlined className="text-sm" />
+          </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`text-sm font-bold truncate tracking-tight ${
+                isDark ? "text-white" : "text-gray-900"
+              }`}
+            >
+              {currentStep.title}
+            </span>
+            <span
+              className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${
+                isDark
+                  ? "bg-slate-800 text-teal-400 border-slate-700/80"
+                  : "bg-teal-50 text-[#00a896] border-teal-200"
+              }`}
+            >
+              {currentStepIndex === 0
+                ? "Front Cover"
+                : currentStepIndex === totalSteps - 1
+                ? "Back Cover"
+                : `Spread ${currentStepIndex}/${totalSteps - 2}`}
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {availableSizes && availableSizes.length > 0 && onSelectSize ? (
-            <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              <span className="text-slate-500 font-medium">Book Size:</span>
-              <Select
-                size="small"
-                value={sizeInfo?.id || sizeInfo?.matchedId}
-                onChange={onSelectSize}
-                className="w-40"
-                options={availableSizes.map((s) => ({
-                  value: s.id,
-                  label: `${s.name} (${s.width_in || s.width}×${s.height_in || s.height} in)`,
-                }))}
-              />
-            </div>
-          ) : (sizeInfo?.dimensions || sizeInfo?.formattedSize || sizeInfo?.name) ? (
-            <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              <span className="text-slate-500 font-medium">Book Size:</span>
-              <span className="font-semibold text-slate-800">
-                {sizeInfo.dimensions || sizeInfo.formattedSize || sizeInfo.name}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Static Size Display (Size Selection Disabled in Preview as Requested) */}
+          {(sizeInfo?.name || sizeInfo?.dimensions || sizeInfo?.formattedSize) && (
+            <div
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl border font-semibold select-none ${
+                isDark
+                  ? "bg-slate-800/90 text-slate-200 border-slate-700/80"
+                  : "bg-slate-100 text-slate-700 border-slate-300"
+              }`}
+            >
+              <span className={`text-[11px] font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                Size:
+              </span>
+              <span>
+                {sizeInfo?.name || sizeInfo?.dimensions || sizeInfo?.formattedSize}
+                {(sizeInfo?.width_in || sizeInfo?.width) && (sizeInfo?.height_in || sizeInfo?.height)
+                  ? ` (${sizeInfo?.width_in || sizeInfo?.width}×${sizeInfo?.height_in || sizeInfo?.height}")`
+                  : ""}
               </span>
             </div>
-          ) : null}
-          <div className="text-[11px] text-slate-400 hidden sm:block">
-            Click book edges or arrow buttons to turn pages
-          </div>
+          )}
+
+          {/* Dark / Light Studio Background Toggle */}
+          <button
+            type="button"
+            onClick={() => setPreviewTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold transition-all cursor-default select-none shadow-2xs ${
+              isDark
+                ? "bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700/80 hover:text-amber-200"
+                : "bg-white hover:bg-gray-100 text-slate-800 border-gray-300 hover:text-slate-900"
+            }`}
+            title={`Switch to ${isDark ? "Light" : "Dark"} Studio Background`}
+          >
+            <span>{isDark ? "☀️ Light" : "🌙 Dark"}</span>
+          </button>
+
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-default shrink-0 shadow-2xs border ${
+              isDark
+                ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700/50"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-900 border-gray-300"
+            }`}
+            title="Close Preview (Esc)"
+          >
+            <CloseOutlined className="text-xs sm:text-sm" />
+          </button>
         </div>
       </div>
 
       {/* Main 3D Book Stage */}
       <div
-        className="w-full relative flex items-center justify-center min-h-[460px] py-6 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 rounded-2xl shadow-2xl border border-slate-800 overflow-visible"
-        style={{ perspective: "2600px" }}
+        className={`w-full relative flex items-center justify-center py-6 sm:py-10 px-3 sm:px-8 overflow-hidden flex-1 min-h-[280px] sm:min-h-[400px] max-h-[52vh] transition-colors duration-300 ${
+          isDark
+            ? "bg-gradient-to-b from-[#090d16] via-[#111827] to-[#090d16]"
+            : "bg-gradient-to-b from-[#f8fafc] via-[#e2e8f0] to-[#cbd5e1]"
+        }`}
+        style={{ perspective: "2400px" }}
       >
-        {/* Soft studio table pattern */}
+        {/* Soft studio table spotlight pattern */}
         <div
-          className="absolute inset-0 opacity-15 pointer-events-none"
+          className={`absolute inset-0 pointer-events-none transition-opacity ${
+            isDark ? "opacity-15" : "opacity-8"
+          }`}
           style={{
-            backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)",
+            backgroundImage: isDark
+              ? "radial-gradient(#ffffff 1px, transparent 1px)"
+              : "radial-gradient(#000000 1px, transparent 1px)",
             backgroundSize: "24px 24px",
+          }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none opacity-70"
+          style={{
+            background: isDark
+              ? "radial-gradient(ellipse at 50% 50%, rgba(30, 41, 59, 0.4) 0%, rgba(9, 13, 22, 0.95) 100%)"
+              : "radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.6) 0%, rgba(203, 213, 225, 0.7) 100%)",
           }}
         />
 
         {/* Ambient Book Soft Drop Shadow */}
-        <div className="absolute bottom-4 w-[75%] h-8 bg-black/70 blur-xl rounded-full pointer-events-none" />
+        <div
+          className={`absolute bottom-3 w-[78%] h-9 blur-xl rounded-full pointer-events-none transition-colors ${
+            isDark ? "bg-black/90" : "bg-slate-900/35"
+          }`}
+        />
 
         {/* Floating Prev Button */}
         <button
           type="button"
           onClick={handlePrev}
           disabled={isFirst || isFlipping}
-          className={`absolute left-3 top-1/2 -translate-y-1/2 z-40 w-11 h-11 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-xl flex items-center justify-center transition-all ${
-            isFirst || isFlipping ? "opacity-20 cursor-not-allowed" : "hover:scale-110 active:scale-95 cursor-pointer"
+          className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 w-9 h-9 sm:w-11 sm:h-11 rounded-full shadow-2xl backdrop-blur-md flex items-center justify-center transition-all border ${
+            isDark
+              ? "bg-slate-800/80 hover:bg-slate-700 text-white border-slate-700/60"
+              : "bg-white/95 hover:bg-white text-slate-800 border-gray-300 shadow-md"
+          } ${
+            isFirst || isFlipping ? "opacity-20 cursor-default pointer-events-none" : "hover:scale-110 active:scale-95 cursor-default"
           }`}
-          title="Previous Page"
+          title="Previous Page (←)"
         >
-          <LeftOutlined className="text-sm font-bold" />
+          <LeftOutlined className="text-xs sm:text-sm font-bold" />
         </button>
 
         {/* ── CASE 1: ACTIVE TURNING ANIMATION (3D Flipping Leaf) ── */}
         {isFlipping && transitionData && (
           <div
-            className="relative w-[94%] bg-white rounded-lg shadow-2xl flex select-none"
+            className="relative rounded-sm shadow-2xl flex select-none overflow-hidden"
             style={{
-              maxWidth: (sizeInfo?.spreadRatio || 2) < 1.6 ? "740px" : "840px",
+              width: `min(94%, calc(min(420px, 44vh) * ${sizeInfo?.spreadRatio || 2}))`,
+              maxWidth: (sizeInfo?.spreadRatio || 2) < 1.6 ? "760px" : "880px",
               aspectRatio: `${sizeInfo?.spreadRatio || 2}`,
+              maxHeight: "44vh",
               transformStyle: "preserve-3d",
+              backgroundColor: "#000000",
             }}
           >
             {/* Stationary Left Half */}
             <div
-              className="w-1/2 h-full relative overflow-hidden bg-white rounded-l-lg"
-              style={{ borderLeft: "3px solid #cbd5e1" }}
+              className="flex-1 h-full relative overflow-hidden bg-white"
             >
               {renderPageFace(transitionData.stationaryLeft, true)}
+              {/* Subtle natural binding shadow on right edge */}
+              <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-20" />
             </div>
+
+            {/* Center Spine Gap (2px dark gutter) */}
+            <div className="w-[2px] h-full shrink-0 z-30 bg-[#050811]" />
 
             {/* Stationary Right Half */}
             <div
-              className="w-1/2 h-full relative overflow-hidden bg-white rounded-r-lg"
-              style={{ borderRight: "3px solid #cbd5e1" }}
+              className="flex-1 h-full relative overflow-hidden bg-white"
             >
               {renderPageFace(transitionData.stationaryRight, false)}
+              {/* Subtle natural binding shadow on left edge */}
+              <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-20" />
             </div>
 
             {/* 3D Flipping Leaf */}
@@ -1849,41 +1949,37 @@ export const RealisticBookPreview = ({
             >
               {/* Front Face */}
               <div
-                className="absolute inset-0 overflow-hidden bg-white rounded-r-lg"
+                className="absolute inset-0 overflow-hidden bg-white"
                 style={{
                   backfaceVisibility: "hidden",
                   WebkitBackfaceVisibility: "hidden",
-                  borderRight: flipDirection === "next" ? "2px solid #cbd5e1" : "none",
-                  borderLeft: flipDirection === "prev" ? "2px solid #cbd5e1" : "none",
                 }}
               >
                 {renderPageFace(transitionData.leafFront, flipDirection === "prev")}
                 <div
                   className={`absolute inset-0 pointer-events-none ${
                     flipDirection === "next"
-                      ? "book-shadow-next-front bg-gradient-to-r from-black/40 via-black/20 to-transparent"
-                      : "book-shadow-prev-front bg-gradient-to-l from-black/40 via-black/20 to-transparent"
+                      ? "book-shadow-next-front bg-gradient-to-r from-black/30 to-transparent"
+                      : "book-shadow-prev-front bg-gradient-to-l from-black/30 to-transparent"
                   }`}
                 />
               </div>
 
               {/* Back Face */}
               <div
-                className="absolute inset-0 overflow-hidden bg-white rounded-l-lg"
+                className="absolute inset-0 overflow-hidden bg-white"
                 style={{
                   backfaceVisibility: "hidden",
                   WebkitBackfaceVisibility: "hidden",
                   transform: "rotateY(180deg)",
-                  borderLeft: flipDirection === "next" ? "2px solid #cbd5e1" : "none",
-                  borderRight: flipDirection === "prev" ? "2px solid #cbd5e1" : "none",
                 }}
               >
                 {renderPageFace(transitionData.leafBack, flipDirection === "next")}
                 <div
                   className={`absolute inset-0 pointer-events-none ${
                     flipDirection === "next"
-                      ? "book-shadow-next-back bg-gradient-to-l from-black/40 via-black/20 to-transparent"
-                      : "book-shadow-prev-back bg-gradient-to-r from-black/40 via-black/20 to-transparent"
+                      ? "book-shadow-next-back bg-gradient-to-l from-black/30 to-transparent"
+                      : "book-shadow-prev-back bg-gradient-to-r from-black/30 to-transparent"
                   }`}
                 />
               </div>
@@ -1895,58 +1991,50 @@ export const RealisticBookPreview = ({
         {!isFlipping && currentStep.type === "cover_front" && (
           <div
             onClick={handleNext}
-            className="relative max-w-[420px] w-[85%] rounded-r-xl rounded-l-xs overflow-hidden cursor-pointer group transition-transform duration-300 hover:scale-[1.01]"
+            className="relative rounded-r-lg overflow-hidden cursor-default group transition-transform duration-300 hover:scale-[1.01]"
             style={{
               aspectRatio: `${sizeInfo?.singlePageRatio || 1}`,
+              width: `min(85%, calc(min(380px, 44vh) * ${sizeInfo?.singlePageRatio || 1}))`,
+              maxHeight: "44vh",
               boxShadow:
-                "-12px 0 24px -4px rgba(0,0,0,0.7), 16px 20px 40px rgba(0,0,0,0.5), inset 3px 0 6px rgba(255,255,255,0.4)",
-              borderTop: "2px solid rgba(255,255,255,0.2)",
-              borderRight: "4px solid #cbd5e1",
-              borderBottom: "4px solid #94a3b8",
+                "-12px 0 24px -4px rgba(0,0,0,0.7), 16px 20px 40px rgba(0,0,0,0.5)",
             }}
           >
             {/* Hardcover Spine Ridge on Left */}
-            <div className="absolute top-0 bottom-0 left-0 w-6 bg-gradient-to-r from-black/50 via-black/20 to-transparent pointer-events-none z-30" />
-            <div className="absolute top-0 bottom-0 left-5 w-0.5 bg-black/30 shadow-xs pointer-events-none z-30" />
+            <div className="absolute top-0 bottom-0 left-0 w-5 bg-gradient-to-r from-black/40 via-black/10 to-transparent pointer-events-none z-30" />
 
             {/* Canvas Rendering */}
             <div className="w-full h-full relative">
               {renderCanvas(currentStep.page, false)}
             </div>
 
-            {/* Stacked Pages Edge Texture on Right */}
-            <div className="absolute top-0 bottom-0 right-0 w-2.5 bg-gradient-to-r from-slate-200 to-slate-400 opacity-90 pointer-events-none z-20 border-l border-slate-300" />
-
             {/* Hover overlay inviting to Open */}
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity z-30 pointer-events-none backdrop-blur-2xs">
               <BookOutlined className="text-3xl mb-2 text-teal-400 animate-pulse" />
-              <span className="font-bold text-sm tracking-wide bg-black/60 px-4 py-1.5 rounded-full border border-white/20">
+              <span className="font-bold text-sm tracking-wide bg-black/60 px-4 py-1.5 rounded-full border border-white/20 shadow-md">
                 Click to Open Book 📖
               </span>
             </div>
           </div>
         )}
 
-        {/* ── CASE 3: STATIC SPREAD (Open 2-Page Realistic Layout) ── */}
+        {/* ── CASE 3: STATIC SPREAD (Clean Realistic Layout - No White Lines) ── */}
         {!isFlipping && currentStep.type === "spread" && (
           <div
-            className="relative w-[94%] bg-white rounded-lg overflow-hidden flex transition-all duration-400"
+            className="relative rounded-sm overflow-hidden flex transition-all duration-400 select-none shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_20px_rgba(0,0,0,0.5)]"
             style={{
-              maxWidth: (sizeInfo?.spreadRatio || 2) < 1.6 ? "740px" : "840px",
+              width: `min(94%, calc(min(420px, 44vh) * ${sizeInfo?.spreadRatio || 2}))`,
+              maxWidth: (sizeInfo?.spreadRatio || 2) < 1.6 ? "760px" : "880px",
               aspectRatio: `${sizeInfo?.spreadRatio || 2}`,
-              boxShadow:
-                "0 25px 60px -15px rgba(0,0,0,0.7), inset 0 0 10px rgba(0,0,0,0.1)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              maxHeight: "44vh",
+              backgroundColor: "#050811",
             }}
           >
-            {/* Left Page */}
+            {/* Left Page Half */}
             <div
               onClick={handlePrev}
-              className="w-1/2 h-full relative overflow-hidden bg-white cursor-pointer group"
-              style={{
-                borderLeft: "3px solid #cbd5e1",
-              }}
-              title="Click left page to turn backward"
+              className="flex-1 h-full relative overflow-hidden bg-white cursor-default group"
+              title="Click left page to turn backward (←)"
             >
               {currentStep.leftPage?.is_blank ? (
                 <div className="w-full h-full bg-[#fdfdfd] flex flex-col items-center justify-center text-slate-300 select-none">
@@ -1957,16 +2045,19 @@ export const RealisticBookPreview = ({
               ) : (
                 renderCanvas(currentStep.leftPage, false)
               )}
+
+              {/* Natural soft binding shadow on right edge of Left Page */}
+              <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-20" />
             </div>
 
-            {/* Right Page */}
+            {/* Clean Center Spine Gap / Crease Divider (Prevents blending of pages) */}
+            <div className={`w-[2px] h-full shrink-0 z-30 ${isDark ? "bg-[#050811]" : "bg-[#94a3b8]"}`} />
+
+            {/* Right Page Half */}
             <div
               onClick={handleNext}
-              className="w-1/2 h-full relative overflow-hidden bg-white cursor-pointer group"
-              style={{
-                borderRight: "3px solid #cbd5e1",
-              }}
-              title="Click right page to turn forward"
+              className="flex-1 h-full relative overflow-hidden bg-white cursor-default group"
+              title="Click right page to turn forward (→)"
             >
               {currentStep.rightPage?.is_blank ? (
                 <div className="w-full h-full bg-[#fdfdfd] flex flex-col items-center justify-center text-slate-300 select-none">
@@ -1977,6 +2068,9 @@ export const RealisticBookPreview = ({
               ) : (
                 renderCanvas(currentStep.rightPage, false)
               )}
+
+              {/* Natural soft binding shadow on left edge of Right Page */}
+              <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-20" />
             </div>
           </div>
         )}
@@ -1985,33 +2079,28 @@ export const RealisticBookPreview = ({
         {!isFlipping && currentStep.type === "cover_back" && (
           <div
             onClick={handlePrev}
-            className="relative max-w-[420px] w-[85%] rounded-l-xl rounded-r-xs overflow-hidden cursor-pointer group transition-transform duration-300 hover:scale-[1.01]"
+            className="relative rounded-l-lg overflow-hidden cursor-default group transition-transform duration-300 hover:scale-[1.01]"
             style={{
               aspectRatio: `${sizeInfo?.singlePageRatio || 1}`,
+              width: `min(85%, calc(min(380px, 44vh) * ${sizeInfo?.singlePageRatio || 1}))`,
+              maxHeight: "44vh",
               boxShadow:
-                "12px 0 24px -4px rgba(0,0,0,0.7), -16px 20px 40px rgba(0,0,0,0.5), inset -3px 0 6px rgba(255,255,255,0.4)",
-              borderTop: "2px solid rgba(255,255,255,0.2)",
-              borderLeft: "4px solid #cbd5e1",
-              borderBottom: "4px solid #94a3b8",
+                "12px 0 24px -4px rgba(0,0,0,0.7), -16px 20px 40px rgba(0,0,0,0.5)",
             }}
             title="Click to Open Photobook Backward"
           >
             {/* Hardcover Spine Ridge on Right */}
-            <div className="absolute top-0 bottom-0 right-0 w-6 bg-gradient-to-l from-black/50 via-black/20 to-transparent pointer-events-none z-30" />
-            <div className="absolute top-0 bottom-0 right-5 w-0.5 bg-black/30 shadow-xs pointer-events-none z-30" />
+            <div className="absolute top-0 bottom-0 right-0 w-5 bg-gradient-to-l from-black/40 via-black/10 to-transparent pointer-events-none z-30" />
 
             {/* Canvas Rendering */}
             <div className="w-full h-full relative">
               {renderCanvas(currentStep.page, false)}
             </div>
 
-            {/* Stacked Pages Edge Texture on Left */}
-            <div className="absolute top-0 bottom-0 left-0 w-2.5 bg-gradient-to-l from-slate-200 to-slate-400 opacity-90 pointer-events-none z-20 border-r border-slate-300" />
-
             {/* Hover overlay inviting to Flip Back */}
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity z-30 pointer-events-none backdrop-blur-2xs">
               <BookOutlined className="text-3xl mb-2 text-teal-400 animate-pulse" />
-              <span className="font-bold text-sm tracking-wide bg-black/60 px-4 py-1.5 rounded-full border border-white/20">
+              <span className="font-bold text-sm tracking-wide bg-black/60 px-4 py-1.5 rounded-full border border-white/20 shadow-md">
                 Click to Open Previous Page 📖
               </span>
             </div>
@@ -2023,60 +2112,136 @@ export const RealisticBookPreview = ({
           type="button"
           onClick={handleNext}
           disabled={isLast || isFlipping}
-          className={`absolute right-3 top-1/2 -translate-y-1/2 z-40 w-11 h-11 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-xl flex items-center justify-center transition-all ${
-            isLast || isFlipping ? "opacity-20 cursor-not-allowed" : "hover:scale-110 active:scale-95 cursor-pointer"
+          className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-40 w-9 h-9 sm:w-11 sm:h-11 rounded-full shadow-2xl backdrop-blur-md flex items-center justify-center transition-all border ${
+            isDark
+              ? "bg-slate-800/80 hover:bg-slate-700 text-white border-slate-700/60"
+              : "bg-white/95 hover:bg-white text-slate-800 border-gray-300 shadow-md"
+          } ${
+            isLast || isFlipping ? "opacity-20 cursor-default pointer-events-none" : "hover:scale-110 active:scale-95 cursor-default"
           }`}
-          title="Next Page"
+          title="Next Page (→)"
         >
-          <RightOutlined className="text-sm font-bold" />
+          <RightOutlined className="text-xs sm:text-sm font-bold" />
         </button>
       </div>
 
-      {/* Bottom Interactive Navigation & Thumbnail Strip */}
-      <div className="w-full flex flex-col items-center gap-3 mt-4">
-        <div className="flex items-center gap-3">
-          <Button
-            icon={<LeftOutlined />}
-            disabled={isFirst || isFlipping}
+      {/* Bottom Interactive Navigation */}
+      <div
+        className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-t flex flex-col items-center gap-2.5 shrink-0 transition-colors duration-300 ${
+          isDark ? "bg-[#0f1422] border-slate-800" : "bg-gray-50 border-gray-200"
+        }`}
+      >
+        <div className="w-full flex items-center justify-between gap-2 max-w-lg">
+          {/* Previous Page Button */}
+          <button
+            type="button"
             onClick={handlePrev}
-            className="!rounded-lg font-semibold"
+            disabled={isFirst || isFlipping}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold border transition-all ${
+              isFirst || isFlipping
+                ? isDark
+                  ? "border-slate-800 text-slate-600 bg-slate-900/40 cursor-default opacity-50"
+                  : "border-gray-200 text-gray-400 bg-gray-100 cursor-default opacity-50"
+                : isDark
+                ? "border-slate-700 text-slate-200 bg-slate-800 hover:bg-slate-700 active:scale-95 cursor-default shadow-xs"
+                : "border-gray-300 text-gray-700 bg-white hover:bg-gray-100 active:scale-95 cursor-default shadow-xs"
+            }`}
           >
-            {currentStepIndex === 1 ? "Close Book (Front)" : "Previous Page"}
-          </Button>
+            <LeftOutlined className="text-[10px]" />
+            <span className="hidden sm:inline">
+              {currentStepIndex === 1 ? "Close Book (Front)" : "Previous Page"}
+            </span>
+            <span className="sm:hidden">
+              {currentStepIndex === 1 ? "Close" : "Prev"}
+            </span>
+          </button>
 
-          <div className="bg-slate-100 px-4 py-1.5 rounded-full text-xs font-bold text-slate-700 border border-slate-200 flex items-center gap-2">
-            <span>{currentStep.title}</span>
-            <span className="text-slate-400 font-normal">
-              ({currentStepIndex + 1} / {totalSteps})
+          {/* Center Page Indicator Pill */}
+          <div className="flex flex-col items-center gap-0.5">
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${
+                isDark
+                  ? "bg-slate-800 text-slate-200 border-slate-700"
+                  : "bg-white text-gray-800 border-gray-200 shadow-2xs"
+              }`}
+            >
+              <span className="text-[#00a896]">{currentStepIndex + 1}</span>
+              <span className={isDark ? "text-slate-500 font-normal" : "text-gray-400 font-normal"}>/</span>
+              <span className={isDark ? "text-slate-400" : "text-gray-600"}>{totalSteps}</span>
+            </div>
+            <span
+              className={`hidden sm:inline text-[9.5px] font-medium mt-0.5 ${
+                isDark ? "text-slate-400" : "text-gray-500"
+              }`}
+            >
+              Use{" "}
+              <kbd
+                className={`px-1 py-0.2 text-[9px] rounded border font-mono ${
+                  isDark
+                    ? "bg-slate-800 border-slate-700 text-slate-300"
+                    : "bg-white border-gray-300 text-gray-700"
+                }`}
+              >
+                ←
+              </kbd>{" "}
+              <kbd
+                className={`px-1 py-0.2 text-[9px] rounded border font-mono ${
+                  isDark
+                    ? "bg-slate-800 border-slate-700 text-slate-300"
+                    : "bg-white border-gray-300 text-gray-700"
+                }`}
+              >
+                →
+              </kbd>{" "}
+              keys to flip
             </span>
           </div>
 
-          <Button
-            icon={<RightOutlined />}
-            disabled={isLast || isFlipping}
+          {/* Next Page / Open Book Button */}
+          <button
+            type="button"
             onClick={handleNext}
-            className="!rounded-lg !bg-[#00a896] hover:!bg-[#008f80] !text-white font-semibold !border-[#00a896]"
+            disabled={isLast || isFlipping}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+              isLast || isFlipping
+                ? isDark
+                  ? "bg-slate-800 text-slate-600 cursor-default opacity-50 border border-slate-700/50"
+                  : "bg-gray-200 text-gray-400 cursor-default opacity-50 border border-gray-300"
+                : "bg-gradient-to-r from-[#00a896] to-[#02c39a] hover:opacity-95 active:scale-95 text-white cursor-default shadow-teal-500/20"
+            }`}
           >
-            {currentStepIndex === 0
-              ? "Open Book 📖"
-              : currentStepIndex === totalSteps - 2
-              ? "Close Book (Back)"
-              : "Next Page"}
-          </Button>
+            <span className="hidden sm:inline">
+              {currentStepIndex === 0
+                ? "Open Book 📖"
+                : currentStepIndex === totalSteps - 2
+                ? "Close Book (Back)"
+                : "Next Page"}
+            </span>
+            <span className="sm:hidden">
+              {currentStepIndex === 0
+                ? "Open 📖"
+                : currentStepIndex === totalSteps - 2
+                ? "Close"
+                : "Next"}
+            </span>
+            <RightOutlined className="text-[10px]" />
+          </button>
         </div>
 
         {/* Thumbnail Quick Selector Dots */}
-        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full px-2 py-1">
+        <div className="flex items-center justify-center gap-1 overflow-x-auto max-w-full px-2 py-0.5 scrollbar-none">
           {steps.map((st, sIdx) => (
             <button
               key={sIdx}
               type="button"
               onClick={() => onStepChange(sIdx)}
               title={st.title}
-              className={`transition-all rounded-full cursor-pointer ${
+              className={`transition-all rounded-full cursor-default shrink-0 ${
                 sIdx === currentStepIndex
-                  ? "w-7 h-2 bg-[#00a896]"
-                  : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
+                  ? "w-6 sm:w-8 h-1.5 sm:h-2 bg-[#00a896]"
+                  : isDark
+                  ? "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-slate-700 hover:bg-slate-600"
+                  : "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-gray-300 hover:bg-gray-400"
               }`}
             />
           ))}
@@ -2709,9 +2874,105 @@ const PhotoBookEditorPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [maxUnlockedStep, setMaxUnlockedStep] = useState(1);
   const [isAddToCartConfirmModalOpen, setIsAddToCartConfirmModalOpen] = useState(false);
+  const [isPrivacyPolicyAccepted, setIsPrivacyPolicyAccepted] = useState(false);
+
+  // Track whether viewport is strictly below Tailwind's `md` breakpoint (< 768px)
+  const [isBelowMd, setIsBelowMd] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
 
   // Active Tool in Step 3 Workspace: "add" | "arrange" | "size" | "design" | "options" | null
-  const [activeStudioTool, setActiveStudioTool] = useState("add");
+  // Below md (< 768px): any sidebar can be selected/unselected (starts unselected).
+  // Above md (>= 768px): one sidebar is always selected.
+  const [activeStudioTool, setActiveStudioTool] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? null : "add"
+  );
+
+  // Mobile bottom sheet animation and drag-to-dismiss states
+  const [isBottomSheetClosing, setIsBottomSheetClosing] = useState(false);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const sheetDragStartYRef = useRef(0);
+  const sheetCurrentDragYRef = useRef(0);
+  const isSheetDraggingRef = useRef(false);
+
+  const handleCloseBottomSheet = useCallback(() => {
+    if (isBottomSheetClosing) return;
+    setIsBottomSheetClosing(true);
+    setTimeout(() => {
+      setActiveStudioTool(null);
+      setIsBottomSheetClosing(false);
+      setSheetDragY(0);
+      sheetCurrentDragYRef.current = 0;
+      isSheetDraggingRef.current = false;
+    }, 240);
+  }, [isBottomSheetClosing]);
+
+  const closeStudioTool = useCallback(() => {
+    if (isBelowMd && activeStudioTool) {
+      handleCloseBottomSheet();
+    } else {
+      setActiveStudioTool(null);
+    }
+  }, [isBelowMd, activeStudioTool, handleCloseBottomSheet]);
+
+  const openStudioTool = useCallback((toolId) => {
+    setIsBottomSheetClosing(false);
+    setSheetDragY(0);
+    sheetCurrentDragYRef.current = 0;
+    isSheetDraggingRef.current = false;
+    setActiveStudioTool(toolId);
+  }, []);
+
+  const handleSheetTouchStart = useCallback((e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    sheetDragStartYRef.current = e.touches[0].clientY;
+    isSheetDraggingRef.current = true;
+  }, []);
+
+  const handleSheetTouchMove = useCallback((e) => {
+    if (!isSheetDraggingRef.current || !e.touches || e.touches.length === 0) return;
+    const deltaY = e.touches[0].clientY - sheetDragStartYRef.current;
+    if (deltaY > 0) {
+      // Dragging downwards
+      sheetCurrentDragYRef.current = deltaY;
+      setSheetDragY(deltaY);
+    } else {
+      // Slight resistance when dragging upwards
+      const resistanceDelta = deltaY * 0.15;
+      sheetCurrentDragYRef.current = resistanceDelta;
+      setSheetDragY(resistanceDelta);
+    }
+  }, []);
+
+  const handleSheetTouchEnd = useCallback(() => {
+    if (!isSheetDraggingRef.current) return;
+    isSheetDraggingRef.current = false;
+    if (sheetCurrentDragYRef.current > 70) {
+      // Dragged down past threshold: dismiss sheet
+      handleCloseBottomSheet();
+    } else {
+      // Snap back to open position
+      setSheetDragY(0);
+      sheetCurrentDragYRef.current = 0;
+    }
+  }, [handleCloseBottomSheet]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handleViewportChange = (e) => {
+      setIsBelowMd(e.matches);
+      if (!e.matches) {
+        setActiveStudioTool((prev) => prev || "add");
+      }
+    };
+    setIsBelowMd(mq.matches);
+    if (!mq.matches) {
+      setActiveStudioTool((prev) => prev || "add");
+    }
+    mq.addEventListener("change", handleViewportChange);
+    return () => mq.removeEventListener("change", handleViewportChange);
+  }, []);
 
   // Album Specifications
   const [photoBookPages, setPhotoBookPages] = useState(20);
@@ -3026,8 +3287,7 @@ const PhotoBookEditorPage = () => {
             String(s.name).toLowerCase() === String(preferred).toLowerCase()
         );
         const targetId = prefMatched ? prefMatched.id : templateSizes[0].id;
-        setSelectedSize(targetId);
-        localStorage.setItem("photobook_selected_size", targetId);
+        handleSizeSelect(targetId, true);
       }
     }
   }, [templateSizes, designData?.size, isLoading, current_working_id]);
@@ -3077,18 +3337,6 @@ const PhotoBookEditorPage = () => {
     };
   }, [templateSizes, selectedSize, designData]);
 
-  const handleSizeSelect = (sizeId) => {
-    setSelectedSize(sizeId);
-    localStorage.setItem("photobook_selected_size", sizeId);
-    setHasUnsavedChanges(true);
-    const matched = templateSizes.find(
-      (s) => s.id === sizeId || s.name === sizeId
-    );
-    if (matched) {
-      message.success(`Updated size to ${matched.name}`);
-    }
-  };
-
   // Step 1: "Your Book" - Photo Target & Density Configuration
   const [targetPhotoCount, setTargetPhotoCount] = useState(26);
   const [photosPerPageMode, setPhotosPerPageMode] = useState("template"); // "template" | "1" | "2" | "3" | "4" | "mixed"
@@ -3120,11 +3368,11 @@ const PhotoBookEditorPage = () => {
   }, [pagesData]);
 
   const effectiveTargetPhotoCount = useMemo(() => {
-    if (isGiveaway) {
-      return Math.max(1, totalRequiredPlaceholders);
+    if (totalRequiredPlaceholders > 0) {
+      return totalRequiredPlaceholders;
     }
-    return targetPhotoCount;
-  }, [isGiveaway, totalRequiredPlaceholders, targetPhotoCount]);
+    return Math.max(1, targetPhotoCount);
+  }, [totalRequiredPlaceholders, targetPhotoCount]);
 
   // Step 3 Spread Navigation
   const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
@@ -3620,15 +3868,104 @@ const PhotoBookEditorPage = () => {
     }
   }, [priceDetails.maxPages, priceDetails.minPages, photoBookPages, isLoading]);
 
-  // ── Helper: Map Page Number to Template Page Definition ───────────────────
-  const resolveTemplatePage = useCallback(
-    (pageNumber, totalPages, template) => {
-      const tPages =
-        template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
+  // ── Helper: Resolve Template Pages for Active Size ───────────────────────
+  const resolveTemplatePagesForActiveSize = useCallback(
+    (template, sizeKey) => {
+      if (!template) return [];
+      const rawTarget = sizeKey || selectedSize || "";
+      const targetSize = String(
+        typeof rawTarget === "object" && rawTarget !== null
+          ? rawTarget.id || rawTarget.name || ""
+          : rawTarget
+      ).trim().toLowerCase();
+
+      const sizeDesigns =
+        template?.size_designs ||
+        template?.published_snapshot?.size_designs ||
+        {};
+
+      const entries = Object.entries(sizeDesigns);
+      if (entries.length === 0) {
+        return (
+          (template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
+            ? template.published_snapshot.pages
+            : template?.pages && template.pages.length > 0
+            ? template.pages
+            : [])
+        );
+      }
+
+      // 1. Resolve size metadata from templateSizes if available
+      const matchedSizeObj = (templateSizes || []).find(
+        (s) =>
+          String(s.id).toLowerCase() === targetSize ||
+          String(s.name).toLowerCase() === targetSize ||
+          (s.dimensions && String(s.dimensions).toLowerCase().includes(targetSize))
+      );
+
+      const targetId = matchedSizeObj?.id ? String(matchedSizeObj.id).toLowerCase() : targetSize;
+      const targetName = matchedSizeObj?.name ? String(matchedSizeObj.name).toLowerCase() : targetSize;
+
+      let targetDimPattern = null;
+      if (matchedSizeObj && matchedSizeObj.width_in && matchedSizeObj.height_in) {
+        targetDimPattern = `${parseFloat(matchedSizeObj.width_in)}x${parseFloat(matchedSizeObj.height_in)}`;
+      } else {
+        const dMatch = targetSize.match(/(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)/);
+        if (dMatch) {
+          targetDimPattern = `${parseFloat(dMatch[1])}x${parseFloat(dMatch[2])}`;
+        }
+      }
+
+      // 2. Check each sizeDesign entry for exact match on key, size_id, size_name, or dimensions
+      for (const [key, design] of entries) {
+        if (!design || !Array.isArray(design.pages) || design.pages.length === 0) continue;
+        const keyLower = key.toLowerCase();
+        const designIdLower = String(design.size_id || "").toLowerCase();
+        const designNameLower = String(design.size_name || "").toLowerCase();
+
+        // Direct key, size_id, or size_name match
+        if (
+          keyLower === targetSize ||
+          keyLower === targetId ||
+          keyLower === targetName ||
+          keyLower.replace(/\s+/g, "") === targetSize.replace(/\s+/g, "") ||
+          (designIdLower && (designIdLower === targetSize || designIdLower === targetId || designIdLower === targetName)) ||
+          (designNameLower && (designNameLower === targetSize || designNameLower === targetId || designNameLower === targetName))
+        ) {
+          return design.pages;
+        }
+
+        // Dimension match (e.g. 5.5 x 8.5 vs 5.5x8.5)
+        if (targetDimPattern) {
+          const checkStrings = [
+            design.dimensions || "",
+            design.size_name || "",
+            key,
+            design.page_width && design.page_height ? `${design.page_width}x${design.page_height}` : "",
+          ].join(" ");
+          const dimM = checkStrings.match(/(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)/);
+          if (dimM && `${parseFloat(dimM[1])}x${parseFloat(dimM[2])}` === targetDimPattern) {
+            return design.pages;
+          }
+        }
+      }
+
+      // 3. Fallback to template root pages (legacy or base design)
+      return (
+        (template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
           ? template.published_snapshot.pages
           : template?.pages && template.pages.length > 0
           ? template.pages
-          : [];
+          : [])
+      );
+    },
+    [selectedSize, templateSizes]
+  );
+
+  // ── Helper: Map Page Number to Template Page Definition ───────────────────
+  const resolveTemplatePage = useCallback(
+    (pageNumber, totalPages, template, sizeKey) => {
+      const tPages = resolveTemplatePagesForActiveSize(template, sizeKey);
       if (tPages.length === 0) return null;
 
       // Filter for interior pages (covers are handled explicitly in buildPagesFromTemplate)
@@ -3661,21 +3998,16 @@ const PhotoBookEditorPage = () => {
       // Fallback to first available interior page
       return interiorTPages[0] || tPages[0];
     },
-    []
+    [resolveTemplatePagesForActiveSize]
   );
 
   // ── Build Full Pages Structure from Template & Photos ──────────────────────
   const buildPagesFromTemplate = useCallback(
-    (totalPages, template, photos) => {
+    (totalPages, template, photos, sizeKey) => {
       let photoCursor = 0;
       const builtPages = [];
 
-      const tPages =
-        template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
-          ? template.published_snapshot.pages
-          : template?.pages && template.pages.length > 0
-          ? template.pages
-          : [];
+      const tPages = resolveTemplatePagesForActiveSize(template, sizeKey);
 
       // 1. Front Cover (receives photo 0)
       const dbDecDefs = extractDatabaseDecorations(template);
@@ -3695,6 +4027,19 @@ const PhotoBookEditorPage = () => {
         }
         if (el.type === "decoration") {
           return resolveDbDecorationData(el, dbDecDefs);
+        }
+        if (el.type === "text") {
+          return {
+            ...el,
+            content: el.content !== undefined && el.content !== null ? el.content : "",
+            font_family: el.font_family || "Playfair Display",
+            font_size: el.font_size || 24,
+            font_weight: el.font_weight || "normal",
+            font_style: el.font_style || "normal",
+            text_transform: el.text_transform || el.textTransform || "none",
+            color: el.color || "#1f2937",
+            align: el.align || "center",
+          };
         }
         return { ...el };
       });
@@ -3733,7 +4078,7 @@ const PhotoBookEditorPage = () => {
           height_pct: 6,
           unit: "%",
           is_percentage: true,
-          content: "OUR BEAUTIFUL MEMORIES",
+          content: "Our Beautiful Memories",
           font_family: "Playfair Display",
           font_size: 36,
           font_weight: "bold",
@@ -3777,7 +4122,7 @@ const PhotoBookEditorPage = () => {
       // 3. Interior Pages (totalPages includes Front & Back Cover)
       const interiorPagesCount = Math.max(2, totalPages - 2);
       for (let pNum = 1; pNum <= interiorPagesCount; pNum++) {
-        const tplPage = resolveTemplatePage(pNum, interiorPagesCount, template);
+        const tplPage = resolveTemplatePage(pNum, interiorPagesCount, template, sizeKey);
         const clonedElements = (tplPage?.elements || []).map((el) => {
           if (el.type === "photo_frame") {
             const assignedPhoto = (photos && photos[photoCursor]) || null;
@@ -3793,6 +4138,19 @@ const PhotoBookEditorPage = () => {
           }
           if (el.type === "decoration") {
             return resolveDbDecorationData(el, dbDecDefs);
+          }
+          if (el.type === "text") {
+            return {
+              ...el,
+              content: el.content !== undefined && el.content !== null ? el.content : "",
+              font_family: el.font_family || "Playfair Display",
+              font_size: el.font_size || 24,
+              font_weight: el.font_weight || "normal",
+              font_style: el.font_style || "normal",
+              text_transform: el.text_transform || el.textTransform || "none",
+              color: el.color || "#1f2937",
+              align: el.align || "center",
+            };
           }
           return { ...el };
         });
@@ -3883,6 +4241,19 @@ const PhotoBookEditorPage = () => {
         if (el.type === "decoration") {
           return resolveDbDecorationData(el, dbDecDefs);
         }
+        if (el.type === "text") {
+          return {
+            ...el,
+            content: el.content !== undefined && el.content !== null ? el.content : "",
+            font_family: el.font_family || "Playfair Display",
+            font_size: el.font_size || 24,
+            font_weight: el.font_weight || "normal",
+            font_style: el.font_style || "normal",
+            text_transform: el.text_transform || el.textTransform || "none",
+            color: el.color || "#1f2937",
+            align: el.align || "center",
+          };
+        }
         return { ...el };
       });
 
@@ -3929,10 +4300,242 @@ const PhotoBookEditorPage = () => {
 
       return builtPages;
     },
-    [resolveTemplatePage]
+    [resolveTemplatePage, resolveTemplatePagesForActiveSize]
+  );
+
+  // ── Size Customization Session Draft Cache ──────────────────────────────
+  const sizeCustomDraftsRef = useRef({});
+
+  // ── Execute Size Switch: Removes Current Layout & Loads Dedicated Layout for Selected Size ──
+  const executeSizeSwitch = useCallback(
+    (sizeId) => {
+      // Clear cached draft for this size so current customized design is removed and fresh dedicated size design is loaded
+      if (sizeCustomDraftsRef.current) {
+        delete sizeCustomDraftsRef.current[sizeId];
+      }
+
+      setSelectedSize(sizeId);
+      localStorage.setItem("photobook_selected_size", sizeId);
+      setHasUnsavedChanges(true);
+
+      const matched = templateSizes.find(
+        (s) =>
+          String(s.id).toLowerCase() === String(sizeId).toLowerCase() ||
+          String(s.name).toLowerCase() === String(sizeId).toLowerCase()
+      );
+
+      const targetSizeKey = matched ? matched.id : sizeId;
+
+      // Collect all customer uploaded photos AND any photos placed in existing pages
+      const placedPhotos = [];
+      (pagesData || []).forEach((pg) => {
+        (pg.elements || []).forEach((el) => {
+          if (el.type === "photo_frame" && el.photo_url) {
+            placedPhotos.push({
+              url: el.photo_url,
+              id: el.photo_id || el.id,
+              crop: el.crop || { zoom: 1, offsetX: 0, offsetY: 0 },
+              rotation: el.rotation || 0,
+            });
+          }
+        });
+      });
+
+      // Merge preserving unique URLs and order
+      const allPhotos = [...(uploadedPhotos || [])];
+      placedPhotos.forEach((pp) => {
+        if (!allPhotos.some((p) => p.url === pp.url)) {
+          allPhotos.push(pp);
+        }
+      });
+
+      // Rebuild the photobook using the exact size-specific design
+      const newPages = buildPagesFromTemplate(
+        photoBookPages,
+        templateData,
+        allPhotos,
+        targetSizeKey
+      );
+      setPagesData(newPages);
+
+      // Update target photo count to match new layout's requirements
+      const reqFrames = newPages.reduce((tot, pg) => {
+        if (pg.is_blank) return tot;
+        return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
+      }, 0);
+      if (reqFrames > 0) {
+        setTargetPhotoCount(reqFrames);
+      }
+
+      // Reset modal element selection to avoid dangling references
+      setSelectedModalElementId(null);
+
+      if (matched) {
+        message.success(`Switched to ${matched.name} layout`);
+      }
+    },
+    [
+      templateSizes,
+      pagesData,
+      uploadedPhotos,
+      buildPagesFromTemplate,
+      photoBookPages,
+      templateData,
+    ]
+  );
+
+  // ── Size Selection Handler: Directly Switches Layout (Warning shown in panel) ──
+  const handleSizeSelect = useCallback(
+    (sizeId) => {
+      const isSameSize =
+        String(sizeId).toLowerCase() === String(selectedSize).toLowerCase() ||
+        String(sizeId).toLowerCase() === String(activeSizeInfo?.matchedId || "").toLowerCase();
+
+      if (isSameSize) return;
+      executeSizeSwitch(sizeId);
+    },
+    [selectedSize, activeSizeInfo, executeSizeSwitch]
+  );
+
+  // ── Execute Template / Theme Switch: Removes Current Layout & Loads Dedicated Theme ──
+  const executeTemplateSwitch = useCallback(
+    (tpl) => {
+      const tplId = tpl.template_id || tpl._id || tpl.slug;
+      setSelectedTemplateName(tpl.template_name);
+      if (tplId) setSelectedTemplateId(tplId);
+      setTemplateData(tpl);
+
+      // Clear cached drafts so old design is completely removed
+      sizeCustomDraftsRef.current = {};
+
+      // Resolve the matching product template configuration
+      const productTemplates = productData?.photobook_config?.templates || [];
+      const cleanTplName = String(tpl.template_name || "").trim().toLowerCase();
+      const cleanTplId = String(tpl.template_id || tpl._id || tpl.slug || "").trim().toLowerCase();
+      const matchedProductTemplate = productTemplates.find(
+        (pt) =>
+          (pt._id && String(pt._id).trim().toLowerCase() === cleanTplId) ||
+          (pt.slug && String(pt.slug).trim().toLowerCase() === cleanTplId) ||
+          (pt.template_id && String(pt.template_id).trim().toLowerCase() === cleanTplId) ||
+          (pt.template_name && String(pt.template_name).trim().toLowerCase() === cleanTplName)
+      );
+
+      // Reconcile edition if new template has specific editions
+      const tplEditions =
+        (matchedProductTemplate?.editions && matchedProductTemplate.editions.length > 0
+          ? matchedProductTemplate.editions
+          : null) ||
+        (tpl.editions && tpl.editions.length > 0 ? tpl.editions : null) ||
+        productData?.photobook_config?.editions ||
+        [];
+
+      let reconciledVariant = selectedVariant;
+      if (tplEditions.length > 0) {
+        const curVar = String(selectedVariant || "").trim().toLowerCase();
+        const stillValid = tplEditions.some(
+          (e) =>
+            (e.edition_name && String(e.edition_name).trim().toLowerCase() === curVar) ||
+            (e.name && String(e.name).trim().toLowerCase() === curVar)
+        );
+        if (!stillValid) {
+          reconciledVariant = tplEditions[0].edition_name || tplEditions[0].name;
+          setSelectedVariant(reconciledVariant);
+        }
+      }
+
+      // Re-clamp or adjust photoBookPages to the new template's min/max pages
+      const minP = Number(
+        matchedProductTemplate?.min_pages ||
+        tpl.min_pages ||
+        tpl.page_config?.min_pages ||
+        productData?.photobook_config?.min_pages ||
+        10
+      );
+      const maxP = Number(
+        matchedProductTemplate?.max_pages ||
+        tpl.max_pages ||
+        tpl.page_config?.max_pages ||
+        productData?.photobook_config?.max_pages ||
+        60
+      );
+      let targetPages = photoBookPages;
+      if (targetPages < minP) targetPages = minP;
+      else if (targetPages > maxP) targetPages = maxP;
+      setPhotoBookPages(targetPages);
+
+      setDesignData((prev) => ({
+        ...(prev || {}),
+        template_id: tplId,
+        template_name: tpl.template_name,
+        variant: reconciledVariant,
+        pages_count: targetPages,
+      }));
+
+      // Collect customer uploaded & placed photos
+      const placedPhotos = [];
+      (pagesData || []).forEach((pg) => {
+        (pg.elements || []).forEach((el) => {
+          if (el.type === "photo_frame" && el.photo_url) {
+            placedPhotos.push({
+              url: el.photo_url,
+              id: el.photo_id || el.id,
+              crop: el.crop || { zoom: 1, offsetX: 0, offsetY: 0 },
+              rotation: el.rotation || 0,
+            });
+          }
+        });
+      });
+      const allPhotos = [...(uploadedPhotos || [])];
+      placedPhotos.forEach((pp) => {
+        if (!allPhotos.some((p) => p.url === pp.url)) {
+          allPhotos.push(pp);
+        }
+      });
+
+      const rebuilt = buildPagesFromTemplate(targetPages, tpl, allPhotos, selectedSize);
+      setPagesData(rebuilt);
+      setHasUnsavedChanges(true);
+      setSelectedModalElementId(null);
+      message.success(`Applied ${tpl.template_name} theme`);
+    },
+    [
+      productData,
+      selectedVariant,
+      photoBookPages,
+      pagesData,
+      uploadedPhotos,
+      buildPagesFromTemplate,
+      selectedSize,
+    ]
+  );
+
+  // ── Template Selection Handler: Directly Applies Theme (Warning shown in panel) ──
+  const confirmTemplateSwitch = useCallback(
+    (tpl) => {
+      const isSameTemplate =
+        (selectedTemplateName && (selectedTemplateName === tpl.template_name || selectedTemplateName.trim().toLowerCase() === String(tpl.template_name || "").trim().toLowerCase())) ||
+        (templateData && (
+          String(templateData._id || "") === String(tpl._id || "") ||
+          String(templateData.template_id || "").toLowerCase() === String(tpl.template_id || "").toLowerCase() ||
+          String(templateData.template_id || "").toLowerCase() === String(tpl._id || "").toLowerCase()
+        )) ||
+        (selectedTemplateId && (
+          String(selectedTemplateId) === String(tpl._id || "") ||
+          String(selectedTemplateId).toLowerCase() === String(tpl.template_id || "").toLowerCase()
+        ));
+
+      if (isSameTemplate) return;
+      executeTemplateSwitch(tpl);
+    },
+    [selectedTemplateName, templateData, selectedTemplateId, executeTemplateSwitch]
   );
 
   // ── Load Design Session, Template, & Product ───────────────────────────────
+  const buildPagesFromTemplateRef = useRef(buildPagesFromTemplate);
+  useEffect(() => {
+    buildPagesFromTemplateRef.current = buildPagesFromTemplate;
+  }, [buildPagesFromTemplate]);
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -3978,9 +4581,24 @@ const PhotoBookEditorPage = () => {
           }
         }
 
+        // 1. Fetch Product Info First to obtain photobook_config and associated templates
+        let fetchedProduct = null;
+        const productIdToFetch = design?.product_id || product_name;
+        if (productIdToFetch) {
+          try {
+            const prodRes = await axios.get(`${BASE_URL}/product/get_product/${productIdToFetch}`);
+            fetchedProduct = prodRes?.data?.data?.[0] || prodRes?.data?.data || prodRes?.data;
+            if (!isCancelled && fetchedProduct) {
+              setProductData(fetchedProduct);
+            }
+          } catch (e) {
+            console.warn("Product details error:", e);
+          }
+        }
+
         const searchParams = new URLSearchParams(window.location.search);
         const stepParam = searchParams.get("step");
-        const isExplicitResume = searchParams.get("resume") === "true" || stepParam === "3";
+        const isExplicitResume = searchParams.get("resume") === "true" || stepParam === "2" || stepParam === "3";
         const isExplicitNew = searchParams.get("new") === "true" || stepParam === "1";
 
         const pageCnt = Number(design?.page_count) || 20;
@@ -4018,6 +4636,7 @@ const PhotoBookEditorPage = () => {
 
           const queryTplId = String(searchParams.get("template_id") || "").trim().toLowerCase();
           const queryTplName = String(searchParams.get("template_name") || searchParams.get("template") || "").trim().toLowerCase();
+          const productTpls = fetchedProduct?.photobook_config?.templates || [];
 
           // When resuming an existing saved book, the saved design is the SINGLE SOURCE OF TRUTH
           const reqTplId = (isExplicitResume || design?.template_id)
@@ -4036,7 +4655,27 @@ const PhotoBookEditorPage = () => {
             );
           });
 
-          // If not matched in allTpls, try fetching directly by ID/slug from backend
+          // Match from product's configured templates if not matched in allTpls
+          if (!matched && productTpls.length > 0) {
+            const matchedProdTpl = productTpls.find((pt) => {
+              const ptId = String(pt.template_id || pt._id || pt.slug || "").trim().toLowerCase();
+              const ptName = String(pt.template_name || pt.name || "").trim().toLowerCase();
+              return (
+                (reqTplId && (ptId === reqTplId || ptName === reqTplId)) ||
+                (reqTplName && (ptName === reqTplName || ptId === reqTplName))
+              );
+            }) || productTpls.find((pt) => pt.status === "published") || productTpls[0];
+
+            if (matchedProdTpl) {
+              matched = allTpls.find((t) => {
+                const tId = String(t.template_id || t._id || t.slug || "").trim().toLowerCase();
+                const mId = String(matchedProdTpl.template_id || matchedProdTpl._id || matchedProdTpl.slug || "").trim().toLowerCase();
+                return tId === mId || String(t.template_name || "").toLowerCase() === String(matchedProdTpl.template_name || "").toLowerCase();
+              }) || matchedProdTpl;
+            }
+          }
+
+          // If not matched, try fetching directly by ID/slug from backend
           if (!matched && (design?.template_id || reqTplId)) {
             try {
               const fetchId = design?.template_id || reqTplId;
@@ -4082,19 +4721,22 @@ const PhotoBookEditorPage = () => {
         }
 
         // 4. Build or restore pages
-        if (design?.pages && design.pages.length > 0 && design.pages.some((pg) => pg.elements?.length > 0)) {
+        const querySize = searchParams.get("size") || searchParams.get("book_size");
+        const activeBookSize = design?.size || querySize || matched?.page_config?.selected_size || selectedSize;
+        if (activeBookSize && activeBookSize !== selectedSize) {
+          setSelectedSize(activeBookSize);
+          localStorage.setItem("photobook_selected_size", activeBookSize);
+        }
+        if (!isExplicitNew && design?.pages && design.pages.length > 0 && design.pages.some((pg) => pg.elements?.length > 0)) {
           const enriched = design.pages.map((pg) => {
-            const tPages =
-              activeTpl?.pages && activeTpl.pages.length > 0
-                ? activeTpl.pages
-                : activeTpl?.published_snapshot?.pages || [];
+            const tPages = resolveTemplatePagesForActiveSize(activeTpl, activeBookSize);
             let tplPg = null;
             if (pg.page_type === "front_cover" || pg.page_id === "front-cover") {
               tplPg = tPages.find((p) => p.page_type === "front_cover");
             } else if (pg.page_type === "back_cover" || pg.page_id === "back-cover") {
               tplPg = tPages.find((p) => p.page_type === "back_cover");
             } else {
-              tplPg = resolveTemplatePage(pg.page_number, pageCnt, activeTpl);
+              tplPg = resolveTemplatePage(pg.page_number, pageCnt, activeTpl, activeBookSize);
             }
 
             const enrichedElements = (pg.elements || []).map((el) => {
@@ -4118,6 +4760,19 @@ const PhotoBookEditorPage = () => {
                   asset_url: el.asset_url || decMeta?.asset_url || "",
                 };
               }
+              if (el.type === "text") {
+                const tplEl = tplPg?.elements?.find((te) => te.id === el.id);
+                return {
+                  ...el,
+                  font_family: el.font_family || tplEl?.font_family || "Playfair Display",
+                  font_size: el.font_size || tplEl?.font_size || 24,
+                  font_weight: el.font_weight || tplEl?.font_weight || "normal",
+                  font_style: el.font_style || tplEl?.font_style || "normal",
+                  text_transform: el.text_transform || el.textTransform || tplEl?.text_transform || "none",
+                  color: el.color || tplEl?.color || "#1f2937",
+                  align: el.align || tplEl?.align || "center",
+                };
+              }
               return el;
             });
 
@@ -4136,98 +4791,41 @@ const PhotoBookEditorPage = () => {
           setPagesData(enriched);
 
           // Step resolution:
-          // If giveaway: exactly 3 steps (1: Upload Photos, 2: Edit Your Book, 3: Review & Cart)
-          const isGiveawayBook = Boolean(
-            searchParams.get("is_giveaway") === "true" ||
-            design?.is_giveaway ||
-            activeTpl?.is_giveaway ||
-            activeTpl?.page_config?.is_giveaway
-          );
-
-          if (isGiveawayBook) {
-            const reqFrames = enriched.reduce((tot, pg) => {
-              if (pg.is_blank) return tot;
-              return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
-            }, 0);
-            if (reqFrames > 0) {
-              setTargetPhotoCount(reqFrames);
-            }
-            const hasPlacedPhotos = enriched.some((pg) => pg.elements?.some((el) => el.type === "photo_frame" && el.photo_url));
-            if (isExplicitResume || stepParam === "3" || (hasPlacedPhotos && !isExplicitNew)) {
-              setMaxUnlockedStep(3);
-              setCurrentStep(3);
-            } else {
-              setMaxUnlockedStep(2);
-              setCurrentStep(2);
-            }
-          } else if (isExplicitNew || stepParam === "1") {
-            setCurrentStep(1);
-            setMaxUnlockedStep(1);
-          } else if (isExplicitResume) {
-            setMaxUnlockedStep(3);
-            setCurrentStep(3);
-          } else if (enriched.some((pg) => pg.elements?.some((el) => el.type === "photo_frame" && el.photo_url))) {
-            setMaxUnlockedStep(3);
-            setCurrentStep(3);
-          } else if (loadedPhotos.length > 0) {
+          // Simplified 3-step workflow (1: Upload Photos, 2: Edit Your Book, 3: Review & Cart)
+          const reqFrames = enriched.reduce((tot, pg) => {
+            if (pg.is_blank) return tot;
+            return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
+          }, 0);
+          if (reqFrames > 0) {
+            setTargetPhotoCount(reqFrames);
+          }
+          const hasPlacedPhotos = enriched.some((pg) => pg.elements?.some((el) => el.type === "photo_frame" && el.photo_url));
+          if (isExplicitResume || stepParam === "2" || stepParam === "3" || (hasPlacedPhotos && !isExplicitNew)) {
             setMaxUnlockedStep(2);
             setCurrentStep(2);
           } else {
-            setCurrentStep(1);
             setMaxUnlockedStep(1);
+            setCurrentStep(1);
           }
         } else {
-          const initialPages = buildPagesFromTemplate(pageCnt, activeTpl, loadedPhotos);
+          const buildFn = buildPagesFromTemplateRef.current || buildPagesFromTemplate;
+          const initialPages = buildFn(pageCnt, activeTpl, loadedPhotos, activeBookSize);
           setPagesData(initialPages);
 
-          const isGiveawayBook = Boolean(
-            searchParams.get("is_giveaway") === "true" ||
-            design?.is_giveaway ||
-            activeTpl?.is_giveaway ||
-            activeTpl?.page_config?.is_giveaway
-          );
-
-          if (isGiveawayBook) {
-            const reqFrames = initialPages.reduce((tot, pg) => {
-              if (pg.is_blank) return tot;
-              return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
-            }, 0);
-            if (reqFrames > 0) {
-              setTargetPhotoCount(reqFrames);
-            }
-            if (isExplicitResume) {
-              setMaxUnlockedStep(2);
-              setCurrentStep(2);
-            } else {
-              setMaxUnlockedStep(1);
-              setCurrentStep(1);
-            }
-          } else if (isExplicitNew || stepParam === "1") {
-            setCurrentStep(1);
-            setMaxUnlockedStep(1);
-          } else if (isExplicitResume) {
-            setMaxUnlockedStep(3);
-            setCurrentStep(3);
-          } else if (loadedPhotos.length > 0) {
+          const reqFrames = initialPages.reduce((tot, pg) => {
+            if (pg.is_blank) return tot;
+            return tot + (pg.elements || []).filter((el) => el.type === "photo_frame").length;
+          }, 0);
+          if (reqFrames > 0) {
+            setTargetPhotoCount(reqFrames);
+          }
+          const hasPlacedPhotos = initialPages.some((pg) => pg.elements?.some((el) => el.type === "photo_frame" && el.photo_url));
+          if (isExplicitResume || stepParam === "2" || stepParam === "3" || (hasPlacedPhotos && !isExplicitNew)) {
             setMaxUnlockedStep(2);
             setCurrentStep(2);
           } else {
-            setCurrentStep(1);
             setMaxUnlockedStep(1);
-          }
-        }
-
-        // 5. Fetch Product Info
-        const productIdToFetch = design?.product_id || product_name;
-        if (productIdToFetch) {
-          try {
-            const prodRes = await axios.get(`${BASE_URL}/product/get_product/${productIdToFetch}`);
-            const fetchedProd = prodRes?.data?.data?.[0] || prodRes?.data?.data || prodRes?.data;
-            if (!isCancelled && fetchedProd) {
-              setProductData(fetchedProd);
-            }
-          } catch (e) {
-            console.warn("Product details error:", e);
+            setCurrentStep(1);
           }
         }
 
@@ -4244,7 +4842,7 @@ const PhotoBookEditorPage = () => {
     return () => {
       isCancelled = true;
     };
-  }, [current_working_id, product_name, buildPagesFromTemplate]);
+  }, [current_working_id, product_name]);
 
   // ── Layout Presets Engine (1 to 4 Images) ──────────────────────────────────
   const getLayoutPresetsForCount = useCallback((count) => {
@@ -4710,14 +5308,14 @@ const PhotoBookEditorPage = () => {
     product_name,
   ]);
 
-  // Debounced auto-save
+  // Debounced auto-save (triggers only when user has actively made unsaved changes)
   useEffect(() => {
-    if (pagesData.length === 0 || isLoading) return;
+    if (!hasUnsavedChanges || pagesData.length === 0 || isLoading) return;
     const timer = setTimeout(() => {
       saveDesignToBackend();
     }, 2500);
     return () => clearTimeout(timer);
-  }, [pagesData, uploadedPhotos, saveDesignToBackend, isLoading]);
+  }, [hasUnsavedChanges, pagesData, uploadedPhotos, saveDesignToBackend, isLoading]);
 
   // ── Page Completeness Calculations ─────────────────────────────────────────
   const pageStats = useMemo(() => {
@@ -4789,21 +5387,17 @@ const PhotoBookEditorPage = () => {
 
     if (uniqueFiles.length === 0) return;
 
-    const maxLimit = isGiveaway ? effectiveTargetPhotoCount : maxImages;
+    const maxLimit = effectiveTargetPhotoCount;
     const availableSlots = maxLimit - uploadedPhotos.length;
     if (availableSlots <= 0) {
-      if (isGiveaway) {
-        message.warning(`Exactly ${effectiveTargetPhotoCount} photos are required for this giveaway photo book. Maximum count reached.`);
-      } else {
-        message.warning(`Maximum limit of ${maxImages} images already reached.`);
-      }
+      message.warning(`All ${effectiveTargetPhotoCount} photo slots for this template are already filled.`);
       return;
     }
 
     const filesToUpload = uniqueFiles.slice(0, availableSlots);
-    if (isGiveaway && uniqueFiles.length > availableSlots) {
+    if (uniqueFiles.length > availableSlots) {
       message.info(
-        `Only ${availableSlots} more photo${availableSlots !== 1 ? "s were" : " was"} added to match the required count of ${effectiveTargetPhotoCount}. Extra files were skipped.`
+        `Only ${availableSlots} more photo${availableSlots !== 1 ? "s were" : " was"} added to match the template placeholder count of ${effectiveTargetPhotoCount}. Extra files were skipped.`
       );
     }
     setIsUploading(true);
@@ -4855,9 +5449,36 @@ const PhotoBookEditorPage = () => {
   };
 
   const handleDeletePhoto = (photoId) => {
+    const targetPhoto = uploadedPhotos.find((p) => p.id === photoId);
     const updated = uploadedPhotos.filter((p) => p.id !== photoId);
     setUploadedPhotos(updated);
-    syncPhotosToPages(updated);
+
+    // Clear only the deleted image from its placeholder(s) without rearranging other placed images
+    setPagesData((prev) =>
+      prev.map((page) => {
+        if (!page?.elements?.length) return page;
+        let changed = false;
+        const nextElements = page.elements.map((el) => {
+          if (
+            el.type === "photo_frame" &&
+            (el.photo_id === photoId || (targetPhoto?.url && el.photo_url === targetPhoto.url))
+          ) {
+            changed = true;
+            return {
+              ...el,
+              photo_url: "",
+              photo_id: "",
+              image_url: "",
+              test_image_url: "",
+              sample_image_url: "",
+              crop: undefined,
+            };
+          }
+          return el;
+        });
+        return changed ? { ...page, elements: nextElements } : page;
+      })
+    );
   };
 
   // Set of photos currently used in pages
@@ -5800,41 +6421,21 @@ const PhotoBookEditorPage = () => {
     const targetFrame = frames[indexToRemove];
     if (!targetFrame) return;
 
-    if (isGiveaway || frames.length <= 1) {
-      const updated = (editingPageDraft.elements || []).map((el) => {
-        if ((el.id || el.frame_id) === (targetFrame.id || targetFrame.frame_id)) {
-          return {
-            ...el,
-            photo_url: "",
-            photo_id: "",
-            test_image_url: "",
-            sample_image_url: "",
-            image_url: "",
-          };
-        }
-        return el;
-      });
-      setEditingPageDraft({ ...editingPageDraft, elements: updated });
-      return;
-    }
-
-    const remainingFrames = frames.filter((_, idx) => idx !== indexToRemove);
-    const otherElements = (editingPageDraft.elements || []).filter((el) => el.type !== "photo_frame");
-    const newCount = remainingFrames.length;
-
-    let defaultPreset = "full_picture";
-    if (newCount === 2) defaultPreset = "grid_below";
-    else if (newCount === 3) defaultPreset = "columns";
-    else if (newCount >= 4) defaultPreset = "mosaic";
-
-    const newLayoutElements = applyLayoutPreset(newCount, defaultPreset, remainingFrames);
-
-    setSelectedLayoutId(defaultPreset);
-    setEditingPageDraft({
-      ...editingPageDraft,
-      layout_id: defaultPreset,
-      elements: [...newLayoutElements, ...otherElements],
+    const updated = (editingPageDraft.elements || []).map((el) => {
+      if ((el.id || el.frame_id) === (targetFrame.id || targetFrame.frame_id)) {
+        return {
+          ...el,
+          photo_url: "",
+          photo_id: "",
+          test_image_url: "",
+          sample_image_url: "",
+          image_url: "",
+        };
+      }
+      return el;
     });
+    setEditingPageDraft({ ...editingPageDraft, elements: updated });
+    message.success("Photo removed from frame");
   };
 
   const handleAddPhotoToDraft = (photo) => {
@@ -6153,78 +6754,20 @@ const PhotoBookEditorPage = () => {
   const handleModalElementMouseDown = (e, element) => {
     e.stopPropagation();
     lastModalElementClickRef.current = Date.now();
-    if (!isElementCustomerEditable(element)) return;
-
     setSelectedModalElementId(element.id || element.frame_id);
-    if (isGiveaway || element.is_locked) return;
-
-    const container = canvasContainerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const coords = getElementCoords(element);
-
-    pushModalUndo();
-    setActiveModalTransform({
-      type: "move",
-      elementId: element.id || element.frame_id,
-      startX: e.clientX,
-      startY: e.clientY,
-      initialLeft: coords.left,
-      initialTop: coords.top,
-      containerRect: rect,
-      hasMoved: false,
-    });
+    // Template element positioning is locked for customers
   };
 
   const handleModalResizeMouseDown = (e, handle, element) => {
-    if (isGiveaway || element.is_locked || !isElementCustomerEditable(element)) return;
     e.stopPropagation();
     e.preventDefault();
-
-    const container = canvasContainerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const coords = getElementCoords(element);
-    const is1to1 = ["circle", "heart", "star", "scallop", "hexagon"].includes(element.shape);
-
-    pushModalUndo();
-    setActiveModalTransform({
-      type: "resize",
-      handle: handle.position,
-      elementId: element.id || element.frame_id,
-      startX: e.clientX,
-      startY: e.clientY,
-      initialLeft: coords.left,
-      initialTop: coords.top,
-      initialWidth: coords.width,
-      initialHeight: coords.height,
-      rotation: element.rotation || 0,
-      containerRect: rect,
-      is1to1Shape: is1to1,
-    });
+    // Template element resizing is locked for customers
   };
 
   const handleModalRotateMouseDown = (e, element) => {
-    if (element.is_locked || !isElementCustomerEditable(element)) return;
     e.stopPropagation();
     e.preventDefault();
-
-    const container = canvasContainerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const coords = getElementCoords(element);
-
-    const centerX = rect.left + ((coords.left + coords.width / 2) / 100) * rect.width;
-    const centerY = rect.top + ((coords.top + coords.height / 2) / 100) * rect.height;
-
-    pushModalUndo();
-    setActiveModalTransform({
-      type: "rotate",
-      elementId: element.id || element.frame_id,
-      centerX,
-      centerY,
-      initialRotation: element.rotation || 0,
-    });
+    // Template element rotation is locked for customers
   };
 
   const handleModalMouseMove = useCallback((e) => {
@@ -6865,87 +7408,13 @@ const PhotoBookEditorPage = () => {
   const handleStartElementMove = (e, el, pageId) => {
     e.stopPropagation();
     setSelectedFrameId(el.frame_id || el.id);
-    if (isGiveaway) return;
-
-    const container = e.currentTarget.closest(".page-canvas-container");
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const coords = getElementCoords(el);
-
-    setActiveCustomerTransform({
-      type: "move",
-      elementId: el.id || el.frame_id,
-      pageId,
-      startX: e.clientX,
-      startY: e.clientY,
-      initialLeftPct: coords.left,
-      initialTopPct: coords.top,
-      initialWPct: coords.width,
-      initialHPct: coords.height,
-      initialX: Math.round(coords.left * 10),
-      initialY: Math.round(coords.top * 10),
-      initialW: Math.round(coords.width * 10),
-      initialH: Math.round(coords.height * 10),
-      containerWidth: rect.width,
-      containerHeight: rect.height,
-    });
-  };
-
-  const handleDraftFrameResize = (frameId, deltaW, deltaH = 0) => {
-    if (!editingPageDraft) return;
-    pushModalUndo();
-    setEditingPageDraft((prev) => ({
-      ...prev,
-      elements: (prev.elements || []).map((el) => {
-        if (el.id === frameId || el.frame_id === frameId) {
-          const coords = getElementCoords(el);
-          const newWPct = Math.max(10, Math.min(100 - coords.left, +(coords.width + deltaW * 0.1).toFixed(2)));
-          const newHPct = deltaH ? Math.max(10, Math.min(100 - coords.top, +(coords.height + deltaH * 0.1).toFixed(2))) : coords.height;
-          return {
-            ...el,
-            width_pct: newWPct,
-            height_pct: newHPct,
-            width_str: `${newWPct}%`,
-            height_str: `${newHPct}%`,
-            unit: "%",
-            is_percentage: true,
-            width: Math.round(newWPct * 10),
-            height: Math.round(newHPct * 10),
-          };
-        }
-        return el;
-      }),
-    }));
+    // Template element positioning is locked for customers
   };
 
   const handleStartElementResize = (e, handle, el, pageId) => {
     e.stopPropagation();
     setSelectedFrameId(el.frame_id || el.id);
-    if (isGiveaway) return;
-
-    const container = e.currentTarget.closest(".page-canvas-container");
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const coords = getElementCoords(el);
-
-    setActiveCustomerTransform({
-      type: "resize",
-      handle,
-      elementId: el.id || el.frame_id,
-      pageId,
-      startX: e.clientX,
-      startY: e.clientY,
-      initialLeftPct: coords.left,
-      initialTopPct: coords.top,
-      initialWPct: coords.width,
-      initialHPct: coords.height,
-      initialX: Math.round(coords.left * 10),
-      initialY: Math.round(coords.top * 10),
-      initialW: Math.round(coords.width * 10),
-      initialH: Math.round(coords.height * 10),
-      containerWidth: rect.width,
-      containerHeight: rect.height,
-    });
+    // Template element resizing is locked for customers
   };
 
   const handleElementWidthStep = (elementId, delta, pageId) => {
@@ -7088,6 +7557,37 @@ const PhotoBookEditorPage = () => {
     message.success("Photo crop applied!");
   };
 
+  const handleToggleCanvasFrameFlip = useCallback(
+    (pageId, frameId, e) => {
+      if (e) e.stopPropagation();
+      pushToUndo(pagesData);
+      setPagesData((prevPages) =>
+        prevPages.map((pg) => {
+          if ((pg.page_id || pg.page_number) !== pageId) return pg;
+          return {
+            ...pg,
+            elements: (pg.elements || []).map((element) => {
+              if ((element.id || element.frame_id) === frameId) {
+                const currentFlip = Boolean(element.crop?.flipH || element.flip_h);
+                return {
+                  ...element,
+                  flip_h: !currentFlip,
+                  crop: {
+                    ...(element.crop || {}),
+                    flipH: !currentFlip,
+                  },
+                };
+              }
+              return element;
+            }),
+          };
+        })
+      );
+      message.success("Image flipped horizontally!");
+    },
+    [pushToUndo, pagesData]
+  );
+
   // ── Render Template Page on Canvas (1000 x 1000 coordinate system) ────────
   const renderTemplateCanvas = (page, isInteractive = true) => {
     if (!page) return null;
@@ -7137,8 +7637,8 @@ const PhotoBookEditorPage = () => {
 
     return (
       <div
-        className="page-canvas-container relative w-full h-full overflow-hidden select-none bg-white"
-        style={{ containerType: "inline-size" }}
+        className="page-canvas-container relative w-full h-full overflow-hidden select-none bg-white isolate"
+        style={{ containerType: "inline-size", isolation: "isolate" }}
         onClick={() => setSelectedFrameId(null)}
       >
         {/* Page Background Layer (Supports Image, Gradient, Color with Opacity) */}
@@ -7229,9 +7729,6 @@ const PhotoBookEditorPage = () => {
                   e.stopPropagation();
                   if (isInteractive) setSelectedFrameId(el.frame_id || el.id);
                 }}
-                onMouseDown={(e) => {
-                  if (isInteractive) handleStartElementMove(e, el, page.page_id || page.page_number);
-                }}
                 onDragOver={(e) => {
                   e.preventDefault();
                   if (isInteractive) setDragOverFrameId(el.frame_id);
@@ -7249,7 +7746,7 @@ const PhotoBookEditorPage = () => {
                     }
                   }
                 }}
-                className={`group relative overflow-visible transition-all flex items-center justify-center cursor-move`}
+                className={`group relative overflow-visible transition-all flex items-center justify-center cursor-default`}
               >
                 {/* SVG Defs for objectBoundingBox clip */}
                 <svg width="0" height="0" className="absolute pointer-events-none">
@@ -7307,7 +7804,7 @@ const PhotoBookEditorPage = () => {
                         setTargetPhotoSlot(el.frame_id || el.id);
                         setIsReplacePhotoModalOpen(true);
                       }}
-                      className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-auto cursor-pointer"
+                      className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-auto cursor-default"
                     >
                       <div className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-sm mb-1 text-slate-500 group-hover:scale-110 transition-transform">
                         <PictureOutlined className="text-xl text-teal-600" />
@@ -7341,117 +7838,88 @@ const PhotoBookEditorPage = () => {
                   </svg>
                 )}
 
-                {/* Adobe Photoshop Transform Selection Box & Handles */}
+                {/* Selection Border and Allowed Photo Controls */}
                 {isSelected && isInteractive && (
                   <>
-                    {/* Vibrant Selection Border */}
                     <div className="absolute inset-0 border-2 border-[#00a896] pointer-events-none shadow-sm" />
 
-                    {/* Photoshop-like 8 Resize Handles (NW, N, NE, E, SE, S, SW, W) - Hidden in Giveaway Mode */}
-                    {!isGiveaway && RESIZE_HANDLES.map((h) => (
-                      <div
-                        key={h.position}
-                        onMouseDown={(e) => handleStartElementResize(e, h.position, el, page.page_id || page.page_number)}
-                        style={{ cursor: h.cursor }}
-                        className={`absolute ${h.className} w-2.5 h-2.5 bg-white border-2 border-[#00a896] rounded-xs shadow-xs pointer-events-auto z-40 hover:scale-125 transition-transform`}
-                        title={`Drag to resize (${h.position})`}
-                      />
-                    ))}
-
-                    {/* Mini Photoshop Quick Toolbar */}
+                    {/* Allowed Photo Controls Mini Toolbar with High-ZIndex Tooltips */}
                     <div
                       onMouseDown={(e) => e.stopPropagation()}
-                      className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900 text-white px-2 py-1 rounded-lg shadow-xl pointer-events-auto z-50 text-[10px] whitespace-nowrap"
+                      className={`absolute ${
+                        (coords.top || topPct) < 14
+                          ? "top-[calc(100%+8px)] left-1/2 -translate-x-1/2"
+                          : "-top-11 left-1/2 -translate-x-1/2"
+                      } flex items-center gap-1.5 bg-slate-900 text-white px-2.5 py-1 rounded-lg shadow-xl pointer-events-auto z-[1000] text-[10px] whitespace-nowrap select-none`}
                     >
                       {hasPhoto && (
                         <button
                           type="button"
                           onClick={() => setCropModalFrame({ ...el, pageId: page.page_id || page.page_number })}
                           className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
-                          title="Photoshop Crop & Pan"
+                          title="Zoom & Pan Photo inside Placeholder"
                         >
                           <ScissorOutlined className="text-xs text-teal-400" />
-                          <span>Crop</span>
+                          <span>Zoom & Pan</span>
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTargetPhotoSlot(el.frame_id || el.id);
-                          setIsReplacePhotoModalOpen(true);
-                        }}
-                        className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
-                        title="Replace Photo"
+                      <Tooltip
+                        title="Change Image"
+                        placement="top"
+                        getPopupContainer={() => document.body}
+                        zIndex={99999}
                       >
-                        <PictureOutlined className="text-xs" />
-                        <span>{hasPhoto ? "Swap" : "Add"}</span>
-                      </button>
-                      {!isGiveaway && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetPhotoSlot(el.frame_id || el.id);
+                            setIsReplacePhotoModalOpen(true);
+                          }}
+                          className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
+                        >
+                          <PictureOutlined className="text-xs" />
+                          <span>Change Image</span>
+                        </button>
+                      </Tooltip>
+                      {hasPhoto && (
                         <>
                           <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                          {/* Width adjustments */}
-                          <button
-                            type="button"
-                            onClick={() => handleElementWidthStep(el.id || el.frame_id, -20, page.page_id || page.page_number)}
-                            className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                            title="Decrease Width"
+                          <Tooltip
+                            title="Flip Image"
+                            placement="top"
+                            getPopupContainer={() => document.body}
+                            zIndex={99999}
                           >
-                            W-
-                          </button>
-                          <span className="text-[9px] text-slate-400 font-mono px-0.5">
-                            {Math.round(widthPct)}%
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleElementWidthStep(el.id || el.frame_id, 20, page.page_id || page.page_number)}
-                            className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                            title="Increase Width"
-                          >
-                            W+
-                          </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleCanvasFrameFlip(page.page_id || page.page_number, el.frame_id || el.id, e)}
+                              className="hover:text-sky-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
+                            >
+                              <SwapOutlined className="text-xs" />
+                              <span>Flip</span>
+                            </button>
+                          </Tooltip>
                         </>
                       )}
-                      <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                      {/* Border adjustments */}
-                      <button
-                        type="button"
-                        onClick={() => handleElementBorderWidthStep(el.id || el.frame_id, -2, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Decrease Border Width"
-                      >
-                        B-
-                      </button>
-                      <span className="text-[9px] text-teal-300 font-mono px-0.5 font-bold" title="Border Width">
-                        {el.border?.width || 0}px
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleElementBorderWidthStep(el.id || el.frame_id, 2, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Increase Border Width"
-                      >
-                        B+
-                      </button>
-                      <div className="w-px h-3 bg-slate-700 mx-0.5" />
                       {hasPhoto && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleRemovePhotoFromFrame(el.frame_id, e)}
-                          className="hover:text-rose-400 text-slate-400 px-1 py-0.5"
-                          title="Remove Photo"
-                        >
-                          Clear
-                        </button>
-                      )}
-                      {!isGiveaway && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteElement(el.id || el.frame_id, page.page_id || page.page_number)}
-                          className="hover:text-rose-400 text-rose-300 px-1 py-0.5"
-                          title="Delete Element"
-                        >
-                          <DeleteOutlined className="text-xs" />
-                        </button>
+                        <>
+                          <div className="w-px h-3 bg-slate-700 mx-0.5" />
+                          <Tooltip
+                            title="Remove Image"
+                            placement="top"
+                            getPopupContainer={() => document.body}
+                            zIndex={99999}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemovePhotoFromFrame(el.frame_id, e)}
+                              className="hover:text-rose-400 text-slate-400 hover:bg-slate-800 px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
+                            >
+                              <DeleteOutlined className="text-[10px]" />
+                              <span>Remove</span>
+                            </button>
+                          </Tooltip>
+                        </>
                       )}
                     </div>
                   </>
@@ -7463,6 +7931,8 @@ const PhotoBookEditorPage = () => {
           // ── TYPE 2: TEXT ─────────────────────────────────────────────────
           if (el.type === "text") {
             const hasExplicitNewlines = el.content && String(el.content).includes("\n");
+            const isTextCustomerEditable = Boolean(el.is_customer_editable || el.allowCustomerEdit);
+            const effectiveTextTransform = el.text_transform || el.textTransform || "none";
             return (
               <div
                 key={elKey}
@@ -7474,6 +7944,7 @@ const PhotoBookEditorPage = () => {
                   fontSize: `calc(${Number(el.font_size || 24)} * (100cqw / 707))`,
                   fontWeight: el.font_weight || "normal",
                   fontStyle: el.font_style || "normal",
+                  textTransform: effectiveTextTransform,
                   letterSpacing: el.letter_spacing ? `calc(${Number(el.letter_spacing)} * (100cqw / 707))` : "normal",
                   lineHeight: el.line_height || 1.2,
                   color: el.color || "#1f2937",
@@ -7505,21 +7976,16 @@ const PhotoBookEditorPage = () => {
                     el.background?.value || el.bg_color
                       ? `${el.background?.radius ?? 4}px`
                       : undefined,
-                  border: isSelected && isInteractive && !isGiveaway ? "2px solid #00a896" : "none",
+                  border: isSelected && isInteractive && isTextCustomerEditable ? "2px solid #00a896" : "none",
                   zIndex: isSelected ? 150 : Math.max(100, Number(el.z_index) || 100),
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (isInteractive && !isGiveaway) setSelectedFrameId(el.id);
+                  if (isInteractive && isTextCustomerEditable) setSelectedFrameId(el.id);
                 }}
-                onMouseDown={(e) => {
-                  if (isInteractive && !isGiveaway) handleStartElementMove(e, el, page.page_id || page.page_number);
-                }}
-                className={`leading-tight ${isGiveaway ? "cursor-default" : "cursor-move"} select-none ${
-                  isSelected && isInteractive && !isGiveaway ? "relative" : ""
-                }`}
+                className="leading-tight cursor-default select-none relative"
               >
-                {isInteractive && el.is_customer_editable && !isGiveaway ? (
+                {isInteractive && isTextCustomerEditable ? (
                   <input
                     type="text"
                     value={el.content || ""}
@@ -7530,6 +7996,7 @@ const PhotoBookEditorPage = () => {
                       fontSize: "inherit",
                       fontWeight: "inherit",
                       fontStyle: "inherit",
+                      textTransform: effectiveTextTransform,
                       letterSpacing: "inherit",
                       lineHeight: "inherit",
                       color: "inherit",
@@ -7537,58 +8004,9 @@ const PhotoBookEditorPage = () => {
                     }}
                   />
                 ) : (
-                  <span style={{ minWidth: "max-content", maxWidth: "100%", whiteSpace: hasExplicitNewlines ? "pre-line" : "nowrap", wordBreak: "normal", overflowWrap: "normal", textAlign: el.align || "center", fontFamily: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit" }}>
+                  <span style={{ minWidth: "max-content", maxWidth: "100%", whiteSpace: hasExplicitNewlines ? "pre-line" : "nowrap", wordBreak: "normal", overflowWrap: "normal", textAlign: el.align || "center", fontFamily: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit", textTransform: effectiveTextTransform }}>
                     {el.content}
                   </span>
-                )}
-
-                {/* Transform Handles for Text - Only for customer-editable text */}
-                {isSelected && isInteractive && el.is_customer_editable && !isGiveaway && (
-                  <>
-                    {RESIZE_HANDLES.map((h) => (
-                      <div
-                        key={h.position}
-                        onMouseDown={(e) => handleStartElementResize(e, h.position, el, page.page_id || page.page_number)}
-                        style={{ cursor: h.cursor }}
-                        className={`absolute ${h.className} w-2.5 h-2.5 bg-white border-2 border-[#00a896] rounded-xs shadow-xs pointer-events-auto z-40 hover:scale-125 transition-transform`}
-                        title={`Drag to resize (${h.position})`}
-                      />
-                    ))}
-
-                    <div
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900 text-white px-2 py-1 rounded-lg shadow-xl pointer-events-auto z-50 text-[10px] whitespace-nowrap"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleElementWidthStep(el.id, -20, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Decrease Width"
-                      >
-                        W-
-                      </button>
-                      <span className="text-[9px] text-slate-400 font-mono px-0.5">
-                        {Math.round(el.width)}px
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleElementWidthStep(el.id, 20, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Increase Width"
-                      >
-                        W+
-                      </button>
-                      <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteElement(el.id, page.page_id || page.page_number)}
-                        className="hover:text-rose-400 text-rose-300 px-1 py-0.5"
-                        title="Delete Text"
-                      >
-                        <DeleteOutlined className="text-xs" />
-                      </button>
-                    </div>
-                  </>
                 )}
               </div>
             );
@@ -7606,22 +8024,13 @@ const PhotoBookEditorPage = () => {
             return (
               <div
                 key={elKey}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isInteractive && !isGiveaway) setSelectedFrameId(el.id || el.frame_id);
-                }}
-                onMouseDown={(e) => {
-                  if (isInteractive && !isGiveaway) handleStartElementMove(e, dec, page.page_id || page.page_number);
-                }}
                 style={{
                   ...baseStyle,
                   opacity: dec.opacity ?? 1,
                   color: dec.tint || "currentColor",
-                  cursor: isInteractive && !isGiveaway ? "move" : "default",
+                  cursor: "default",
                 }}
-                className={`flex items-center justify-center select-none group relative overflow-visible ${
-                  isSelected && isInteractive && !isGiveaway ? "ring-2 ring-[#00a896]" : ""
-                }`}
+                className="flex items-center justify-center select-none group relative overflow-visible"
               >
                 {/* Artwork display */}
                 <div className="w-full h-full flex items-center justify-center pointer-events-none">
@@ -7653,66 +8062,6 @@ const PhotoBookEditorPage = () => {
                     </div>
                   ) : null}
                 </div>
-
-                {/* Transform Handles for Decoration (Resize Width & Height) */}
-                {isSelected && isInteractive && !isGiveaway && (
-                  <>
-                    <div className="absolute inset-0 border-2 border-[#00a896] pointer-events-none shadow-sm" />
-
-                    {RESIZE_HANDLES.map((h) => (
-                      <div
-                        key={h.position}
-                        onMouseDown={(e) => handleStartElementResize(e, h.position, el, page.page_id || page.page_number)}
-                        style={{ cursor: h.cursor }}
-                        className={`absolute ${h.className} w-2.5 h-2.5 bg-white border-2 border-[#00a896] rounded-xs shadow-xs pointer-events-auto z-40 hover:scale-125 transition-transform`}
-                        title={`Drag to resize (${h.position})`}
-                      />
-                    ))}
-
-                    {/* Quick Toolbar */}
-                    <div
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900 text-white px-2 py-1 rounded-lg shadow-xl pointer-events-auto z-50 text-[10px] whitespace-nowrap"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleElementWidthStep(el.id || el.frame_id, -20, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Decrease Width"
-                      >
-                        W-
-                      </button>
-                      <span className="text-[9px] text-slate-400 font-mono px-0.5">
-                        {Math.round(el.width)}px
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleElementWidthStep(el.id || el.frame_id, 20, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-                        title="Increase Width"
-                      >
-                        W+
-                      </button>
-                      <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateElement(el.id || el.frame_id, page.page_id || page.page_number)}
-                        className="hover:text-teal-400 text-slate-300 px-1 py-0.5 rounded hover:bg-slate-800 transition-colors"
-                        title="Duplicate Element"
-                      >
-                        <CopyOutlined className="text-xs" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteElement(el.id || el.frame_id, page.page_id || page.page_number)}
-                        className="hover:text-rose-400 text-rose-300 px-1 py-0.5"
-                        title="Delete Element"
-                      >
-                        <DeleteOutlined className="text-xs" />
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
             );
           }
@@ -7817,8 +8166,8 @@ const PhotoBookEditorPage = () => {
 
       // Jump and scroll directly to the first incomplete page
       if (firstMissing) {
-        if (currentStep !== 3) {
-          setCurrentStep(3);
+        if (currentStep !== 2) {
+          setCurrentStep(2);
         }
         setActivePageIndex(firstMissing.pageIndex);
         if (typeof firstMissing.spreadIdx === "number" && firstMissing.spreadIdx >= 0) {
@@ -7832,11 +8181,17 @@ const PhotoBookEditorPage = () => {
 
     // All photo holders have images uploaded! Open Add to Cart / Stay Here modal
     setMaxUnlockedStep((prev) => Math.max(prev, 4));
+    setIsPrivacyPolicyAccepted(false);
     setIsAddToCartConfirmModalOpen(true);
   };
 
   // ── Execute Real Add to Cart (From Modal) ───────────────────────────────────
   const handleExecuteAddToCart = async () => {
+    if (!isPrivacyPolicyAccepted) {
+      toast.error("Please confirm you have reviewed your photo book to proceed.");
+      return;
+    }
+
     try {
       setIsAddingToCart(true);
 
@@ -7914,6 +8269,7 @@ const PhotoBookEditorPage = () => {
   // ── Stay Here Handler (From Modal) ─────────────────────────────────────────
   const handleStayHere = async () => {
     setIsAddToCartConfirmModalOpen(false);
+    setIsPrivacyPolicyAccepted(false);
     if (current_working_id) {
       try {
         await saveDesignToBackend(false);
@@ -7942,8 +8298,91 @@ const PhotoBookEditorPage = () => {
     );
   }
 
+  const studioSteps = [
+    { step: 1, displayNum: 1, label: "Upload Photos", shortLabel: "Upload" },
+    { step: 2, displayNum: 2, label: "Edit Your Book", shortLabel: "Edit Book" },
+    { step: 3, displayNum: 3, label: "Review & Cart", shortLabel: "Cart" },
+  ];
+
+  const handleStepperStepClick = (step) => {
+    if (step === 3) {
+      handleReviewAndCartClick();
+      return;
+    }
+
+    if (step === currentStep) return;
+
+    if (step < currentStep) {
+      setCurrentStep(step);
+      return;
+    }
+
+    if (step > maxUnlockedStep) {
+      if (currentStep === 1) {
+        if (uploadedPhotos.length === 0) {
+          message.warning("Please upload at least 1 photo before proceeding to album editor.");
+        } else if (isGiveaway && uploadedPhotos.length < effectiveTargetPhotoCount) {
+          message.warning(`Please upload all ${effectiveTargetPhotoCount} required photos before proceeding to album editor.`);
+        } else {
+          message.warning("Please complete photo upload before proceeding.");
+        }
+      } else {
+        message.warning("Please complete the current step before proceeding.");
+      }
+      return;
+    }
+
+    if (step === 2) {
+      if (isGiveaway && uploadedPhotos.length < effectiveTargetPhotoCount) {
+        message.warning(`Please upload all ${effectiveTargetPhotoCount} required photos before proceeding.`);
+        return;
+      }
+      if (uploadedPhotos.length > 0) {
+        syncPhotosToPages(uploadedPhotos, "template");
+      }
+    }
+    setCurrentStep(step);
+  };
+
   return (
-    <div className="h-screen w-full flex flex-col bg-[#f5f6f8] text-gray-800 select-none overflow-hidden font-sans">
+    <div className="photobook-editor-root cursor-default h-screen w-full flex flex-col bg-[#f5f6f8] text-gray-800 select-none overflow-hidden font-sans">
+      {/* Enforce default cursor throughout the editor page and all overlays/modals */}
+      <style>{`
+        .photobook-editor-root,
+        .photobook-editor-root *,
+        .photobook-editor-root button,
+        .photobook-editor-root [role="button"],
+        .photobook-editor-root a,
+        .photobook-modal-scope,
+        .photobook-modal-scope *,
+        .photobook-modal-scope button,
+        .photobook-modal-scope [role="button"],
+        .photobook-modal-scope a {
+          cursor: default !important;
+        }
+        .photobook-editor-root input[type="text"],
+        .photobook-editor-root textarea,
+        .photobook-modal-scope input[type="text"],
+        .photobook-modal-scope textarea {
+          cursor: text !important;
+        }
+        @media (max-width: 767px) {
+          .photobook-page-edit-modal,
+          .photobook-preview-modal {
+            max-width: calc(100vw - 16px) !important;
+            margin: 8px auto !important;
+            padding: 0 !important;
+            top: 8px !important;
+          }
+          .photobook-page-edit-modal .ant-modal-content,
+          .photobook-preview-modal .ant-modal-content {
+            padding: 0 !important;
+            border-radius: 20px !important;
+            overflow: hidden !important;
+            max-height: calc(100vh - 16px) !important;
+          }
+        }
+      `}</style>
       {/* React Hot Toast notification container with highest z-index */}
       <Toaster
         position="top-center"
@@ -7959,125 +8398,219 @@ const PhotoBookEditorPage = () => {
         }}
       />
 
-      {/* ── Studio Top Header (Matching Admin Exact UI & Palette) ────────────── */}
-      <header className="h-[58px] bg-[#0f172a] border-b border-slate-800 px-4 md:px-6 flex items-center justify-between z-30 shrink-0 text-white select-none">
-        {/* Left Side: Printe Branding + Back Arrow + Book Title */}
-        <div className="flex items-center gap-2.5 min-w-[140px]">
-          <div className="w-7 h-7 rounded-lg bg-[#00a896] text-white font-extrabold flex items-center justify-center text-sm shadow-md shadow-teal-500/20">
-            P
+      {/* ── Studio Top Header (Responsive UI with Mobile 1,2,3 Stepper) ────────────── */}
+      <header className="bg-[#0f172a] border-b border-slate-800 z-30 shrink-0 text-white select-none flex flex-col">
+        {/* Tier 1: Action Bar */}
+        <div className="h-[46px] md:h-[58px] px-2.5 sm:px-4 md:px-6 flex items-center justify-between gap-1.5 md:gap-4">
+          {/* Left Side: Printe Branding + Back Arrow + Book Title */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg bg-[#00a896] text-white font-extrabold flex items-center justify-center text-xs md:text-sm shadow-md shadow-teal-500/20 shrink-0">
+              P
+            </div>
+            <span className="font-bold text-white tracking-wide text-sm hidden sm:inline">
+              Printe
+            </span>
+            <div className="w-px h-4 bg-slate-700 hidden sm:block" />
+            <Link
+              to={`/product/${encodeURIComponent(product_name)}`}
+              className="flex items-center gap-1 text-slate-300 hover:text-white font-semibold text-xs px-1.5 py-1 rounded-md hover:bg-slate-800 transition-colors"
+            >
+              <LeftOutlined className="text-[9px] md:text-[10px]" />
+              <span>Back</span>
+            </Link>
+            <span className="text-xs font-medium text-slate-300 truncate max-w-[140px] hidden lg:inline">
+              {product_name || "Photo Book"}
+            </span>
           </div>
-          <span className="font-bold text-white tracking-wide text-sm hidden sm:inline">
-            Printe
-          </span>
-          <div className="w-px h-4 bg-slate-700 hidden sm:block" />
-          <Link
-            to={`/product/${encodeURIComponent(product_name)}`}
-            className="flex items-center gap-1.5 text-slate-300 hover:text-white font-semibold text-xs px-2 py-1 rounded-md hover:bg-slate-800 transition-colors"
-          >
-            <LeftOutlined className="text-[10px]" />
-            <span>Back</span>
-          </Link>
-          <span className="text-xs font-medium text-slate-300 truncate max-w-[160px] hidden lg:inline">
-            {product_name || "Photo Book"}
-          </span>
+
+          {/* Center: Desktop Stepper (Hidden on mobile, shown in Tier 2 below) */}
+          <div className="hidden md:flex items-center gap-1.5 lg:gap-2.5 select-none text-xs">
+            {studioSteps.map(({ step, displayNum, label }, idx, arr) => {
+              const isActive = currentStep === step;
+              const isCompleted = currentStep > step;
+              const isLocked = step === 3 ? false : step > maxUnlockedStep;
+
+              return (
+                <React.Fragment key={step}>
+                  <button
+                    type="button"
+                    onClick={() => handleStepperStepClick(step)}
+                    title={isLocked ? "Complete previous step to unlock" : label}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-bold transition-all ${
+                      isLocked
+                        ? "bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-default opacity-60"
+                        : isActive
+                        ? "bg-[#00a896] text-white shadow-md shadow-teal-500/25 border border-teal-400 cursor-default"
+                        : isCompleted
+                        ? "bg-teal-950/70 text-teal-300 border border-teal-700/60 hover:bg-teal-900/60 cursor-default"
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-default"
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
+                        isActive
+                          ? "bg-white text-[#00a896]"
+                          : isCompleted
+                          ? "bg-[#00a896] text-white"
+                          : isLocked
+                          ? "bg-slate-700 text-slate-400"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {isCompleted ? "✓" : displayNum}
+                    </span>
+                    <span>{label}</span>
+                  </button>
+                  {idx < arr.length - 1 && (
+                    <div
+                      className={`w-5 lg:w-8 h-0.5 transition-colors ${
+                        currentStep > step ? "bg-[#00a896]" : "bg-slate-700"
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          {/* Right: Save Status + Explicit Save + Preview + Undo/Redo & Primary CTA */}
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-2.5 justify-end shrink-0">
+            {/* Save Status Indicator (Desktop only) */}
+            <div className="hidden lg:flex items-center gap-1.5 text-xs select-none">
+              {isSaving ? (
+                <span className="flex items-center gap-1.5 text-amber-300 font-medium">
+                  <Spin size="small" /> Saving...
+                </span>
+              ) : saveStatusText === "Save failed" ? (
+                <span
+                  onClick={() => saveDesignToBackend(true)}
+                  className="flex items-center gap-1 text-rose-400 font-medium cursor-default hover:underline"
+                  title="Click to retry save"
+                >
+                  <CloseCircleOutlined className="text-xs" /> Save failed (Retry)
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-teal-300 font-medium">
+                  <CheckCircleOutlined className="text-xs" /> Saved
+                </span>
+              )}
+            </div>
+
+            {/* Explicit Save Design Action */}
+            <button
+              type="button"
+              onClick={() => saveDesignToBackend(true)}
+              disabled={isSaving}
+              className="flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-500 border border-teal-500 rounded-lg transition-colors shadow-xs cursor-default disabled:opacity-50"
+              title="Save your photo book design to backend"
+            >
+              <SaveOutlined className="text-xs" />
+              <span className="hidden sm:inline">Save Design</span>
+            </button>
+
+            {/* Preview Action */}
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewSpreadModalIndex(0);
+                setIsPreviewModalOpen(true);
+              }}
+              className="flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors shadow-xs cursor-default"
+              title="Preview photo book"
+            >
+              <EyeOutlined className="text-xs" />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+
+            {currentStep !== 1 && (
+              <>
+                <div className="flex items-center gap-0.5 text-slate-400">
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    disabled={undoStack.length === 0}
+                    className={`p-1 sm:p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${
+                      undoStack.length === 0 ? "opacity-30 cursor-default" : "text-slate-300 hover:text-white"
+                    }`}
+                    title="Undo"
+                  >
+                    <UndoOutlined className="text-xs sm:text-sm" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRedo}
+                    disabled={redoStack.length === 0}
+                    className={`p-1 sm:p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${
+                      redoStack.length === 0 ? "opacity-30 cursor-default" : "text-slate-300 hover:text-white"
+                    }`}
+                    title="Redo"
+                  >
+                    <RedoOutlined className="text-xs sm:text-sm" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleReviewAndCartClick}
+                  disabled={isAddingToCart}
+                  className="bg-[#0284c7] hover:bg-sky-600 text-white font-bold text-xs px-2.5 py-1 md:px-4 md:py-1.5 rounded-lg transition-all shadow-md shadow-sky-950/40 flex items-center gap-1 cursor-default shrink-0"
+                >
+                  {isAddingToCart ? (
+                    <Spin size="small" />
+                  ) : (
+                    <>
+                      <ShoppingCartOutlined className="text-xs sm:text-sm" />
+                      <span>
+                        <span className="hidden sm:inline">Review & Cart - </span>
+                        {isGiveaway ? "Free" : `₹${priceDetails.finalTotal}`}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Center: Stepper (4-Step for Paid Book, 3-Step for Giveaway) */}
-        <div className="hidden md:flex items-center gap-1.5 lg:gap-2.5 select-none text-xs">
-          {(isGiveaway
-            ? [
-                { step: 2, displayNum: 1, label: "Upload Photos" },
-                { step: 3, displayNum: 2, label: "Edit Your Book" },
-                { step: 4, displayNum: 3, label: "Review & Cart" },
-              ]
-            : [
-                { step: 1, displayNum: 1, label: "Your Book" },
-                { step: 2, displayNum: 2, label: "Upload Photos" },
-                { step: 3, displayNum: 3, label: "Edit Your Book" },
-                { step: 4, displayNum: 4, label: "Review & Cart" },
-              ]
-          ).map(({ step, displayNum, label }, idx, arr) => {
+        {/* Tier 2: Mobile Stepper Row (Visible on < md, showing Steps 1, 2, 3) */}
+        <div className="md:hidden bg-slate-950/95 border-t border-slate-800/80 px-2 sm:px-4 py-1.5 flex items-center justify-between text-xs select-none shrink-0">
+          {studioSteps.map(({ step, displayNum, label, shortLabel }, idx, arr) => {
             const isActive = currentStep === step;
             const isCompleted = currentStep > step;
-            const isLocked = step === 4 ? false : step > maxUnlockedStep;
-
-            const handleStepperClick = () => {
-              if (step === 4) {
-                handleReviewAndCartClick();
-                return;
-              }
-
-              if (step === currentStep) return;
-
-              if (step < currentStep) {
-                setCurrentStep(step);
-                return;
-              }
-
-              if (step > maxUnlockedStep) {
-                if (currentStep === 1) {
-                  message.warning("Please configure your book and click 'Next - Upload photos' to proceed.");
-                } else if (currentStep === 2) {
-                  if (uploadedPhotos.length === 0) {
-                    message.warning("Please upload at least 1 photo before proceeding to album editor.");
-                  } else if (isGiveaway && uploadedPhotos.length < effectiveTargetPhotoCount) {
-                    message.warning(`Please upload all ${effectiveTargetPhotoCount} required photos before proceeding to album editor.`);
-                  } else {
-                    message.warning("Please click 'Next: Arrange & Edit Album' to proceed.");
-                  }
-                } else {
-                  message.warning("Please complete the current step before proceeding.");
-                }
-                return;
-              }
-
-              if (step === 3) {
-                if (isGiveaway && uploadedPhotos.length < effectiveTargetPhotoCount) {
-                  message.warning(`Please upload all ${effectiveTargetPhotoCount} required photos before proceeding.`);
-                  return;
-                }
-                if (uploadedPhotos.length > 0) {
-                  syncPhotosToPages(uploadedPhotos, photosPerPageMode);
-                }
-              }
-              setCurrentStep(step);
-            };
+            const isLocked = step === 3 ? false : step > maxUnlockedStep;
 
             return (
               <React.Fragment key={step}>
                 <button
                   type="button"
-                  onClick={handleStepperClick}
-                  title={isLocked ? "Complete previous step to unlock" : label}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-bold transition-all ${
+                  onClick={() => handleStepperStepClick(step)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all ${
                     isLocked
-                      ? "bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60"
+                      ? "text-slate-500 opacity-50 cursor-default"
                       : isActive
-                      ? "bg-[#00a896] text-white shadow-md shadow-teal-500/25 border border-teal-400 cursor-pointer"
+                      ? "bg-[#00a896] text-white shadow-xs border border-teal-400 cursor-default"
                       : isCompleted
-                      ? "bg-teal-950/70 text-teal-300 border border-teal-700/60 hover:bg-teal-900/60 cursor-pointer"
-                      : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-pointer"
+                      ? "text-teal-300 hover:text-white cursor-default"
+                      : "text-slate-300 hover:text-white cursor-default"
                   }`}
                 >
                   <span
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-extrabold ${
                       isActive
                         ? "bg-white text-[#00a896]"
                         : isCompleted
                         ? "bg-[#00a896] text-white"
-                        : isLocked
-                        ? "bg-slate-700 text-slate-400"
-                        : "bg-slate-700 text-slate-300"
+                        : "bg-slate-800 text-slate-400 border border-slate-700"
                     }`}
                   >
                     {isCompleted ? "✓" : displayNum}
                   </span>
-                  <span>{label}</span>
+                  <span className="tracking-tight">{shortLabel || label}</span>
                 </button>
                 {idx < arr.length - 1 && (
                   <div
-                    className={`w-5 lg:w-8 h-0.5 transition-colors ${
-                      currentStep > step ? "bg-[#00a896]" : "bg-slate-700"
+                    className={`flex-1 mx-1.5 h-0.5 transition-colors ${
+                      currentStep > step ? "bg-[#00a896]" : "bg-slate-800"
                     }`}
                   />
                 )}
@@ -8085,123 +8618,12 @@ const PhotoBookEditorPage = () => {
             );
           })}
         </div>
-
-        {/* Right: Save Status + Explicit Save + Preview + Undo/Redo & Primary CTA */}
-        <div className="flex items-center gap-2 md:gap-2.5 min-w-[140px] justify-end">
-          {/* Save Status Indicator */}
-          <div className="hidden lg:flex items-center gap-1.5 text-xs select-none">
-            {isSaving ? (
-              <span className="flex items-center gap-1.5 text-amber-300 font-medium">
-                <Spin size="small" /> Saving...
-              </span>
-            ) : saveStatusText === "Save failed" ? (
-              <span
-                onClick={() => saveDesignToBackend(true)}
-                className="flex items-center gap-1 text-rose-400 font-medium cursor-pointer hover:underline"
-                title="Click to retry save"
-              >
-                <CloseCircleOutlined className="text-xs" /> Save failed (Retry)
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-teal-300 font-medium">
-                <CheckCircleOutlined className="text-xs" /> Saved
-              </span>
-            )}
-          </div>
-
-          {/* Explicit Save Design Action */}
-          <button
-            type="button"
-            onClick={() => saveDesignToBackend(true)}
-            disabled={isSaving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-500 border border-teal-500 rounded-lg transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-            title="Save your photo book design to backend"
-          >
-            <SaveOutlined className="text-xs" />
-            <span className="hidden sm:inline">Save Design</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setPreviewSpreadModalIndex(0);
-              setIsPreviewModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors shadow-xs cursor-pointer"
-          >
-            <EyeOutlined className="text-xs" />
-            <span>Preview</span>
-          </button>
-
-          {currentStep !== 1 && (
-            <>
-              <div className="flex items-center gap-1 text-slate-400 mr-1">
-                <button
-                  type="button"
-                  onClick={handleUndo}
-                  disabled={undoStack.length === 0}
-                  className={`p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${
-                    undoStack.length === 0 ? "opacity-30 cursor-not-allowed" : "text-slate-300 hover:text-white"
-                  }`}
-                  title="Undo"
-                >
-                  <UndoOutlined className="text-sm" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  className={`p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${
-                    redoStack.length === 0 ? "opacity-30 cursor-not-allowed" : "text-slate-300 hover:text-white"
-                  }`}
-                  title="Redo"
-                >
-                  <RedoOutlined className="text-sm" />
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleReviewAndCartClick}
-                disabled={isAddingToCart}
-                className="bg-[#0284c7] hover:bg-sky-600 text-white font-bold text-xs px-4 py-1.5 rounded-lg transition-all shadow-md shadow-sky-950/40 flex items-center gap-1.5 cursor-pointer"
-              >
-                {isAddingToCart ? (
-                  <Spin size="small" />
-                ) : (
-                  <>
-                    <ShoppingCartOutlined />
-                    <span>
-                      {isGiveaway ? "Review & Cart - Free" : `Review & Cart - ₹${priceDetails.finalTotal}`}
-                    </span>
-                  </>
-                )}
-              </button>
-            </>
-          )}
-        </div>
       </header>
 
-      {/* ── STEP 1: YOUR BOOK (Photo Count & Photos-Per-Page Density) ──────── */}
-      {currentStep === 1 && !isGiveaway && (
-        <YourBookStep
-          photoBookPages={photoBookPages}
-          targetPhotoCount={targetPhotoCount}
-          setTargetPhotoCount={setTargetPhotoCount}
-          photosPerPageMode={photosPerPageMode}
-          setPhotosPerPageMode={setPhotosPerPageMode}
-          priceDetails={priceDetails}
-          onProceedToUpload={() => {
-            setMaxUnlockedStep((prev) => Math.max(prev, 2));
-            setCurrentStep(2);
-          }}
-        />
-      )}
-
-      {/* ── STEP 2: UPLOAD PHOTOS ────────────────────────────────────────── */}
-      {currentStep === 2 && (
+      {/* ── STEP 1: UPLOAD PHOTOS ────────────────────────────────────────── */}
+      {currentStep === 1 && (
         <UploadPhotosStep
-          targetPhotoCount={isGiveaway ? effectiveTargetPhotoCount : targetPhotoCount}
+          targetPhotoCount={effectiveTargetPhotoCount}
           isGiveaway={isGiveaway}
           uploadedPhotos={uploadedPhotos}
           isUploading={isUploading}
@@ -8213,11 +8635,7 @@ const PhotoBookEditorPage = () => {
           handlePhotoDrop={handlePhotoDrop}
           onPreviewPhoto={(url) => setPreviewModalUrl(url)}
           onBack={() => {
-            if (isGiveaway) {
-              navigate(`/product/${encodeURIComponent(product_name)}`);
-            } else {
-              setCurrentStep(1);
-            }
+            navigate(`/product/${encodeURIComponent(product_name)}`);
           }}
           onProceedToEdit={() => {
             if (isGiveaway) {
@@ -8232,37 +8650,43 @@ const PhotoBookEditorPage = () => {
               message.warning("Please upload at least 1 photo before proceeding to album editor.");
               return;
             }
-            setMaxUnlockedStep((prev) => Math.max(prev, 3));
-            syncPhotosToPages(uploadedPhotos, photosPerPageMode);
-            setCurrentStep(3);
+            setMaxUnlockedStep((prev) => Math.max(prev, 2));
+            syncPhotosToPages(uploadedPhotos, "template");
+            setCurrentStep(2);
           }}
         />
       )}
 
-      {/* ── STEP 3: EDIT YOUR BOOK (3-Container Studio Layout matching Reference UI) ──── */}
-      {(currentStep === 3 || currentStep === 4) && (
-        <div className="flex-1 flex flex-row h-[calc(100vh-56px)] w-full overflow-hidden bg-[#eaebee] relative select-none">
+      {/* ── STEP 2: EDIT YOUR BOOK (3-Container Studio Layout) ──── */}
+      {(currentStep === 2 || currentStep === 3) && (
+        <div className="flex-1 min-h-0 flex flex-row w-full overflow-hidden bg-[#eaebee] relative select-none">
           {/* ================================================================= */}
-          {/* CONTAINER 1: SLIM LEFT TOOLBAR (w-[68px])                         */}
+          {/* CONTAINER 1: LEFT TOOLBAR (Hidden on mobile < md, visible >= md)   */}
           {/* ================================================================= */}
-          <aside className="w-[74px] bg-white border-r border-gray-200/90 flex flex-col items-center py-4 justify-between z-20 shrink-0 select-none shadow-xs">
+          <aside className="hidden md:flex w-[74px] bg-white border-r border-gray-200/90 flex-col items-center py-4 justify-between z-40 shrink-0 select-none shadow-xs">
             <div className="flex flex-col items-center gap-2.5 w-full">
               {[
-                { id: "add", label: "Add", icon: <PlusOutlined />, desc: "Add Photos" },
-                { id: "arrange", label: "Arrange", icon: <AppstoreOutlined />, desc: "Arrange Spreads" },
+                { id: "add", label: "Photos", icon: <PictureOutlined />, desc: "Your Photos" },
+                { id: "design", label: "Themes", icon: <BgColorsOutlined />, desc: "Themes" },
                 { id: "size", label: "Size", icon: <BorderOutlined />, desc: "Book Size" },
-                { id: "design", label: "Design", icon: <BgColorsOutlined />, desc: "Themes" },
                 { id: "options", label: "Options", icon: <SettingOutlined />, desc: "Book Options" },
               ]
-                .filter((tool) => !isGiveaway || (tool.id !== "arrange" && tool.id !== "options"))
+                .filter((tool) => !isGiveaway || tool.id === "add" || tool.id === "design")
                 .map((tool) => {
-                const isActive = activeStudioTool === tool.id;
+                const resolvedTool = isBelowMd ? activeStudioTool : (activeStudioTool || "add");
+                const isActive = resolvedTool === tool.id;
                 return (
                   <button
                     key={tool.id}
                     type="button"
-                    onClick={() => setActiveStudioTool((prev) => (prev === tool.id ? null : tool.id))}
-                    className={`w-[58px] py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer relative group ${
+                    onClick={() => {
+                      if (isBelowMd) {
+                        setActiveStudioTool((prev) => (prev === tool.id ? null : tool.id));
+                      } else {
+                        setActiveStudioTool(tool.id);
+                      }
+                    }}
+                    className={`w-[58px] py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 cursor-default relative group ${
                       isActive
                         ? "bg-teal-50 text-[#00a896] shadow-2xs ring-1 ring-teal-200 font-bold"
                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -8286,7 +8710,7 @@ const PhotoBookEditorPage = () => {
             {/* Bottom Help Tooltip */}
             <div className="flex flex-col items-center gap-2 pt-2 border-t border-gray-100 w-full px-2">
               <Tooltip title="Photo book editor studio • Click any tool to toggle panel" placement="right">
-                <div className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-[#00a896] hover:bg-teal-50 flex items-center justify-center text-xs cursor-pointer transition-colors">
+                <div className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-[#00a896] hover:bg-teal-50 flex items-center justify-center text-xs cursor-default transition-colors">
                   <InfoCircleOutlined />
                 </div>
               </Tooltip>
@@ -8298,18 +8722,20 @@ const PhotoBookEditorPage = () => {
           {/* ================================================================= */}
           <main
             ref={centerScrollRef}
-            className="flex-1 bg-[#eaebee] relative overflow-y-auto px-4 md:px-8 py-6 flex flex-col items-center scroll-smooth"
+            className={`flex-1 w-full min-w-0 bg-[#eaebee] relative overflow-y-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-6 flex flex-col items-center scroll-smooth ${
+              isBelowMd && activeStudioTool ? "pointer-events-none select-none" : ""
+            }`}
           >
             {/* Top Subtitle Bar: THE BOOK • {photoBookPages} PAGES (INCL. COVERS) */}
             <div
-              className="w-full flex items-center justify-between mb-4 transition-all duration-300"
+              className="w-full flex flex-wrap items-center justify-between gap-2 mb-4 transition-all duration-300"
               style={{
                 maxWidth: `${Math.max(620, Math.min(1060, Math.round(440 * (activeSizeInfo.spreadRatio || 2))))}px`,
               }}
             >
               <div className="flex items-center gap-3">
                 <span className="text-[11px] font-bold tracking-widest text-gray-500 uppercase">
-                  THE BOOK • {photoBookPages} PAGES (INCL. COVERS)
+                  THE BOOK (INCL. COVERS)
                 </span>
                 <span className="text-[11px] font-semibold text-[#00a896] bg-teal-50 border border-teal-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
                   <EditOutlined className="text-[10px]" /> Click any page to edit
@@ -8321,22 +8747,22 @@ const PhotoBookEditorPage = () => {
                   setPreviewSpreadModalIndex(0);
                   setIsPreviewModalOpen(true);
                 }}
-                className="text-[#00a896] hover:text-[#008f80] font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                className="text-[#00a896] hover:text-[#008f80] font-bold text-xs flex items-center gap-1 cursor-default transition-colors"
               >
                 {/* <EyeOutlined /> Flip Preview */}
               </button>
             </div>
 
             {/* Floating Chevrons Navigation (Up / Down) */}
-            <div className="fixed right-[340px] top-1/2 -translate-y-1/2 flex flex-col gap-2 z-30">
+            <div className="fixed right-3 md:right-[296px] lg:right-[376px] top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10 md:z-20">
               <button
                 type="button"
                 onClick={scrollToPrevSpread}
                 disabled={currentSpreadIndex === 0}
                 className={`w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-gray-700 transition-all ${
                   currentSpreadIndex === 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-pointer"
+                    ? "opacity-40 cursor-default"
+                    : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-default"
                 }`}
                 title="Previous Spread"
               >
@@ -8348,8 +8774,8 @@ const PhotoBookEditorPage = () => {
                 disabled={currentSpreadIndex >= spreads.length - 1}
                 className={`w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-gray-700 transition-all ${
                   currentSpreadIndex >= spreads.length - 1
-                    ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-pointer"
+                    ? "opacity-40 cursor-default"
+                    : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-default"
                 }`}
                 title="Next Spread"
               >
@@ -8374,9 +8800,10 @@ const PhotoBookEditorPage = () => {
                   >
                     {/* 2-Page Spread Realistic Book Card (Exact Sharp Border-radius-0 from Selected Size) */}
                     <div
-                      className="w-full bg-white rounded-none shadow-md border border-gray-300 flex overflow-hidden relative transition-all duration-300"
+                      className="w-full bg-[#1e293b] rounded-none shadow-md border border-gray-300 flex overflow-hidden relative transition-all duration-300"
                       style={{
                         aspectRatio: `${activeSizeInfo.spreadRatio}`,
+                        padding: "1px",
                       }}
                     >
                       {/* Left Page */}
@@ -8386,8 +8813,8 @@ const PhotoBookEditorPage = () => {
                             handleOpenPageEditModal(spread.leftPage);
                           }
                         }}
-                        className={`w-1/2 h-full relative border-r border-gray-200 flex flex-col group ${
-                          spread.leftPage && !spread.leftPage.is_blank ? "cursor-pointer" : ""
+                        className={`flex-1 h-full relative flex flex-col group ${
+                          spread.leftPage && !spread.leftPage.is_blank ? "cursor-default" : ""
                         }`}
                       >
                         {spread.leftPage ? (
@@ -8398,19 +8825,21 @@ const PhotoBookEditorPage = () => {
                               </span>
                             </div>
                           ) : (
-                            <div className="w-full h-full relative overflow-hidden group/canvas">
+                            <div className="w-full h-full relative overflow-hidden group/canvas isolate">
                               <div className="w-full h-full transition-all duration-200 group-hover/canvas:ring-2 group-hover/canvas:ring-[#00a896]/50">
                                 {renderTemplateCanvas(spread.leftPage, false)}
                               </div>
-                              {/* Centered Edit Overlay with background blur & low opacity on hover */}
+                              {/* Inner spine shadow on right edge of left page */}
+                              <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10" />
+                              {/* Centered Edit Overlay with background blur on hover (strictly on top of everything) */}
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenPageEditModal(spread.leftPage);
                                 }}
-                                className="absolute inset-0 z-[200] flex items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-900/20 backdrop-blur-[2px] cursor-pointer"
+                                className="hidden md:flex absolute inset-0 z-[500] items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-950/40 backdrop-blur-sm cursor-default pointer-events-auto"
                               >
-                                <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-lg border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all">
+                                <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-2xl border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all z-[501]">
                                   <EditOutlined className="text-[#00a896] text-sm" /> Edit Page
                                 </span>
                               </div>
@@ -8424,6 +8853,9 @@ const PhotoBookEditorPage = () => {
                         )}
                       </div>
 
+                      {/* Physical Center Spine Gap / Crease Divider */}
+                      <div className="w-[2px] h-full shrink-0 z-20 bg-[#0f172a]" />
+
                       {/* Right Page */}
                       <div
                         onClick={() => {
@@ -8431,8 +8863,8 @@ const PhotoBookEditorPage = () => {
                             handleOpenPageEditModal(spread.rightPage);
                           }
                         }}
-                        className={`w-1/2 h-full relative flex flex-col group ${
-                          spread.rightPage && !spread.rightPage.is_blank ? "cursor-pointer" : ""
+                        className={`flex-1 h-full relative flex flex-col group ${
+                          spread.rightPage && !spread.rightPage.is_blank ? "cursor-default" : ""
                         }`}
                       >
                         {spread.rightPage ? (
@@ -8443,19 +8875,21 @@ const PhotoBookEditorPage = () => {
                               </span>
                             </div>
                           ) : (
-                            <div className="w-full h-full relative overflow-hidden group/canvas">
+                            <div className="w-full h-full relative overflow-hidden group/canvas isolate">
                               <div className="w-full h-full transition-all duration-200 group-hover/canvas:ring-2 group-hover/canvas:ring-[#00a896]/50">
                                 {renderTemplateCanvas(spread.rightPage, false)}
                               </div>
-                              {/* Centered Edit Overlay with background blur & low opacity on hover */}
+                              {/* Inner spine shadow on left edge of right page */}
+                              <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10" />
+                              {/* Centered Edit Overlay with background blur on hover (strictly on top of everything) */}
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenPageEditModal(spread.rightPage);
                                 }}
-                                className="absolute inset-0 z-[200] flex items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-900/20 backdrop-blur-[2px] cursor-pointer"
+                                className="hidden md:flex absolute inset-0 z-[500] items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-950/40 backdrop-blur-sm cursor-default pointer-events-auto"
                               >
-                                <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-lg border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all">
+                                <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-2xl border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all z-[501]">
                                   <EditOutlined className="text-[#00a896] text-sm" /> Edit Page
                                 </span>
                               </div>
@@ -8504,19 +8938,57 @@ const PhotoBookEditorPage = () => {
             </div>
           </main>
 
+          {/* Mobile/Tablet (< md) Backdrop when any bottom sheet tool is selected */}
+          {isBelowMd && (activeStudioTool || isBottomSheetClosing) && (
+            <div
+              onClick={closeStudioTool}
+              className={`md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity duration-200 ${
+                isBottomSheetClosing ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
+            />
+          )}
+
           {/* ================================================================= */}
-          {/* CONTAINER 3: RIGHT CONTEXTUAL SIDEBAR (w-[320px])                 */}
+          {/* CONTAINER 3: CONTEXTUAL SIDEBAR (Desktop) / BOTTOM SHEET (Mobile) */}
           {/* ================================================================= */}
-          <aside className="w-[360px] bg-white border-l border-gray-200 h-full overflow-hidden shrink-0 flex flex-col z-20 shadow-xs">
-            {/* Case A: Idle State (Screenshot 3) */}
-            {activeStudioTool === null && (
-              <div className="h-full flex items-center justify-center p-6 text-center select-none text-gray-400 text-xs font-medium">
-                Pick a tool on the left to edit your book.
+          {(!isBelowMd || activeStudioTool || isBottomSheetClosing) && (() => {
+            const resolvedTool = isBelowMd ? (activeStudioTool || "add") : (activeStudioTool || "add");
+            return (
+          <aside
+            style={
+              isBelowMd
+                ? {
+                    transform: isBottomSheetClosing
+                      ? "translateY(100%)"
+                      : sheetDragY !== 0
+                      ? `translateY(${Math.max(-20, sheetDragY)}px)`
+                      : "translateY(0)",
+                    transition: isSheetDraggingRef.current
+                      ? "none"
+                      : "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)",
+                  }
+                : undefined
+            }
+            className={
+              isBelowMd
+                ? "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[82vh] h-[72vh] overflow-hidden border-t border-gray-200/80 md:hidden will-change-transform"
+                : "hidden md:flex static md:w-[280px] lg:w-[360px] bg-white border-l border-gray-200 h-full overflow-hidden shrink-0 flex-col z-20 shadow-xs"
+            }
+          >
+            {/* Mobile Bottom Sheet Drag Handle */}
+            {isBelowMd && (
+              <div
+                onTouchStart={handleSheetTouchStart}
+                onTouchMove={handleSheetTouchMove}
+                onTouchEnd={handleSheetTouchEnd}
+                className="w-full pt-3 pb-2 flex flex-col items-center justify-center shrink-0 touch-none cursor-grab active:cursor-grabbing select-none"
+                title="Swipe down to close"
+              >
+                <div className="w-12 h-1.5 bg-gray-300 hover:bg-gray-400 active:bg-gray-500 rounded-full transition-colors" />
               </div>
             )}
-
             {/* Case B: Book Size */}
-            {activeStudioTool === "size" && (
+            {resolvedTool === "size" && (
               <div className="p-5 flex flex-col gap-5 select-none overflow-y-auto h-full">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div>
@@ -8527,12 +8999,23 @@ const PhotoBookEditorPage = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveStudioTool(null)}
-                    className="w-7 h-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
+                    onClick={closeStudioTool}
+                    className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
                     title="Close panel"
                   >
                     <CloseOutlined className="text-xs" />
                   </button>
+                </div>
+
+                {/* Dedicated Size Layout Notice */}
+                <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200/80 flex items-start gap-2.5 text-xs text-teal-950 shadow-2xs">
+                  <InfoCircleOutlined className="text-[#00a896] text-sm mt-0.5 shrink-0" />
+                  <div className="flex flex-col gap-0.5 leading-snug">
+                    <span className="font-bold text-teal-900">Dedicated Size Layouts</span>
+                    <span className="text-[11px] text-teal-800/90">
+                      Selecting a size loads its dedicated template layout. Your current design will be replaced with the new size layout, but all your uploaded photos will be automatically preserved.
+                    </span>
+                  </div>
                 </div>
 
                 {/* Only sizes created for the template */}
@@ -8552,7 +9035,7 @@ const PhotoBookEditorPage = () => {
                       <div
                         key={s.id}
                         onClick={() => handleSizeSelect(s.id)}
-                        className={`relative p-3 rounded-xl border flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                        className={`relative p-3 rounded-xl border flex flex-col items-center justify-center text-center cursor-default transition-all ${
                           isSelected
                             ? "border-2 border-[#f97316] text-[#f97316] bg-orange-50/40 font-semibold shadow-xs"
                             : "border-gray-200 hover:border-gray-300 text-gray-700 bg-white"
@@ -8611,7 +9094,7 @@ const PhotoBookEditorPage = () => {
             )}
 
             {/* Case C: Add Photos */}
-            {activeStudioTool === "add" && (
+            {resolvedTool === "add" && (
               <div className="flex flex-col h-full select-none overflow-hidden">
                 {/* Header Section */}
                 <div className="p-4 border-b border-gray-100 flex flex-col gap-3 bg-white shrink-0 shadow-2xs">
@@ -8625,8 +9108,8 @@ const PhotoBookEditorPage = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setActiveStudioTool(null)}
-                      className="w-7 h-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
+                      onClick={closeStudioTool}
+                      className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
                       title="Close panel"
                     >
                       <CloseOutlined className="text-xs" />
@@ -8639,7 +9122,7 @@ const PhotoBookEditorPage = () => {
                       type="button"
                       onClick={() => sidebarPhotoInputRef.current?.click()}
                       disabled={isUploading}
-                      className="flex-1 bg-[#00a896] hover:bg-[#008f80] text-white text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                      className="flex-1 bg-[#00a896] hover:bg-[#008f80] text-white text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-default disabled:opacity-50"
                     >
                       <UploadOutlined />
                       <span>{isUploading ? "Uploading..." : "+ Upload Photos"}</span>
@@ -8648,7 +9131,7 @@ const PhotoBookEditorPage = () => {
                       type="button"
                       onClick={handleAutofillEmptySlots}
                       disabled={uploadedPhotos.length === 0 || unusedPhotosCount === 0}
-                      className="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-[#00a896] text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-[#00a896] text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-default disabled:opacity-40 disabled:cursor-default"
                       title="Auto-place unused photos into next empty slots"
                     >
                       <ThunderboltOutlined />
@@ -8672,7 +9155,7 @@ const PhotoBookEditorPage = () => {
                     <button
                       type="button"
                       onClick={() => setPhotoFilter("all")}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer ${
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${
                         photoFilter === "all"
                           ? "bg-white text-gray-900 font-bold shadow-xs"
                           : "text-gray-500 hover:text-gray-900"
@@ -8683,7 +9166,7 @@ const PhotoBookEditorPage = () => {
                     <button
                       type="button"
                       onClick={() => setPhotoFilter("unused")}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer ${
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${
                         photoFilter === "unused"
                           ? "bg-white text-[#00a896] font-bold shadow-xs"
                           : "text-gray-500 hover:text-gray-900"
@@ -8694,7 +9177,7 @@ const PhotoBookEditorPage = () => {
                     <button
                       type="button"
                       onClick={() => setPhotoFilter("placed")}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer ${
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${
                         photoFilter === "placed"
                           ? "bg-white text-teal-800 font-bold shadow-xs"
                           : "text-gray-500 hover:text-gray-900"
@@ -8731,7 +9214,7 @@ const PhotoBookEditorPage = () => {
                   {filteredPhotos.length === 0 ? (
                     <div
                       onClick={() => sidebarPhotoInputRef.current?.click()}
-                      className="border-2 border-dashed border-gray-200 hover:border-[#00a896] hover:bg-teal-50/20 rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group mt-2"
+                      className="border-2 border-dashed border-gray-200 hover:border-[#00a896] hover:bg-teal-50/20 rounded-xl p-8 text-center cursor-default transition-all flex flex-col items-center justify-center gap-2 group mt-2"
                     >
                       <div className="w-12 h-12 rounded-full bg-teal-50 text-[#00a896] flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
                         <UploadOutlined />
@@ -8773,7 +9256,7 @@ const PhotoBookEditorPage = () => {
                               borderRadius: "12px",
                               overflow: "hidden",
                             }}
-                            className={`group border cursor-pointer select-none transition-all duration-200 bg-gray-100 ${
+                            className={`group border cursor-default select-none transition-all duration-200 bg-gray-100 ${
                               isUsed
                                 ? "border-teal-300 ring-1 ring-teal-200/50 shadow-2xs"
                                 : "border-gray-200 hover:border-[#00a896] hover:shadow-md"
@@ -8856,244 +9339,10 @@ const PhotoBookEditorPage = () => {
               </div>
             )}
 
-            {/* Case D: Arrange Spreads */}
-            {activeStudioTool === "arrange" && !isGiveaway && (
-              <div className="p-4 sm:p-5 flex flex-col gap-4 select-none overflow-y-auto h-full">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-sm">Arrange Pages</h3>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Drag pages to rearrange sequence. Covers remain fixed in place.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveStudioTool(null)}
-                    className="w-7 h-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
-                    title="Close panel"
-                  >
-                    <CloseOutlined className="text-xs" />
-                  </button>
-                </div>
 
-                {/* Fixed Front Cover Card */}
-                {(() => {
-                  const frontCover = pagesData.find(
-                    (p) => p.page_type === "front_cover" || p.page_id === "front-cover"
-                  );
-                  const frontFrameCount = (frontCover?.elements || []).filter(
-                    (el) => el.type === "photo_frame"
-                  ).length;
-                  return (
-                    <div className="p-2.5 rounded-xl border border-gray-200 bg-gray-50/70 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs shadow-2xs">
-                          <LockOutlined className="text-xs" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-900 flex items-center gap-1.5">
-                            Front Cover
-                            <span className="text-[9px] bg-orange-100 text-orange-700 font-semibold px-1.5 py-0.2 rounded-full uppercase">
-                              Fixed
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-gray-500 mt-0.5">
-                            {frontFrameCount} Photo Slot{frontFrameCount === 1 ? "" : "s"}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-medium">Page 1</span>
-                    </div>
-                  );
-                })()}
-
-                {/* Reorderable Interior Pages List */}
-                <div className="flex flex-col gap-2 max-h-[calc(100vh-340px)] overflow-y-auto pr-1">
-                  {(() => {
-                    const interiorPages = pagesData.filter(
-                      (p) =>
-                        p.page_type !== "front_cover" &&
-                        p.page_id !== "front-cover" &&
-                        p.page_type !== "back_cover" &&
-                        p.page_id !== "back-cover" &&
-                        !p.is_blank &&
-                        p.page_id !== "blank-inside-front" &&
-                        p.page_id !== "blank-inside-back" &&
-                        p.page_type !== "blank"
-                    );
-
-                    return interiorPages.map((pg, idx) => {
-                      const frameCount = (pg.elements || []).filter(
-                        (el) => el.type === "photo_frame"
-                      ).length;
-                      const placedCount = (pg.elements || []).filter(
-                        (el) => el.type === "photo_frame" && el.photo_url
-                      ).length;
-                      const isDragging = draggedArrangeIndex === idx;
-                      const isDragOver = dragOverArrangeIndex === idx;
-
-                      return (
-                        <div
-                          key={pg.page_id || idx}
-                          draggable
-                          onDragStart={() => setDraggedArrangeIndex(idx)}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            if (dragOverArrangeIndex !== idx) setDragOverArrangeIndex(idx);
-                          }}
-                          onDragEnd={() => {
-                            setDraggedArrangeIndex(null);
-                            setDragOverArrangeIndex(null);
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            if (draggedArrangeIndex !== null && draggedArrangeIndex !== idx) {
-                              handleReorderInteriorPages(draggedArrangeIndex, idx);
-                            }
-                            setDraggedArrangeIndex(null);
-                            setDragOverArrangeIndex(null);
-                          }}
-                          className={`p-2.5 rounded-xl border transition-all flex items-center justify-between group cursor-grab active:cursor-grabbing select-none ${
-                            isDragging
-                              ? "opacity-40 border-dashed border-[#00a896] bg-teal-50/20"
-                              : isDragOver
-                              ? "border-2 border-[#00a896] bg-teal-50/40 shadow-xs scale-[1.01]"
-                              : "border-gray-200 hover:border-gray-300 bg-white shadow-2xs hover:shadow-xs"
-                          }`}
-                        >
-                          {/* Drag Handle & Info */}
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="text-gray-400 group-hover:text-gray-600 transition-colors cursor-grab active:cursor-grabbing">
-                              <HolderOutlined className="text-sm" />
-                            </div>
-                            <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 flex items-center justify-center font-bold text-[11px] shrink-0">
-                              {pg.page_number}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-gray-800 text-xs truncate">
-                                {pg.display_label || `Page ${pg.page_number}`}
-                              </div>
-                              <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1.5">
-                                <span>{frameCount} slot{frameCount === 1 ? "" : "s"}</span>
-                                {placedCount > 0 && (
-                                  <span className="text-[#00a896] font-semibold">
-                                    • {placedCount} filled
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Quick Up / Down Arrow Controls */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMoveInteriorPage(idx, -1);
-                              }}
-                              disabled={idx === 0}
-                              className={`w-6 h-6 rounded flex items-center justify-center text-xs transition-colors ${
-                                idx === 0
-                                  ? "text-gray-200 cursor-not-allowed"
-                                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 cursor-pointer"
-                              }`}
-                              title="Move Up"
-                            >
-                              <ArrowUpOutlined />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMoveInteriorPage(idx, 1);
-                              }}
-                              disabled={idx === interiorPages.length - 1}
-                              className={`w-6 h-6 rounded flex items-center justify-center text-xs transition-colors ${
-                                idx === interiorPages.length - 1
-                                  ? "text-gray-200 cursor-not-allowed"
-                                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 cursor-pointer"
-                              }`}
-                              title="Move Down"
-                            >
-                              <ArrowDownOutlined />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-
-                {/* Fixed Back Cover Card */}
-                {(() => {
-                  const backCover = pagesData.find(
-                    (p) => p.page_type === "back_cover" || p.page_id === "back-cover"
-                  );
-                  const backFrameCount = (backCover?.elements || []).filter(
-                    (el) => el.type === "photo_frame"
-                  ).length;
-                  return (
-                    <div className="p-2.5 rounded-xl border border-gray-200 bg-gray-50/70 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs shadow-2xs">
-                          <LockOutlined className="text-xs" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-900 flex items-center gap-1.5">
-                            Back Cover
-                            <span className="text-[9px] bg-orange-100 text-orange-700 font-semibold px-1.5 py-0.2 rounded-full uppercase">
-                              Fixed
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-gray-500 mt-0.5">
-                            {backFrameCount} Photo Slot{backFrameCount === 1 ? "" : "s"}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-medium">Last Page</span>
-                    </div>
-                  );
-                })()}
-
-                {/* Density Preset Quick Option */}
-                <div className="pt-2 border-t border-gray-100">
-                  <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase block mb-1.5">
-                    Density Presets
-                  </span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { id: "template", label: "Template" },
-                      { id: "1", label: "1/Page" },
-                      { id: "2", label: "2/Page" },
-                      { id: "3", label: "3/Page" },
-                      { id: "4", label: "4/Page" },
-                      { id: "mixed", label: "Mixed" },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => {
-                          setPhotosPerPageMode(mode.id);
-                          syncPhotosToPages(uploadedPhotos, mode.id);
-                          message.success(`Set layout to ${mode.label}`);
-                        }}
-                        className={`py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                          photosPerPageMode === mode.id
-                            ? "bg-[#00a896] text-white shadow-2xs"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Case E: Design Themes */}
-            {activeStudioTool === "design" && (
+            {resolvedTool === "design" && (
               <div className="p-4 sm:p-5 flex flex-col gap-4 select-none h-full overflow-y-auto styled-scrollbar">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3 shrink-0">
                   <div>
@@ -9104,12 +9353,23 @@ const PhotoBookEditorPage = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveStudioTool(null)}
-                    className="w-7 h-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
+                    onClick={closeStudioTool}
+                    className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default shrink-0"
                     title="Close panel"
                   >
                     <CloseOutlined className="text-xs" />
                   </button>
+                </div>
+
+                {/* Theme Switch Layout Notice */}
+                <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200/80 flex items-start gap-2.5 text-xs text-teal-950 shadow-2xs shrink-0">
+                  <InfoCircleOutlined className="text-[#00a896] text-sm mt-0.5 shrink-0" />
+                  <div className="flex flex-col gap-0.5 leading-snug">
+                    <span className="font-bold text-teal-900">Theme Layout Switch</span>
+                    <span className="text-[11px] text-teal-800/90">
+                      Selecting a theme replaces the current page design with the new theme's layout. All your uploaded and placed photos will be automatically preserved.
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-3.5 pb-6">
@@ -9148,81 +9408,8 @@ const PhotoBookEditorPage = () => {
                     return (
                       <div
                         key={tpl._id || tpl.template_id || tpl.template_name}
-                        onClick={() => {
-                          const tplId = tpl.template_id || tpl._id || tpl.slug;
-                          setSelectedTemplateName(tpl.template_name);
-                          if (tplId) setSelectedTemplateId(tplId);
-                          setTemplateData(tpl);
-
-                          // Resolve the matching product template configuration
-                          const productTemplates = productData?.photobook_config?.templates || [];
-                          const cleanTplName = String(tpl.template_name || "").trim().toLowerCase();
-                          const cleanTplId = String(tpl.template_id || tpl._id || tpl.slug || "").trim().toLowerCase();
-                          const matchedProductTemplate = productTemplates.find(
-                            (pt) =>
-                              (pt._id && String(pt._id).trim().toLowerCase() === cleanTplId) ||
-                              (pt.slug && String(pt.slug).trim().toLowerCase() === cleanTplId) ||
-                              (pt.template_id && String(pt.template_id).trim().toLowerCase() === cleanTplId) ||
-                              (pt.template_name && String(pt.template_name).trim().toLowerCase() === cleanTplName)
-                          );
-
-                          // Reconcile edition if new template has specific editions
-                          const tplEditions =
-                            (matchedProductTemplate?.editions && matchedProductTemplate.editions.length > 0
-                              ? matchedProductTemplate.editions
-                              : null) ||
-                            (tpl.editions && tpl.editions.length > 0 ? tpl.editions : null) ||
-                            productData?.photobook_config?.editions ||
-                            [];
-
-                          let reconciledVariant = selectedVariant;
-                          if (tplEditions.length > 0) {
-                            const curVar = String(selectedVariant || "").trim().toLowerCase();
-                            const stillValid = tplEditions.some(
-                              (e) =>
-                                (e.edition_name && String(e.edition_name).trim().toLowerCase() === curVar) ||
-                                (e.name && String(e.name).trim().toLowerCase() === curVar)
-                            );
-                            if (!stillValid) {
-                              reconciledVariant = tplEditions[0].edition_name || tplEditions[0].name;
-                              setSelectedVariant(reconciledVariant);
-                            }
-                          }
-
-                          // Re-clamp or adjust photoBookPages to the new template's min/max pages
-                          const minP = Number(
-                            matchedProductTemplate?.min_pages ||
-                            tpl.min_pages ||
-                            tpl.page_config?.min_pages ||
-                            productData?.photobook_config?.min_pages ||
-                            10
-                          );
-                          const maxP = Number(
-                            matchedProductTemplate?.max_pages ||
-                            tpl.max_pages ||
-                            tpl.page_config?.max_pages ||
-                            productData?.photobook_config?.max_pages ||
-                            60
-                          );
-                          let targetPages = photoBookPages;
-                          if (targetPages < minP) targetPages = minP;
-                          else if (targetPages > maxP) targetPages = maxP;
-                          setPhotoBookPages(targetPages);
-
-                          setDesignData((prev) => ({
-                            ...(prev || {}),
-                            template_id: tplId,
-                            template_name: tpl.template_name,
-                            variant: reconciledVariant,
-                            pages_count: targetPages,
-                          }));
-
-                          const rebuilt = buildPagesFromTemplate(targetPages, tpl, uploadedPhotos);
-                          setPagesData(rebuilt);
-                          setHasUnsavedChanges(true);
-                          message.success(`Applied ${tpl.template_name} theme`);
-                        }}
-                        className={`rounded-2xl border overflow-hidden cursor-pointer transition-all flex flex-col group shrink-0 ${
+                        onClick={() => confirmTemplateSwitch(tpl)}
+                        className={`rounded-2xl border overflow-hidden cursor-default transition-all flex flex-col group shrink-0 ${
                           isSelected
                             ? "border-2 border-[#00a896] shadow-md ring-2 ring-teal-500/10"
                             : "border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white"
@@ -9282,7 +9469,7 @@ const PhotoBookEditorPage = () => {
                               {tpl.template_name}
                             </div>
                             <div className="text-[10px] text-gray-400 mt-0.5">
-                              {tpl.category || "General"} • {tpl.pages?.length || 20} Pages Configured
+                              {tpl.category || "General"}
                             </div>
                           </div>
                           <span
@@ -9303,7 +9490,7 @@ const PhotoBookEditorPage = () => {
             )}
 
             {/* Case F: Book Options */}
-            {activeStudioTool === "options" && !isGiveaway && (() => {
+            {resolvedTool === "options" && !isGiveaway && (() => {
               // Extract bounds and pricing strictly from real template / edition data via priceDetails
               const activeEditionObj =
                 availableEditions.find(
@@ -9519,8 +9706,8 @@ const PhotoBookEditorPage = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setActiveStudioTool(null)}
-                      className="w-7 h-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
+                      onClick={closeStudioTool}
+                      className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
                       title="Close panel"
                     >
                       <CloseOutlined className="text-xs" />
@@ -9576,7 +9763,7 @@ const PhotoBookEditorPage = () => {
                                   setSelectedVariant(ed.edition_name || ed.name);
                                   setHasUnsavedChanges(true);
                                 }}
-                                className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                                className={`p-3 rounded-xl border flex items-center justify-between cursor-default transition-all ${
                                   isChosen
                                     ? "border-[#00a896] bg-teal-50/50 shadow-2xs font-semibold ring-1 ring-teal-200"
                                     : "border-gray-200 hover:border-gray-300 bg-white"
@@ -9636,69 +9823,13 @@ const PhotoBookEditorPage = () => {
                       </div>
                     )}
 
-                    {/* 2. Page Range Selection (Slider + Range Stepper + Chips, NO price tags on buttons) */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div>
-                          <label className="text-xs font-bold text-gray-800 block">Number of Pages</label>
-                          <span className="text-[10px] text-gray-400">
-                            Allowed range: {minPages} – {maxPages} pages
-                          </span>
-                        </div>
-                        <span className="text-sm font-bold text-[#00a896] bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
-                          {photoBookPages} Pages
-                        </span>
-                      </div>
-
-                      {/* Interactive Range Slider with Real Template Min, Base, Max marks */}
-                      <div className="px-2 pt-2 pb-1">
-                        <Slider
-                          min={minPages}
-                          max={maxPages}
-                          step={2}
-                          value={photoBookPages}
-                          onChange={(val) => handleUpdatePageCount(val)}
-                          tooltip={{ formatter: (val) => `${val} Pages` }}
-                          marks={{
-                            [minPages]: {
-                              style: { fontSize: "10px", color: "#64748b", fontWeight: "600" },
-                              label: `${minPages}p`,
-                            },
-                            [basePages]: {
-                              style: { fontSize: "10px", color: "#00a896", fontWeight: "bold" },
-                              label: `${basePages}p`,
-                            },
-                            [maxPages]: {
-                              style: { fontSize: "10px", color: "#64748b", fontWeight: "600" },
-                              label: `${maxPages}p`,
-                            },
-                          }}
-                        />
-                      </div>
-
-                      {/* Page Config Info Pill */}
-                      <div className="text-[11px] text-gray-600 mt-4 flex items-center justify-between bg-teal-50/70 p-3 rounded-xl border border-teal-100">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-gray-900">{photoBookPages} Pages Configured</span>
-                          <span className="text-[10px] text-gray-500">
-                            {photoBookPages === basePages
-                              ? `Standard included pages (${basePages}p)`
-                              : photoBookPages > basePages
-                              ? `+${photoBookPages - basePages} extra pages added`
-                              : `${basePages - photoBookPages} pages below base`}
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs text-[#00a896]">₹{pricePerExtraPage}/extra page</span>
-                      </div>
-                    </div>
-
                   </div>
 
                   {/* 3. Bottom Sticky Pricing Details */}
                   <div className="p-4 border-t border-gray-200 bg-white shrink-0 shadow-lg">
                     <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
                       <div className="flex justify-between text-xs text-slate-600">
-                        <span>Base Photobook ({basePages} pages)</span>
+                        <span>Base Photobook</span>
                         <span>₹{priceDetails.basePrice || 1499}</span>
                       </div>
 
@@ -9735,11 +9866,50 @@ const PhotoBookEditorPage = () => {
               );
             })()}
           </aside>
+            );
+          })()}
+
+          {/* ================================================================= */}
+          {/* FLOATING BOTTOM NAVIGATION (Mobile < md only - Image 1 style)      */}
+          {/* ================================================================= */}
+          <div className="md:hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-24px)] max-w-sm bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/80 px-2 py-1.5 flex items-center justify-around select-none">
+            {[
+              { id: "add", label: "Photos", icon: <PictureOutlined /> },
+              { id: "design", label: "Themes", icon: <BgColorsOutlined /> },
+              { id: "size", label: "Size", icon: <BorderOutlined /> },
+              { id: "options", label: "Options", icon: <SettingOutlined /> },
+            ]
+              .filter((tool) => !isGiveaway || tool.id === "add" || tool.id === "design")
+              .map((tool) => {
+                const isActive = activeStudioTool === tool.id && !isBottomSheetClosing;
+                return (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    onClick={() => {
+                      if (activeStudioTool === tool.id && !isBottomSheetClosing) {
+                        closeStudioTool();
+                      } else {
+                        openStudioTool(tool.id);
+                      }
+                    }}
+                    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-default ${
+                      isActive
+                        ? "text-[#00a896] bg-teal-50 font-bold shadow-2xs"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="text-lg leading-none">{tool.icon}</div>
+                    <span className="text-[10px] mt-1 font-medium tracking-tight">{tool.label}</span>
+                  </button>
+                );
+              })}
+          </div>
         </div>
       )}
 
       {/* ── Photo Preview Modal (Eye button click on uploaded photo) ───────── */}
-      <Modal
+      <Modal wrapClassName="photobook-modal-scope"
         open={Boolean(previewModalUrl)}
         onCancel={() => setPreviewModalUrl(null)}
         footer={null}
@@ -9759,13 +9929,15 @@ const PhotoBookEditorPage = () => {
       </Modal>
 
       {/* ── Realistic Photobook Flip Preview Modal (Front, Spreads, Back) ─── */}
-      <Modal
+      <Modal wrapClassName="photobook-modal-scope"
         open={isPreviewModalOpen}
         onCancel={() => setIsPreviewModalOpen(false)}
         footer={null}
         centered
         width={980}
-        styles={{ body: { padding: "16px 20px" } }}
+        closeIcon={null}
+        className="photobook-preview-modal"
+        styles={{ body: { padding: 0, borderRadius: "20px", overflow: "hidden", background: "transparent" } }}
       >
         <RealisticBookPreview
           steps={previewSteps}
@@ -9780,7 +9952,7 @@ const PhotoBookEditorPage = () => {
       </Modal>
 
       {/* ── Page Customization Modal (Printshoppy Theme) ───────────────────── */}
-      <Modal
+      <Modal wrapClassName="photobook-modal-scope"
         open={editingModalOpen}
         onCancel={() => setEditingModalOpen(false)}
         footer={null}
@@ -9811,11 +9983,11 @@ const PhotoBookEditorPage = () => {
             return (
               <div className="bg-white flex flex-col rounded-none overflow-hidden select-none">
                 {/* 1. Page Text Modal Header */}
-                <div className="h-14 px-5 border-b border-gray-100 flex items-center justify-between">
+                <div className="h-12 px-3 sm:h-14 sm:px-5 border-b border-gray-100 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={handleCancelTextDraft}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-black transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-black transition-colors cursor-default"
                   >
                     <LeftOutlined className="text-xs" />
                     <span>Back to Page</span>
@@ -9828,7 +10000,7 @@ const PhotoBookEditorPage = () => {
                   <button
                     type="button"
                     onClick={handleCancelTextDraft}
-                    className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+                    className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
                     title="Close"
                   >
                     <CloseOutlined className="text-sm" />
@@ -9836,7 +10008,7 @@ const PhotoBookEditorPage = () => {
                 </div>
 
                 {/* 2. Page Text Form Body */}
-                <div className="p-6 flex flex-col gap-5 max-h-[75vh] overflow-y-auto">
+                <div className="p-3 sm:p-6 flex flex-col gap-3.5 sm:gap-5 max-h-[75vh] overflow-y-auto">
                   {/* A. Live Text Preview Card (Dynamic Black/White Contrast Background) */}
                   {(() => {
                     const isWhiteFamily = isWhiteFamilyColor(textFormDraft.color);
@@ -9934,7 +10106,7 @@ const PhotoBookEditorPage = () => {
                             type="button"
                             onClick={() => setTextFormDraft((prev) => ({ ...prev, font_family: f.name }))}
                             style={{ fontFamily: getFontFamilyFallback(f.name) }}
-                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col ${
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-default flex flex-col ${
                               isSelected
                                 ? "border-2 border-[#00a896] bg-[#00a896]/10 text-[#00a896] font-bold shadow-xs"
                                 : "border-gray-200 hover:border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -9969,7 +10141,7 @@ const PhotoBookEditorPage = () => {
                               font_size: Math.max(14, (Number(prev.font_size) || 28) - 2),
                             }))
                           }
-                          className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-sm transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-sm transition-colors cursor-default"
                         >
                           -
                         </button>
@@ -9982,7 +10154,7 @@ const PhotoBookEditorPage = () => {
                           onChange={(e) =>
                             setTextFormDraft((prev) => ({ ...prev, font_size: Number(e.target.value) }))
                           }
-                          className="flex-1 accent-[#00a896] cursor-pointer"
+                          className="flex-1 accent-[#00a896] cursor-default"
                         />
                         <button
                           type="button"
@@ -9992,7 +10164,7 @@ const PhotoBookEditorPage = () => {
                               font_size: Math.min(72, (Number(prev.font_size) || 28) + 2),
                             }))
                           }
-                          className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-sm transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-sm transition-colors cursor-default"
                         >
                           +
                         </button>
@@ -10014,7 +10186,7 @@ const PhotoBookEditorPage = () => {
                               key={val}
                               type="button"
                               onClick={() => setTextFormDraft((prev) => ({ ...prev, align: val }))}
-                              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-default ${
                                 isSelected
                                   ? "bg-white text-gray-900 shadow-xs"
                                   : "text-gray-500 hover:text-gray-900"
@@ -10051,7 +10223,7 @@ const PhotoBookEditorPage = () => {
                             type="button"
                             onClick={() => setTextFormDraft((prev) => ({ ...prev, color: c.value }))}
                             style={{ backgroundColor: c.value }}
-                            className={`w-7 h-7 rounded-full transition-transform cursor-pointer relative shadow-xs ${
+                            className={`w-7 h-7 rounded-full transition-transform cursor-default relative shadow-xs ${
                               isSelected ? "scale-125 ring-2 ring-offset-2 ring-[#00a896]" : "hover:scale-110"
                             } ${c.value === "#ffffff" ? "border border-gray-300" : ""}`}
                             title={c.label}
@@ -10060,14 +10232,14 @@ const PhotoBookEditorPage = () => {
                       })}
                       {/* Custom Color Input */}
                       <label
-                        className="w-7 h-7 rounded-full border border-dashed border-gray-300 hover:border-gray-400 flex items-center justify-center cursor-pointer transition-colors relative overflow-hidden"
+                        className="w-7 h-7 rounded-full border border-dashed border-gray-300 hover:border-gray-400 flex items-center justify-center cursor-default transition-colors relative overflow-hidden"
                         title="Custom Color"
                       >
                         <input
                           type="color"
                           value={textFormDraft.color || "#000000"}
                           onChange={(e) => setTextFormDraft((prev) => ({ ...prev, color: e.target.value }))}
-                          className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                          className="opacity-0 absolute inset-0 cursor-default w-full h-full"
                         />
                         <span className="text-[10px] text-gray-500 font-bold">🎨</span>
                       </label>
@@ -10091,7 +10263,7 @@ const PhotoBookEditorPage = () => {
                                 shadow: { enable: false, color: "#000000", blur: 0, offsetX: 0, offsetY: 0 },
                               }))
                             }
-                            className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                            className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-default"
                           >
                             Remove
                           </button>
@@ -10116,7 +10288,7 @@ const PhotoBookEditorPage = () => {
                             },
                           }))
                         }
-                        className="w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-xs transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-xs transition-colors cursor-default"
                       >
                         -
                       </button>
@@ -10140,7 +10312,7 @@ const PhotoBookEditorPage = () => {
                             },
                           }));
                         }}
-                        className="flex-1 accent-[#00a896] cursor-pointer"
+                        className="flex-1 accent-[#00a896] cursor-default"
                       />
                       <button
                         type="button"
@@ -10157,7 +10329,7 @@ const PhotoBookEditorPage = () => {
                             },
                           }))
                         }
-                        className="w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-xs transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center font-bold text-gray-600 text-xs transition-colors cursor-default"
                       >
                         +
                       </button>
@@ -10185,14 +10357,14 @@ const PhotoBookEditorPage = () => {
                               }))
                             }
                             style={{ backgroundColor: sc }}
-                            className={`w-5 h-5 rounded-full border transition-transform cursor-pointer ${
+                            className={`w-5 h-5 rounded-full border transition-transform cursor-default ${
                               (textFormDraft.shadow?.color || "rgba(0,0,0,0.6)") === sc
                                 ? "ring-2 ring-[#00a896] scale-110 border-white"
                                 : "border-gray-300 hover:scale-105"
                             }`}
                           />
                         ))}
-                        <label className="w-5 h-5 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-pointer relative overflow-hidden" title="Custom color">
+                        <label className="w-5 h-5 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-default relative overflow-hidden" title="Custom color">
                           <input
                             type="color"
                             value={textFormDraft.shadow?.color?.startsWith("#") ? textFormDraft.shadow.color : "#000000"}
@@ -10210,7 +10382,7 @@ const PhotoBookEditorPage = () => {
                                 },
                               }));
                             }}
-                            className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                            className="opacity-0 absolute inset-0 cursor-default w-full h-full"
                           />
                           <span className="text-[8px]">🎨</span>
                         </label>
@@ -10258,7 +10430,7 @@ const PhotoBookEditorPage = () => {
                                   }));
                                 }
                               }}
-                              className={`px-2 py-0.5 rounded capitalize font-semibold transition-all cursor-pointer ${
+                              className={`px-2 py-0.5 rounded capitalize font-semibold transition-all cursor-default ${
                                 isActive ? "bg-white text-teal-800 shadow-xs" : "text-gray-500 hover:text-black"
                               }`}
                             >
@@ -10289,7 +10461,7 @@ const PhotoBookEditorPage = () => {
                                 }))
                               }
                               style={{ backgroundColor: bgc.value }}
-                              className={`w-6 h-6 rounded-full border transition-transform cursor-pointer ${
+                              className={`w-6 h-6 rounded-full border transition-transform cursor-default ${
                                 textFormDraft.background?.value === bgc.value
                                   ? "ring-2 ring-[#00a896] scale-110 border-white shadow-xs"
                                   : "border-gray-300 hover:scale-105"
@@ -10297,7 +10469,7 @@ const PhotoBookEditorPage = () => {
                               title={bgc.label}
                             />
                           ))}
-                          <label className="w-6 h-6 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-pointer relative overflow-hidden" title="Custom color">
+                          <label className="w-6 h-6 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-default relative overflow-hidden" title="Custom color">
                             <input
                               type="color"
                               value={textFormDraft.background?.value || "#ffffff"}
@@ -10312,7 +10484,7 @@ const PhotoBookEditorPage = () => {
                                   },
                                 }));
                               }}
-                              className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                              className="opacity-0 absolute inset-0 cursor-default w-full h-full"
                             />
                             <span className="text-[9px]">🎨</span>
                           </label>
@@ -10342,7 +10514,7 @@ const PhotoBookEditorPage = () => {
                                   }))
                                 }
                                 style={{ background: g.value }}
-                                className={`p-1.5 rounded-lg border text-left cursor-pointer transition-all h-8 flex items-end shadow-2xs ${
+                                className={`p-1.5 rounded-lg border text-left cursor-default transition-all h-8 flex items-end shadow-2xs ${
                                   isSelected ? "ring-2 ring-teal-500 border-white" : "border-gray-200 hover:opacity-90"
                                 }`}
                               >
@@ -10374,7 +10546,7 @@ const PhotoBookEditorPage = () => {
                                 background: { ...(prev.background || {}), padding: val },
                               }));
                             }}
-                            className="flex-1 accent-[#00a896] cursor-pointer"
+                            className="flex-1 accent-[#00a896] cursor-default"
                           />
                           <span className="font-mono text-[10px] text-teal-700 font-bold w-5">{textFormDraft.background?.padding ?? 6}px</span>
                         </div>
@@ -10393,7 +10565,7 @@ const PhotoBookEditorPage = () => {
                                 background: { ...(prev.background || {}), radius: val },
                               }));
                             }}
-                            className="flex-1 accent-[#00a896] cursor-pointer"
+                            className="flex-1 accent-[#00a896] cursor-default"
                           />
                           <span className="font-mono text-[10px] text-teal-700 font-bold w-5">{textFormDraft.background?.radius ?? 4}px</span>
                         </div>
@@ -10403,18 +10575,18 @@ const PhotoBookEditorPage = () => {
                 </div>
 
                 {/* 3. Page Text Footer */}
-                <div className="px-6 py-3.5 border-t border-gray-100 flex items-center justify-between bg-white">
+                <div className="px-4 py-2.5 sm:px-6 sm:py-3.5 border-t border-gray-100 flex items-center justify-between bg-white">
                   <button
                     type="button"
                     onClick={handleCancelTextDraft}
-                    className="text-xs font-semibold text-gray-600 hover:text-black px-4 py-2 transition-colors cursor-pointer"
+                    className="text-xs font-semibold text-gray-600 hover:text-black px-3 py-1.5 sm:px-4 sm:py-2 transition-colors cursor-default"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveTextDraft}
-                    className="bg-[#00a896] hover:bg-[#009282] text-white font-bold text-xs px-8 py-2 rounded-lg transition-colors shadow-sm cursor-pointer"
+                    className="bg-[#00a896] hover:bg-[#009282] text-white font-bold text-xs px-6 py-2 sm:px-8 sm:py-2 rounded-lg transition-colors shadow-sm cursor-default"
                   >
                     Save Text
                   </button>
@@ -10425,9 +10597,9 @@ const PhotoBookEditorPage = () => {
 
           // ── CASE 2: NORMAL PAGE CUSTOMIZATION VIEW ────────────────────────
           return (
-            <div className="bg-white flex flex-col rounded-none overflow-hidden select-none">
+            <div className="w-full min-w-0 max-w-full bg-white flex flex-col rounded-none overflow-hidden select-none">
               {/* 1. Modal Top Bar */}
-              <div className="h-14 px-5 border-b border-gray-100 flex items-center justify-between">
+              <div className="h-12 px-3 sm:h-14 sm:px-5 border-b border-gray-100 flex items-center justify-between">
                 {/* Left: Undo / Redo */}
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <button
@@ -10435,7 +10607,7 @@ const PhotoBookEditorPage = () => {
                     onClick={handleModalUndo}
                     disabled={modalUndoStack.length === 0}
                     className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center transition-all ${
-                      modalUndoStack.length === 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-gray-100 text-gray-700 cursor-pointer"
+                      modalUndoStack.length === 0 ? "opacity-30 cursor-default" : "hover:bg-gray-100 text-gray-700 cursor-default"
                     }`}
                     title="Undo"
                   >
@@ -10446,7 +10618,7 @@ const PhotoBookEditorPage = () => {
                     onClick={handleModalRedo}
                     disabled={modalRedoStack.length === 0}
                     className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center transition-all ${
-                      modalRedoStack.length === 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-gray-100 text-gray-700 cursor-pointer"
+                      modalRedoStack.length === 0 ? "opacity-30 cursor-default" : "hover:bg-gray-100 text-gray-700 cursor-default"
                     }`}
                     title="Redo"
                   >
@@ -10461,7 +10633,7 @@ const PhotoBookEditorPage = () => {
                     onClick={handlePrevPageInModal}
                     disabled={currentEditableIndex === 0}
                     className={`p-1 text-gray-400 hover:text-gray-700 transition-colors ${
-                      currentEditableIndex === 0 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+                      currentEditableIndex === 0 ? "opacity-30 cursor-default" : "cursor-default"
                     }`}
                     title="Previous Page"
                   >
@@ -10475,7 +10647,7 @@ const PhotoBookEditorPage = () => {
                     onClick={handleNextPageInModal}
                     disabled={currentEditableIndex >= allEditablePages.length - 1}
                     className={`w-6 h-6 rounded-full bg-[#00a896] hover:bg-[#008f80] text-white flex items-center justify-center transition-all shadow-xs ${
-                      currentEditableIndex >= allEditablePages.length - 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-105 active:scale-95"
+                      currentEditableIndex >= allEditablePages.length - 1 ? "opacity-40 cursor-default" : "cursor-default hover:scale-105 active:scale-95"
                     }`}
                     title="Next Page"
                   >
@@ -10487,14 +10659,14 @@ const PhotoBookEditorPage = () => {
                 <button
                   type="button"
                   onClick={() => setEditingModalOpen(false)}
-                  className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
                 >
                   <CloseOutlined className="text-sm" />
                 </button>
               </div>
 
-              {/* 2. Main Canvas Preview Area (Exact 1:1 Rendering of Template Canvas with Sharp Borders) */}
-              <div className="p-5 flex flex-col items-center bg-gray-50/50">
+              {/* 2. Main Canvas Preview Area (Strict Aspect Ratio matching Selected Size with No Distortion) */}
+              <div className="pt-6 pb-2 px-1 sm:pt-10 sm:pb-4 sm:px-4 md:pt-12 md:pb-5 md:px-5 flex flex-col items-center bg-gray-50/50">
                 <div
                   ref={canvasContainerRef}
                   onClick={(e) => {
@@ -10509,12 +10681,121 @@ const PhotoBookEditorPage = () => {
                       setSelectedModalElementId(null);
                     }
                   }}
-                  className="relative w-auto h-[440px] max-h-[58vh] max-w-full rounded-none shadow-md border border-gray-300 overflow-visible select-none bg-white transition-all duration-300"
+                  className="relative mx-auto rounded-none shadow-md border border-gray-300 overflow-visible select-none bg-white transition-all duration-300"
                   style={{
-                    aspectRatio: `${activeSizeInfo.singlePageRatio}`,
+                    aspectRatio: `${activeSizeInfo.singlePageRatio || 1}`,
+                    width: `min(100%, calc(min(440px, 48vh) * ${activeSizeInfo.singlePageRatio || 1}))`,
+                    maxHeight: "48vh",
                     containerType: "inline-size",
                   }}
                 >
+                  {/* Tooltip floating just above the selected element (visible only when element is selected) */}
+                  {(() => {
+                    if (!selectedModalElementId) return null;
+                    if (draftTexts.some((t) => t.id === selectedModalElementId)) return null;
+
+                    const activeFrame = draftFrames.find(
+                      (f) => (f.id || f.frame_id) === selectedModalElementId
+                    );
+                    if (!activeFrame) return null;
+
+                    const originalIdx = draftFrames.findIndex(
+                      (f) => (f.id || f.frame_id) === (activeFrame.id || activeFrame.frame_id)
+                    );
+                    const fIdx = originalIdx !== -1 ? originalIdx : 0;
+                    const activePhotoUrl =
+                      activeFrame.photo_url ||
+                      activeFrame.test_image_url ||
+                      activeFrame.sample_image_url ||
+                      activeFrame.image_url ||
+                      "";
+                    const hasPhoto = Boolean(activePhotoUrl);
+                    const coords = getElementCoords(activeFrame);
+                    const targetLeft = Math.max(18, Math.min(82, coords.left + coords.width / 2));
+
+                    return (
+                      <div
+                        style={{
+                          left: `${targetLeft}%`,
+                          top: `calc(${coords.top}% - 44px)`,
+                        }}
+                        className="absolute -translate-x-1/2 z-[1000] flex items-center gap-1.5 bg-slate-900/95 text-white border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md whitespace-nowrap select-none transition-all duration-150"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          lastModalElementClickRef.current = Date.now();
+                        }}
+                      >
+                        {/* Tooltip pointer caret */}
+                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900/95 border-b border-r border-slate-700/80 rotate-45 pointer-events-none" />
+
+                       
+                        <Tooltip
+                          title="Change Image"
+                          placement="top"
+                          getPopupContainer={() => document.body}
+                          zIndex={99999}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              lastModalElementClickRef.current = Date.now();
+                              setTargetPhotoIndexForChange(fIdx);
+                              setIsReplacePhotoModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors shadow-xs cursor-default"
+                          >
+                            <PictureOutlined className="text-xs" />
+                            <span className="hidden sm:inline">Change Image</span>
+                          </button>
+                        </Tooltip>
+
+                        {hasPhoto && (
+                          <Tooltip
+                            title="Flip Image"
+                            placement="top"
+                            getPopupContainer={() => document.body}
+                            zIndex={99999}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                lastModalElementClickRef.current = Date.now();
+                                handleToggleModalFrameFlip(activeFrame.id || activeFrame.frame_id);
+                              }}
+                              className="flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-semibold text-xs transition-colors border border-slate-700 shadow-xs cursor-default"
+                            >
+                              <SwapOutlined className="text-xs" />
+                              <span className="hidden sm:inline">Flip Image</span>
+                            </button>
+                          </Tooltip>
+                        )}
+
+                        {hasPhoto && (
+                          <Tooltip
+                            title="Remove Image"
+                            placement="top"
+                            getPopupContainer={() => document.body}
+                            zIndex={99999}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                lastModalElementClickRef.current = Date.now();
+                                handleRemovePhotoFromDraft(fIdx);
+                              }}
+                              className="flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 hover:text-rose-300 font-semibold text-xs transition-colors border border-slate-700 shadow-xs cursor-default"
+                            >
+                              <DeleteOutlined className="text-xs" />
+                              <span className="hidden sm:inline">Remove Image</span>
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* Clipped Page Content Area (Hides/crops any content overflowing layout or page boundaries) */}
                   <div className="absolute inset-0 overflow-hidden bg-white modal-canvas-clip-layer">
                   {/* Page Background Layer (Image, Gradient, Color with Opacity) */}
@@ -10639,7 +10920,7 @@ const PhotoBookEditorPage = () => {
                           }
                         }}
                         className={`group relative overflow-visible transition-all flex items-center justify-center ${
-                          isCustomerEditable ? "cursor-move" : "cursor-default"
+                          isCustomerEditable ? "cursor-default" : "cursor-default"
                         }`}
                       >
                         {/* Hidden SVG with objectBoundingBox clipPath */}
@@ -10704,7 +10985,7 @@ const PhotoBookEditorPage = () => {
                                 setTargetPhotoIndexForChange(idx);
                                 setIsReplacePhotoModalOpen(true);
                               }}
-                              className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-slate-400 group-hover:text-amber-600 transition-colors pointer-events-auto cursor-pointer"
+                              className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-slate-400 group-hover:text-amber-600 transition-colors pointer-events-auto cursor-default"
                             >
                               <PictureOutlined className="text-xl mb-1 text-slate-400 group-hover:text-amber-500" />
                               <span className="text-[10px] font-semibold text-slate-500 group-hover:text-amber-600">
@@ -10735,113 +11016,13 @@ const PhotoBookEditorPage = () => {
 
                         {/* Active Selection Overlay matching Admin InteractiveElement */}
                         {isSelected && (
-                          <>
-                            {/* Cyan Selection Border */}
-                            <div className="absolute inset-0 border-2 border-cyan-400 pointer-events-none shadow-sm z-30" />
-
-                            {/* Floating Quick Action Mini Toolbar */}
-                            <div
-                              className="absolute -top-18 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-900/95 text-white border border-slate-700/80 px-2.5 py-1 rounded-xl shadow-2xl backdrop-blur-md pointer-events-auto z-[100] text-xs whitespace-nowrap select-none"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                lastModalElementClickRef.current = Date.now();
-                              }}
-                            >
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  lastModalElementClickRef.current = Date.now();
-                                  setTargetPhotoIndexForChange(idx);
-                                  setIsReplacePhotoModalOpen(true);
-                                }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-teal-400 hover:text-teal-300 font-semibold cursor-pointer text-[11px]"
-                                title="Change Image"
-                              >
-                                <PictureOutlined className="text-xs" />
-                                <span>Change Image</span>
-                              </button>
-                              {!isGiveaway && (
-                                <>
-                                  <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
-                                  <button
-                                    type="button"
-                                    title="Flip Image Horizontally"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      lastModalElementClickRef.current = Date.now();
-                                      handleToggleModalFrameFlip(frame.id || frame.frame_id);
-                                    }}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-sky-400 hover:text-sky-300 font-semibold cursor-pointer text-[11px]"
-                                  >
-                                    <SwapOutlined className="text-xs" />
-                                    <span>Flip</span>
-                                  </button>
-                                  {!isCoverPage && draftFrames.length > 1 && (
-                                    <>
-                                      <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
-                                      <button
-                                        type="button"
-                                        title="Remove Photo Placeholder"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          lastModalElementClickRef.current = Date.now();
-                                          handleDeleteModalFrame(frame.id || frame.frame_id);
-                                        }}
-                                        className="w-6 h-6 rounded flex items-center justify-center hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 cursor-pointer"
-                                      >
-                                        <DeleteOutlined className="text-[10px]" />
-                                      </button>
-                                    </>
-                                  )}
-                                </>
-                              )}
-                            </div>
-
-                            {!isGiveaway && (
-                              <>
-                                {/* 8 Resizing Handles */}
-                                {MODAL_RESIZE_HANDLES.map((handle) => (
-                                  <div
-                                    key={handle.position}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      lastModalElementClickRef.current = Date.now();
-                                    }}
-                                    onMouseDown={(e) => handleModalResizeMouseDown(e, handle, frame)}
-                                    className="absolute w-3 h-3 bg-white border-2 border-teal-600 rounded-sm pointer-events-auto hover:scale-125 transition-transform z-40"
-                                    style={{
-                                      left: `${handle.xPct * 100}%`,
-                                      top: `${handle.yPct * 100}%`,
-                                      transform: "translate(-50%, -50%)",
-                                      cursor: handle.cursor,
-                                    }}
-                                    title={`Resize (${handle.position})`}
-                                  />
-                                ))}
-
-                                {/* Rotation Handle with connecting line */}
-                                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 w-0.5 h-6 bg-teal-500 z-30 pointer-events-none" />
-                                <div
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    lastModalElementClickRef.current = Date.now();
-                                  }}
-                                  onMouseDown={(e) => handleModalRotateMouseDown(e, frame)}
-                                  className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white border-2 border-teal-600 rounded-full shadow-md pointer-events-auto flex items-center justify-center hover:scale-110 cursor-grab active:cursor-grabbing transition-transform text-teal-700 z-40"
-                                  title="Rotate element (drag around center)"
-                                >
-                                  <RotateRightOutlined className="text-[11px]" />
-                                </div>
-                              </>
-                            )}
-                          </>
+                          <div className="absolute inset-0 border-2 border-cyan-400 pointer-events-none shadow-sm z-30" />
                         )}
                       </div>
                     );
                   })}
 
-                  {/* Text Elements: Exact Same Font, Weight, Letter-spacing, Alignment, Height, and Draggable anywhere */}
+                  {/* Text Elements: Exact Same Font, Weight, Letter-spacing, Alignment, Height */}
                   {draftTexts.map((txt) => {
                     const coords = getElementCoords(txt);
                     const leftPct = coords.left;
@@ -10850,7 +11031,7 @@ const PhotoBookEditorPage = () => {
                     const heightPct = coords.height;
 
                     const hasExplicitNewlines = txt.content && String(txt.content).includes("\n");
-                    const isCustomerEditable = Boolean(txt.is_customer_editable) && !isGiveaway;
+                    const isCustomerEditable = Boolean(txt.is_customer_editable || txt.allowCustomerEdit);
                     const isSelected = isCustomerEditable && selectedModalElementId === txt.id;
 
                     return (
@@ -10861,11 +11042,6 @@ const PhotoBookEditorPage = () => {
                           lastModalElementClickRef.current = Date.now();
                           if (isCustomerEditable) {
                             setSelectedModalElementId(txt.id);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          if (isCustomerEditable) {
-                            handleModalElementMouseDown(e, txt);
                           }
                         }}
                         style={{
@@ -10880,6 +11056,7 @@ const PhotoBookEditorPage = () => {
                           fontSize: `calc(${Number(txt.font_size || 24)} * (100cqw / 707))`,
                           fontWeight: txt.font_weight || "normal",
                           fontStyle: txt.font_style || "normal",
+                          textTransform: txt.text_transform || txt.textTransform || "none",
                           letterSpacing: txt.letter_spacing ? `calc(${Number(txt.letter_spacing)} * (100cqw / 707))` : "normal",
                           lineHeight: txt.line_height || 1.2,
                           textAlign: txt.align || "center",
@@ -10914,10 +11091,10 @@ const PhotoBookEditorPage = () => {
                           transformOrigin: "center center",
                           zIndex: isSelected ? 99 : Math.max(100, Number(txt.z_index) || 100),
                         }}
-                        className={`leading-tight ${isCustomerEditable ? "cursor-move hover:outline hover:outline-1 hover:outline-cyan-400" : "cursor-default"} rounded-none transition-all select-none`}
-                        title={isCustomerEditable ? "Click to select • Drag to position anywhere" : "Fixed Template Text"}
+                        className={`leading-tight ${isCustomerEditable ? "cursor-default hover:outline hover:outline-1 hover:outline-cyan-400" : "cursor-default"} rounded-none transition-all select-none`}
+                        title={isCustomerEditable ? "Click to select and edit text" : "Fixed Template Text"}
                       >
-                        <span style={{ width: "100%", maxWidth: "100%", whiteSpace: hasExplicitNewlines ? "pre-line" : "normal", wordBreak: "break-word", overflowWrap: "break-word", textAlign: txt.align || "center", fontFamily: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit" }}>
+                        <span style={{ width: "100%", maxWidth: "100%", whiteSpace: hasExplicitNewlines ? "pre-line" : "normal", wordBreak: "break-word", overflowWrap: "break-word", textAlign: txt.align || "center", fontFamily: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit", textTransform: txt.text_transform || txt.textTransform || "none" }}>
                           {txt.content}
                         </span>
 
@@ -10939,59 +11116,12 @@ const PhotoBookEditorPage = () => {
                                   lastModalElementClickRef.current = Date.now();
                                   handleOpenTextEditor(txt);
                                 }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-amber-400 hover:text-amber-300 font-semibold cursor-pointer text-[11px]"
+                                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-amber-400 hover:text-amber-300 font-semibold cursor-default text-[11px]"
                                 title="Edit Text"
                               >
                                 <EditOutlined className="text-xs" />
                                 <span>Edit Text</span>
                               </button>
-                              <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
-                              <button
-                                type="button"
-                                title="Remove Text"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  lastModalElementClickRef.current = Date.now();
-                                  handleDeleteTextFromDraft(txt.id);
-                                }}
-                                className="w-6 h-6 rounded flex items-center justify-center hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 cursor-pointer"
-                              >
-                                <DeleteOutlined className="text-[10px]" />
-                              </button>
-                            </div>
-
-                            {/* 8 Resizing Handles for text */}
-                            {MODAL_RESIZE_HANDLES.map((handle) => (
-                              <div
-                                key={handle.position}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  lastModalElementClickRef.current = Date.now();
-                                }}
-                                onMouseDown={(e) => handleModalResizeMouseDown(e, handle, txt)}
-                                className="absolute w-3 h-3 bg-white border-2 border-teal-600 rounded-sm pointer-events-auto hover:scale-125 transition-transform z-40"
-                                style={{
-                                  left: `${handle.xPct * 100}%`,
-                                  top: `${handle.yPct * 100}%`,
-                                  transform: "translate(-50%, -50%)",
-                                  cursor: handle.cursor,
-                                }}
-                                title={`Resize (${handle.position})`}
-                              />
-                            ))}
-
-                            {/* Rotation Handle for text */}
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 w-0.5 h-6 bg-teal-500 z-30 pointer-events-none" />
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                lastModalElementClickRef.current = Date.now();
-                              }}
-                              onMouseDown={(e) => handleModalRotateMouseDown(e, txt)}
-                              className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white border-2 border-teal-600 rounded-full shadow-md pointer-events-auto flex items-center justify-center hover:scale-110 cursor-grab active:cursor-grabbing transition-transform text-teal-700 z-40"
-                              title="Rotate text (drag around center)"
-                            >
-                              <RotateRightOutlined className="text-[11px]" />
                             </div>
                           </>
                         )}
@@ -11049,9 +11179,7 @@ const PhotoBookEditorPage = () => {
 
                 {/* Subtitle Hint */}
                 <p className="text-[11px] text-gray-400 mt-2 text-center select-none font-medium">
-                  {isGiveaway
-                    ? "Click any photo to change photo, shape, fit & zoom below"
-                    : "Click any photo or text to rotate, resize, drag or change • Adjust fit & zoom below"}
+                  Click any photo to change photo, fit & zoom below
                 </p>
 
                 {/* Dedicated In-Frame Image Fit & Zoom Controls (No Destructive Cropping!) */}
@@ -11071,18 +11199,25 @@ const PhotoBookEditorPage = () => {
                             Photo Controls: {selectedFrame.frame_id || "Selected Frame"}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const fIdx = draftFrames.findIndex((f) => (f.id || f.frame_id) === (selectedFrame.id || selectedFrame.frame_id));
-                            setTargetPhotoIndexForChange(fIdx !== -1 ? fIdx : 0);
-                            setIsReplacePhotoModalOpen(true);
-                          }}
-                          className="bg-[#f97316] hover:bg-orange-600 text-white font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                        <Tooltip
+                          title="Change Image"
+                          placement="top"
+                          getPopupContainer={() => document.body}
+                          zIndex={99999}
                         >
-                          <PictureOutlined />
-                          <span>Change Image</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const fIdx = draftFrames.findIndex((f) => (f.id || f.frame_id) === (selectedFrame.id || selectedFrame.frame_id));
+                              setTargetPhotoIndexForChange(fIdx !== -1 ? fIdx : 0);
+                              setIsReplacePhotoModalOpen(true);
+                            }}
+                            className="bg-[#f97316] hover:bg-orange-600 text-white font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+                          >
+                            <PictureOutlined />
+                            <span>Change Image</span>
+                          </button>
+                        </Tooltip>
                       </div>
 
                       {/* Row 1: Fit Mode Toggle (Cover, Contain, Stretch) */}
@@ -11100,7 +11235,7 @@ const PhotoBookEditorPage = () => {
                                 key={m.key}
                                 type="button"
                                 onClick={() => handleUpdateModalFrameFit(selectedFrame.id || selectedFrame.frame_id, m.key)}
-                                className={`py-1 px-2 text-xs font-semibold rounded-lg transition-all cursor-pointer text-center ${
+                                className={`py-1 px-2 text-xs font-semibold rounded-lg transition-all text-center ${
                                   isActive
                                     ? "bg-[#00a896] text-white shadow-xs"
                                     : "text-gray-600 hover:text-black hover:bg-white/60"
@@ -11114,38 +11249,6 @@ const PhotoBookEditorPage = () => {
                         </div>
                       </div>
 
-                      {/* Row 1b: Frame Shape Selection */}
-                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
-                        <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Frame Shape:</span>
-                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                          {[
-                            { key: "rectangle", label: "Rectangle" },
-                            { key: "circle", label: "Circle" },
-                            { key: "heart", label: "Heart" },
-                            { key: "star", label: "Star" },
-                            { key: "hexagon", label: "Hexagon" },
-                            { key: "arch", label: "Arch" },
-                            { key: "scallop", label: "Scallop" },
-                          ].map((sh) => {
-                            const isCur = (selectedFrame.shape || "rectangle") === sh.key;
-                            return (
-                              <button
-                                key={sh.key}
-                                type="button"
-                                onClick={() => handleUpdateModalFrameShape(selectedFrame.id || selectedFrame.frame_id, sh.key)}
-                                className={`py-1 px-2 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                                  isCur
-                                    ? "bg-[#00a896] text-white shadow-xs"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                }`}
-                              >
-                                {sh.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
                       {/* Row 2: In-Frame Zoom Controls */}
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Photo Zoom:</span>
@@ -11153,7 +11256,7 @@ const PhotoBookEditorPage = () => {
                           <button
                             type="button"
                             onClick={() => handleUpdateModalFrameZoom(selectedFrame.id || selectedFrame.frame_id, (selectedFrame.crop?.zoom || 1) - 0.1)}
-                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm cursor-pointer transition-colors"
+                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm transition-colors"
                             title="Zoom Out (-)"
                           >
                             -
@@ -11169,7 +11272,7 @@ const PhotoBookEditorPage = () => {
                           <button
                             type="button"
                             onClick={() => handleUpdateModalFrameZoom(selectedFrame.id || selectedFrame.frame_id, (selectedFrame.crop?.zoom || 1) + 0.1)}
-                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm cursor-pointer transition-colors"
+                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm transition-colors"
                             title="Zoom In (+)"
                           >
                             +
@@ -11180,7 +11283,7 @@ const PhotoBookEditorPage = () => {
                           <button
                             type="button"
                             onClick={() => handleResetModalFrameZoom(selectedFrame.id || selectedFrame.frame_id)}
-                            className="text-[10px] text-gray-400 hover:text-teal-600 font-bold px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                            className="text-[10px] text-gray-400 hover:text-teal-600 font-bold px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors"
                             title="Reset Zoom to 100%"
                           >
                             Reset
@@ -11217,89 +11320,6 @@ const PhotoBookEditorPage = () => {
                           </div>
                         </div>
                       )}
-
-                      {/* Row 4: Border Controls (Thickness & Color) */}
-                      <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-gray-700">Border Thickness & Color:</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                              {selectedFrame.border?.width || 0}px
-                            </span>
-                            {(selectedFrame.border?.width || 0) > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: 0 })}
-                                className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: Math.max(0, (selectedFrame.border?.width || 0) - 2) })}
-                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm cursor-pointer transition-colors"
-                            title="Decrease Border Width"
-                          >
-                            -
-                          </button>
-                          <Slider
-                            min={0}
-                            max={40}
-                            step={1}
-                            value={selectedFrame.border?.width || 0}
-                            onChange={(w) => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: w })}
-                            className="flex-1 my-0"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, { width: Math.min(40, (selectedFrame.border?.width || 0) + 2) })}
-                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-sm cursor-pointer transition-colors"
-                            title="Increase Border Width"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        {/* Border Color Chips & Picker */}
-                        <div className="flex items-center justify-between gap-2 pt-0.5">
-                          <span className="text-[11px] text-gray-500 font-medium">Border Color:</span>
-                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                            {["#ffffff", "#000000", "#d4af37", "#00a896", "#f43f5e", "#cbd5e1", "#1e293b"].map((c) => (
-                              <button
-                                key={c}
-                                type="button"
-                                onClick={() => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, {
-                                  color: c,
-                                  width: (selectedFrame.border?.width || 0) === 0 ? 4 : selectedFrame.border?.width,
-                                })}
-                                style={{ backgroundColor: c }}
-                                className={`w-5 h-5 rounded-full border transition-transform cursor-pointer ${
-                                  (selectedFrame.border?.color || "#ffffff").toLowerCase() === c.toLowerCase()
-                                    ? "ring-2 ring-teal-500 scale-110 border-white"
-                                    : "border-gray-300 hover:scale-105"
-                                }`}
-                              />
-                            ))}
-                            <label className="w-5 h-5 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-pointer relative overflow-hidden" title="Custom color">
-                              <input
-                                type="color"
-                                value={selectedFrame.border?.color || "#ffffff"}
-                                onChange={(e) => handleUpdateModalFrameBorder(selectedFrame.id || selectedFrame.frame_id, {
-                                  color: e.target.value,
-                                  width: (selectedFrame.border?.width || 0) === 0 ? 4 : selectedFrame.border?.width,
-                                })}
-                                className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
-                              />
-                              <span className="text-[8px]">🎨</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   );
                 })()}
@@ -11308,11 +11328,11 @@ const PhotoBookEditorPage = () => {
               {/* 3. "On this cover" / "On this page" Row */}
               {(() => {
                 const editableDraftFrames = draftFrames.filter((f) => f.is_customer_editable !== false);
-                const editableDraftTexts = isGiveaway ? [] : draftTexts.filter((t) => Boolean(t.is_customer_editable));
+                const editableDraftTexts = draftTexts.filter((t) => Boolean(t.is_customer_editable || t.allowCustomerEdit));
                 const totalEditableItems = editableDraftFrames.length + editableDraftTexts.length;
 
                 return (
-                  <div className="px-6 py-3 border-t border-gray-100 flex flex-col gap-2 bg-white">
+                  <div className="w-full min-w-0 max-w-full px-3 py-2 sm:px-6 sm:py-3 border-t border-gray-100 flex flex-col gap-1.5 sm:gap-2 bg-white overflow-hidden">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
                         <span className="text-amber-500 text-sm">📁</span>
@@ -11323,7 +11343,10 @@ const PhotoBookEditorPage = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 overflow-x-auto py-1">
+                    <div
+                      className="w-full min-w-0 max-w-full flex items-center gap-3 overflow-x-auto py-1 scroll-smooth touch-pan-x"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
                       {/* Photo Element Cards with Select, Fit & Zoom & Change Actions */}
                       {editableDraftFrames.map((frame) => {
                         const originalIdx = draftFrames.findIndex((f) => (f.id || f.frame_id) === (frame.id || frame.frame_id));
@@ -11346,7 +11369,7 @@ const PhotoBookEditorPage = () => {
                                 isCircle ? "rounded-full" : "rounded-lg"
                               } overflow-hidden border-2 ${
                                 isSelected ? "border-cyan-500 ring-2 ring-cyan-200" : "border-slate-200 hover:border-teal-500"
-                              } shadow-2xs bg-gray-100 cursor-pointer transition-colors`}
+                              } shadow-2xs bg-gray-100 cursor-default transition-colors`}
                               title={thumbUrl ? "Click to Select & Adjust Fit/Zoom" : "Click to Add Photo"}
                             >
                               {thumbUrl ? (
@@ -11357,17 +11380,23 @@ const PhotoBookEditorPage = () => {
                                 </div>
                               )}
                               {thumbUrl && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemovePhotoFromDraft(idx);
-                                  }}
-                                  className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center text-[9px] transition-colors cursor-pointer"
-                                  title="Remove Photo"
+                                <Tooltip
+                                  title="Remove Image"
+                                  placement="top"
+                                  getPopupContainer={() => document.body}
+                                  zIndex={99999}
                                 >
-                                  ✕
-                                </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemovePhotoFromDraft(idx);
+                                    }}
+                                    className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center text-[9px] transition-colors"
+                                  >
+                                    ✕
+                                  </button>
+                                </Tooltip>
                               )}
                             </div>
                             <div className="flex items-center gap-1">
@@ -11378,34 +11407,40 @@ const PhotoBookEditorPage = () => {
                                     lastModalElementClickRef.current = Date.now();
                                     setSelectedModalElementId(frame.id || frame.frame_id);
                                   }}
-                                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[9px] px-2 py-0.5 rounded transition-colors shadow-2xs cursor-pointer flex items-center gap-0.5"
+                                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[9px] px-2 py-0.5 rounded transition-colors shadow-2xs flex items-center gap-0.5"
                                   title="Select Photo Frame to Adjust Fit & Zoom"
                                 >
                                   <ZoomInOutlined className="text-[8px]" />
                                   <span>Fit & Zoom</span>
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  lastModalElementClickRef.current = Date.now();
-                                  setSelectedModalElementId(frame.id || frame.frame_id);
-                                  setTargetPhotoIndexForChange(idx);
-                                  setIsReplacePhotoModalOpen(true);
-                                }}
-                                className="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[9px] px-2 py-0.5 rounded transition-colors shadow-2xs cursor-pointer flex items-center gap-0.5"
-                                title={thumbUrl ? "Change Photo" : "Add Photo"}
+                              <Tooltip
+                                title={thumbUrl ? "Change Image" : "Add Image"}
+                                placement="top"
+                                getPopupContainer={() => document.body}
+                                zIndex={99999}
                               >
-                                <PictureOutlined className="text-[8px]" />
-                                <span>{thumbUrl ? "Change" : "Add"}</span>
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    lastModalElementClickRef.current = Date.now();
+                                    setSelectedModalElementId(frame.id || frame.frame_id);
+                                    setTargetPhotoIndexForChange(idx);
+                                    setIsReplacePhotoModalOpen(true);
+                                  }}
+                                  className="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[9px] px-2 py-0.5 rounded transition-colors shadow-2xs flex items-center gap-0.5"
+                                >
+                                  <PictureOutlined className="text-[8px]" />
+                                  <span>{thumbUrl ? "Change" : "Add"}</span>
+                                </button>
+                              </Tooltip>
                             </div>
                           </div>
                         );
                       })}
 
                       {/* Text Element Cards (Only Customer Editable Texts!) */}
-                      {!isGiveaway && editableDraftTexts.map((txt) => {
+                      {editableDraftTexts.map((txt) => {
                         const isSelected = selectedModalElementId === txt.id;
                         return (
                           <div
@@ -11415,7 +11450,7 @@ const PhotoBookEditorPage = () => {
                               setSelectedModalElementId(txt.id);
                               handleOpenTextEditor(txt);
                             }}
-                            className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
+                            className="flex flex-col items-center gap-1 shrink-0 cursor-default group"
                           >
                             <div
                               className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 ${
@@ -11430,17 +11465,6 @@ const PhotoBookEditorPage = () => {
                               <span className="text-[8px] font-semibold text-gray-700 truncate w-full text-center px-0.5">
                                 {txt.content || "Text"}
                               </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteTextFromDraft(txt.id);
-                                }}
-                                className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-black/60 hover:bg-red-500 text-white flex items-center justify-center text-[8px] transition-colors cursor-pointer"
-                                title="Remove Text"
-                              >
-                                ✕
-                              </button>
                             </div>
                             <span className="text-[9px] font-bold px-1 py-0.5 text-slate-500 group-hover:text-teal-600">
                               Edit Text
@@ -11448,100 +11472,24 @@ const PhotoBookEditorPage = () => {
                           </div>
                         );
                       })}
-
-                      {/* Direct "+ Add photo" Button (Only for Interior Pages, NOT for Covers) */}
-                      {!isGiveaway && !isCoverPage && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (draftFrames.length >= 4) {
-                              message.warning("A maximum of 4 photos can be added to this page.");
-                              return;
-                            }
-                            setTargetPhotoIndexForChange(null);
-                            setIsReplacePhotoModalOpen(true);
-                          }}
-                          className="w-20 h-14 rounded-none border-2 border-dashed border-orange-300 hover:border-[#f97316] hover:bg-orange-50/50 text-[#f97316] flex flex-col items-center justify-center transition-all cursor-pointer shrink-0"
-                          title="Add Photo to this page"
-                        >
-                          <span className="text-base font-bold leading-none">+</span>
-                          <span className="text-[9px] font-bold mt-0.5">Add photo</span>
-                        </button>
-                      )}
-
-                      {/* "+ Add text" Button (Available for Both Pages and Covers) */}
-                      {!isGiveaway && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenTextEditor(null)}
-                          className="w-16 h-14 rounded-none border-2 border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 text-gray-500 flex flex-col items-center justify-center transition-all cursor-pointer shrink-0"
-                          title={isCoverPage ? "Add text to this cover" : "Add text to this page"}
-                        >
-                          <span className="text-xs font-serif font-bold leading-none">Aa</span>
-                          <span className="text-[9px] font-bold mt-0.5">+ Text</span>
-                        </button>
-                      )}
                     </div>
                   </div>
                 );
               })()}
 
-              {/* 4. "⊞ Layout" Row (Only on Interior Pages - NOT on Front & Back Covers) */}
-              {!isGiveaway && !isCoverPage && (
-                <div className="px-6 py-3 border-t border-gray-100 flex flex-col gap-2 bg-white">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
-                    <span className="text-amber-500 text-sm">⊞</span>
-                    <span>Layout</span>
-                  </div>
-
-                  <div className="flex items-center gap-3 overflow-x-auto py-1">
-                    {getLayoutPresetsForCount(draftFrames.length).map((preset) => {
-                      const isSelected = selectedLayoutId === preset.id;
-                      return (
-                        <div
-                          key={preset.id}
-                          onClick={() => handleSelectLayoutPreset(preset.id)}
-                          className={`relative w-28 h-20 rounded-xl border p-2 flex flex-col items-center justify-between text-center cursor-pointer transition-all shrink-0 ${
-                            isSelected
-                              ? "border-2 border-[#f97316] bg-orange-50/30 text-gray-900 shadow-2xs font-semibold"
-                              : "border-gray-200 hover:border-gray-300 text-gray-600 bg-white"
-                          }`}
-                        >
-                          {/* Green indicator dot on Theme preset if active (Screenshot 1) */}
-                          {isSelected && preset.id === "theme" && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-1.5 right-1.5" />
-                          )}
-                          <div className="w-8 h-6 flex items-center justify-center">
-                            {renderLayoutWireframe(preset.id, draftFrames.length, isSelected)}
-                          </div>
-                          <div className="flex flex-col items-center w-full">
-                            <span className="text-[11px] font-bold leading-tight truncate w-full">
-                              {preset.label}
-                            </span>
-                            <span className="text-[8px] text-gray-400 truncate w-full">
-                              {preset.subtitle}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* 5. Modal Footer (Screenshot 1: Cancel & solid teal Apply) */}
-              <div className="px-6 py-3.5 border-t border-gray-100 flex items-center justify-between bg-white">
+              <div className="px-4 py-2.5 sm:px-6 sm:py-3.5 border-t border-gray-100 flex items-center justify-between bg-white">
                 <button
                   type="button"
                   onClick={() => setEditingModalOpen(false)}
-                  className="text-xs font-semibold text-gray-600 hover:text-black px-4 py-2 transition-colors cursor-pointer"
+                  className="text-xs font-semibold text-gray-600 hover:text-black px-3 py-1.5 sm:px-4 sm:py-2 transition-colors cursor-default"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleApplyPageDraft}
-                  className="bg-[#00a896] hover:bg-[#009282] text-white font-bold text-xs px-8 py-2.5 rounded-lg transition-colors shadow-sm cursor-pointer"
+                  className="bg-[#00a896] hover:bg-[#009282] text-white font-bold text-xs px-6 py-2 sm:px-8 sm:py-2.5 rounded-lg transition-colors shadow-sm cursor-default"
                 >
                   Apply
                 </button>
@@ -11559,7 +11507,7 @@ const PhotoBookEditorPage = () => {
       />
 
       {/* ── Replace / Add Photo Modal ───────────────────────────────────────── */}
-      <Modal
+      <Modal wrapClassName="photobook-modal-scope"
         open={isReplacePhotoModalOpen}
         onCancel={() => {
           setIsReplacePhotoModalOpen(false);
@@ -11592,7 +11540,7 @@ const PhotoBookEditorPage = () => {
           <button
             type="button"
             onClick={() => replaceFileInputRef.current?.click()}
-            className="w-full bg-[#00a896] hover:bg-[#008f80] text-white font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+            className="w-full bg-[#00a896] hover:bg-[#008f80] text-white font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-default"
           >
             <UploadOutlined />
             <span>Upload New Photo from Device</span>
@@ -11617,7 +11565,7 @@ const PhotoBookEditorPage = () => {
                     handleAddPhotoToDraft(photo);
                   }
                 }}
-                className="group relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-[#00a896] cursor-pointer shadow-xs transition-all bg-black"
+                className="group relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-[#00a896] cursor-default shadow-xs transition-all bg-black"
               >
                 <img src={photo.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
@@ -11630,9 +11578,12 @@ const PhotoBookEditorPage = () => {
       </Modal>
 
       {/* ── Add to Cart or Stay Here Modal ── */}
-      <Modal
+      <Modal wrapClassName="photobook-modal-scope"
         open={isAddToCartConfirmModalOpen}
-        onCancel={() => setIsAddToCartConfirmModalOpen(false)}
+        onCancel={() => {
+          setIsAddToCartConfirmModalOpen(false);
+          setIsPrivacyPolicyAccepted(false);
+        }}
         footer={null}
         centered
         width={500}
@@ -11650,7 +11601,7 @@ const PhotoBookEditorPage = () => {
             Every photo holder in your photo book is filled with photos. Would you like to proceed to your cart or stay here to continue customizing?
           </p>
 
-          <div className="w-full bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-left mb-6 space-y-2.5">
+          <div className="w-full bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-left mb-4 space-y-2.5">
             <div className="flex justify-between items-center text-xs">
               <span className="text-gray-500 font-medium">Template</span>
               <span className="font-bold text-gray-800">{selectedTemplateName}</span>
@@ -11663,29 +11614,54 @@ const PhotoBookEditorPage = () => {
               <span className="text-gray-500 font-medium">Edition</span>
               <span className="font-bold text-gray-800">{selectedVariant}</span>
             </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500 font-medium">Total Pages</span>
-              <span className="font-bold text-gray-800">{photoBookPages} Pages</span>
-            </div>
             <div className="pt-2.5 border-t border-slate-200 flex justify-between items-center text-xs">
               <span className="font-bold text-gray-800">Total Price (incl. GST)</span>
               <span className="text-base font-bold text-[#00a896]">₹{priceDetails.finalTotal}</span>
             </div>
           </div>
 
+          {/* Review & Non-Replaceable Custom Policy Checkbox */}
+          <div className="w-full mb-5 text-left">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/60 border border-amber-200/80 hover:bg-amber-50/90 transition-colors cursor-default select-none">
+              <input
+                type="checkbox"
+                checked={isPrivacyPolicyAccepted}
+                onChange={(e) => setIsPrivacyPolicyAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-amber-400 text-[#00a896] focus:ring-[#00a896] cursor-default accent-[#00a896] shrink-0"
+              />
+              <span className="text-xs text-gray-700 leading-snug">
+                I have reviewed my photo book and confirm all photos and layouts are correct. I understand that this is a personalized product and <span className="font-bold text-gray-900">cannot be replaced, edited, or refunded</span> once printed (as per the{" "}
+                <a
+                  href="/return-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[#00a896] underline hover:text-teal-700 font-semibold"
+                >
+                  Return Policy
+                </a>
+                ).
+              </span>
+            </label>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
             <button
               type="button"
               onClick={handleStayHere}
-              className="w-full sm:flex-1 py-3 px-4 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold text-xs transition-colors cursor-default"
             >
               Stay Here
             </button>
             <button
               type="button"
-              disabled={isAddingToCart}
+              disabled={!isPrivacyPolicyAccepted || isAddingToCart}
               onClick={handleExecuteAddToCart}
-              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#00a896] hover:bg-teal-700 text-white font-bold text-xs shadow-md shadow-teal-900/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className={`w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-default ${
+                isPrivacyPolicyAccepted && !isAddingToCart
+                  ? "bg-[#00a896] hover:bg-teal-700 text-white shadow-md shadow-teal-900/20"
+                  : "bg-gray-200 text-gray-400 border border-gray-300 cursor-not-allowed opacity-75"
+              }`}
             >
               {isAddingToCart ? (
                 <Spin size="small" />

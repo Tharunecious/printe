@@ -865,6 +865,26 @@ const duplicateTemplate = async (req, res) => {
       })),
     }));
 
+    if (source.size_designs && typeof source.size_designs === "object") {
+      const clonedSizeDesigns = {};
+      Object.keys(source.size_designs).forEach((szKey) => {
+        const szVal = source.size_designs[szKey];
+        if (szVal && Array.isArray(szVal.pages)) {
+          clonedSizeDesigns[szKey] = {
+            ...szVal,
+            pages: szVal.pages.map((p) => ({
+              ...p,
+              page_id: uuidv4(),
+              elements: (p.elements || []).map((el) => ({ ...el, id: uuidv4() })),
+            })),
+          };
+        } else {
+          clonedSizeDesigns[szKey] = szVal;
+        }
+      });
+      source.size_designs = clonedSizeDesigns;
+    }
+
     const cloned = new PhotoBookTemplate(source);
     await cloned.save();
 
@@ -927,7 +947,10 @@ const publishTemplate = async (req, res) => {
       category: template.category,
       supported_sizes: template.supported_sizes,
       page_config: template.page_config,
-      pages: JSON.parse(JSON.stringify(template.pages)),
+      pages: JSON.parse(JSON.stringify(template.pages || [])),
+      size_designs: template.size_designs
+        ? JSON.parse(JSON.stringify(template.size_designs))
+        : {},
     };
 
     template.status = "published";
@@ -1265,6 +1288,14 @@ const getStorefrontProductTemplates = async (req, res) => {
           editions: tpl.editions || [],
           size_pricing: tpl.size_pricing || {},
           size_images: tpl.size_images || {},
+          pages:
+            matchedDesign.published_snapshot?.pages ||
+            matchedDesign.pages ||
+            [],
+          size_designs:
+            matchedDesign.published_snapshot?.size_designs ||
+            matchedDesign.size_designs ||
+            {},
           published_snapshot: matchedDesign.published_snapshot,
         });
       }
