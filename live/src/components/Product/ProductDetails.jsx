@@ -1526,6 +1526,15 @@ const ProductDetails = ({
   const [giveawayCouponLoading, setGiveawayCouponLoading] = useState(false);
   const [isAlreadyInCart, setIsAlreadyInCart] = useState(false);
 
+  const customizationPricePerUnit = Number(data?.customization_name_price) > 0
+    ? Number(data?.customization_name_price)
+    : 10;
+
+  const hasPhoneStandCustomization = isPhoneStandProduct && Boolean(phoneStandName.trim());
+  const phoneStandCustomizationCharge = (isPhoneStandProduct && !appliedGiveawayCoupon && hasPhoneStandCustomization && quantity)
+    ? Number((customizationPricePerUnit * quantity).toFixed(2))
+    : 0;
+
   useEffect(() => {
     if (isPhoneStandProduct) {
       getMyShoppingCart()
@@ -1533,13 +1542,13 @@ const ProductDetails = ({
           const items = _.get(res, "data.data", []);
           const found = items.some(
             (i) =>
-              i.giveaway_coupon ||
-              i.phone_stand_details?.coupon_code ||
-              i.product_code === "PS0511" ||
+              (i.giveaway_coupon || i.phone_stand_details?.coupon_code) &&
+              (i.product_code === "PS0511" ||
               i.product_id === data?._id ||
-              i.product_id?._id === data?._id
+              i.product_id?._id === data?._id)
           );
           if (found) setIsAlreadyInCart(true);
+          else setIsAlreadyInCart(false);
         })
         .catch(() => {});
     }
@@ -1989,9 +1998,16 @@ const ProductDetails = ({
     return user.role === "Corporate" || user.role === "Dealer" ? p : p * (1 + Gst / 100);
   };
 
-  const calculateTotalPrice = () => (!quantity ? 0 : (getUnitPrice() * quantity).toFixed(2));
-  const calculateTotalPricewithoutGst = () =>
-    !quantity ? 0 : (getUnitPricewithoutGst() * quantity).toFixed(2);
+  const calculateTotalPrice = () => {
+    if (!quantity) return 0;
+    const baseTotal = Number(getUnitPrice() * quantity);
+    return (baseTotal + phoneStandCustomizationCharge).toFixed(2);
+  };
+  const calculateTotalPricewithoutGst = () => {
+    if (!quantity) return 0;
+    const baseTotal = Number(getUnitPricewithoutGst() * quantity);
+    return (baseTotal + phoneStandCustomizationCharge).toFixed(2);
+  };
   const calculateGstPrice = () => {
     if (!quantity) return "0.00";
     const u = getUnitPrice();
@@ -2073,15 +2089,14 @@ const ProductDetails = ({
     }
 
     if (isPhoneStandProduct) {
-      if (isAlreadyInCart) {
-        const errMsg = "Phone Stand is already in your cart. You can only add it once.";
+      if (appliedGiveawayCoupon && isAlreadyInCart) {
+        const errMsg = "Phone Stand giveaway is already in your cart. You can only claim it once.";
         message.error(errMsg);
         toast.error(errMsg);
         return false;
       }
-      if (!phoneStandName.trim()) {
+      if (appliedGiveawayCoupon && !phoneStandName.trim()) {
         const errMsg = "Please enter name to be customized";
-        // toast.error(errMsg);
         message.error(errMsg);
         return false;
       }
@@ -2153,10 +2168,14 @@ const ProductDetails = ({
       final_total: finalTotal,
       final_total_withoutGst: finalTotalWithoutGst,
       customized_name: isPhoneStandProduct ? phoneStandName.trim() : "",
+      customization_name_price: isPhoneStandProduct && hasPhoneStandCustomization ? customizationPricePerUnit : 0,
+      customization_charge: phoneStandCustomizationCharge,
       giveaway_coupon: isPhoneStandProduct && appliedGiveawayCoupon ? appliedGiveawayCoupon.code : "",
       phone_stand_details: isPhoneStandProduct ? {
         customized_name: phoneStandName.trim(),
-        coupon_code: appliedGiveawayCoupon?.code || ""
+        coupon_code: appliedGiveawayCoupon?.code || "",
+        customization_name_price: customizationPricePerUnit,
+        customization_charge: phoneStandCustomizationCharge,
       } : null,
       phone_number: userPhone,
       email: userEmail,
@@ -2681,11 +2700,23 @@ const ProductDetails = ({
               </div>
             </div>
 
-            {/* Mandatory Field: Name to be customized */}
+            {/* Field: Name to be customized */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Name to be customized <span className="text-red-500 font-bold">*</span>
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                  <span>Name to be customized</span>
+                  {appliedGiveawayCoupon ? (
+                    <span className="text-red-500 font-bold">*</span>
+                  ) : (
+                    <span className="text-gray-400 font-normal text-[11px]">(Optional)</span>
+                  )}
+                </label>
+                {!appliedGiveawayCoupon && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                   Extra ₹{customizationPricePerUnit} / item
+                  </span>
+                )}
+              </div>
               <Input
                 placeholder="Enter name to be customized on Phone Stand"
                 value={phoneStandName}
@@ -2695,6 +2726,11 @@ const ProductDetails = ({
                 className="!rounded-lg"
                 size="large"
               />
+              {!appliedGiveawayCoupon && phoneStandName.trim() && quantity > 0 && (
+                <p className="text-xs text-amber-700 mt-1.5 font-medium">
+                  Customization charge: ₹{customizationPricePerUnit} × {quantity} = ₹{phoneStandCustomizationCharge}
+                </p>
+              )}
             </div>
 
             {/* Optional Field: Coupon Code */}
@@ -2859,6 +2895,13 @@ const ProductDetails = ({
                 )}
               </div>
             </div>
+
+            {phoneStandCustomizationCharge > 0 && (
+              <div className="flex justify-between items-center text-xs text-amber-900 bg-amber-100/70 border border-amber-300 px-3 py-1.5 rounded-lg mt-1 font-medium">
+                <span>Customization Charge ({quantity} × ₹{customizationPricePerUnit}):</span>
+                <span className="font-bold text-sm">+{formatPrice(phoneStandCustomizationCharge)}</span>
+              </div>
+            )}
 
             {isBrandingEnabled && brandingCharges > 0 && (
               <div className="flex items-center justify-between">
@@ -3276,7 +3319,7 @@ const ProductDetails = ({
                     </Button>
                   </motion.div>
                 </motion.div>
-              ) : isPhoneStandProduct && isAlreadyInCart ? (
+              ) : isPhoneStandProduct && appliedGiveawayCoupon && isAlreadyInCart ? (
                 <Button
                   type="primary"
                   size="large"

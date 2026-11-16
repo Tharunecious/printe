@@ -362,6 +362,11 @@ const ShoppingCart = () => {
                     {item.customized_name && (
                       <div className="cart-item-meta" style={{ marginTop: 4 }}>
                         Customized Name: <strong style={{ color: '#1890ff' }}>{item.customized_name}</strong>
+                        {Number(item.customization_charge) > 0 && (
+                          <span style={{ marginLeft: 8, color: '#d97706', fontSize: '12px' }}>
+                            (Customization: ₹{Number(item.customization_charge).toFixed(2)})
+                          </span>
+                        )}
                       </div>
                     )}
 

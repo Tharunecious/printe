@@ -161,6 +161,10 @@ module.exports = mongoose.model(
         type: Boolean,
         default: false,
       },
+      customization_name_price: {
+        type: Number,
+        default: 10,
+      },
       unit: { type: String },
       name: { type: String, require: true },
       Point_one: { type: String, require: true },

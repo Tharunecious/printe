@@ -19,6 +19,8 @@ const cartItemSchema = new Schema(
     // Schema.Types.Mixed accepts any shape (object, array, primitives).
     photo_frame_details: { type: Schema.Types.Mixed, default: null },
     customized_name: { type: String, default: "" },
+    customization_name_price: { type: Number, default: 0 },
+    customization_charge: { type: Number, default: 0 },
     giveaway_coupon: { type: String, default: "" },
     phone_stand_details: { type: Schema.Types.Mixed, default: null },
   },
@@ -70,6 +72,8 @@ const Order = model(
       photo_frame_details: { type: Schema.Types.Mixed, default: null },
       // ─────────────────────────────────────────────────────────────────
       customized_name: { type: String, default: "" },
+      customization_name_price: { type: Number, default: 0 },
+      customization_charge: { type: Number, default: 0 },
       giveaway_coupon: { type: String, default: "" },
       phone_stand_details: { type: Schema.Types.Mixed, default: null },
 

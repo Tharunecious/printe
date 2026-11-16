@@ -118,21 +118,19 @@ const addToShoppingCart = async (req, res) => {
     // tier (frontend always sends this, same as delivery charges).
     const incomingBrandingCharges      = Number(req.body.BrandingCharges   || 0);
 
-    // ── Single add-to-cart restriction for giveaway / Phone Stand ────────────
-    const isGiveawayOrPhoneStand = Boolean(
+    // ── Single add-to-cart restriction for giveaway items ────────────
+    const isGiveaway = Boolean(
       req.body.giveaway_coupon ||
       req.body.phone_stand_details?.coupon_code ||
-      req.body.is_giveaway ||
-      req.body.product_code === "PS0511"
+      req.body.is_giveaway
     );
 
-    if (isGiveawayOrPhoneStand) {
+    if (isGiveaway) {
       const existingGiveaway = await ShoppingCardSchema.findOne({
         [identifierField]: userIdentifier,
         $or: [
           { giveaway_coupon: { $exists: true, $ne: "" } },
-          { "phone_stand_details.coupon_code": { $exists: true, $ne: "" } },
-          { product_id: new mongoose.Types.ObjectId(req.body.product_id) }
+          { "phone_stand_details.coupon_code": { $exists: true, $ne: "" } }
         ]
       });
 
@@ -189,7 +187,9 @@ const addToShoppingCart = async (req, res) => {
       if (req.body.platform_links)     existingItem.platform_links     = req.body.platform_links;
       if (req.body.is_photo_frame !== undefined) existingItem.is_photo_frame     = req.body.is_photo_frame;
       if (req.body.photo_frame_details)          existingItem.photo_frame_details = req.body.photo_frame_details;
-      if (req.body.customized_name)              existingItem.customized_name    = req.body.customized_name;
+      if (req.body.customized_name !== undefined)    existingItem.customized_name    = req.body.customized_name;
+      if (req.body.customization_name_price !== undefined) existingItem.customization_name_price = req.body.customization_name_price;
+      if (req.body.customization_charge !== undefined) existingItem.customization_charge = req.body.customization_charge;
       if (req.body.giveaway_coupon)              existingItem.giveaway_coupon    = req.body.giveaway_coupon;
       if (req.body.phone_stand_details)          existingItem.phone_stand_details = req.body.phone_stand_details;
 
@@ -228,6 +228,8 @@ const addToShoppingCart = async (req, res) => {
         is_photo_frame:           req.body.is_photo_frame         || false,
         photo_frame_details:      req.body.photo_frame_details    || {},
         customized_name:          req.body.customized_name        || "",
+        customization_name_price: Number(req.body.customization_name_price) || 0,
+        customization_charge:     Number(req.body.customization_charge)     || 0,
         giveaway_coupon:          req.body.giveaway_coupon        || "",
         phone_stand_details:      req.body.phone_stand_details    || null,
         ...(req.body.size             && { size:             req.body.size }),
@@ -331,6 +333,8 @@ const getMyShoppingCart = async (req, res) => {
           is_photo_frame:         1,
           photo_frame_details:    1,
           customized_name:        1,
+          customization_name_price: 1,
+          customization_charge:   1,
           giveaway_coupon:        1,
           phone_stand_details:    1,
           phone_number:           1,
@@ -375,6 +379,8 @@ const getMyShoppingCart = async (req, res) => {
       is_photo_frame:         item.is_photo_frame          || false,
       photo_frame_details:    item.photo_frame_details     || {},
       customized_name:        item.customized_name         || "",
+      customization_name_price: item.customization_name_price || 0,
+      customization_charge:   item.customization_charge    || 0,
       giveaway_coupon:        item.giveaway_coupon         || "",
       phone_stand_details:    item.phone_stand_details     || null,
       phone_number:           item.phone_number            || null,

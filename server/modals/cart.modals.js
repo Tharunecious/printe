@@ -65,6 +65,8 @@ const ShoppingCardSchemaDefinition = new mongoose.Schema(
     instructions: { type: String, default: null },
     // ── Giveaway / Phone Stand Customization ──────────────────────────────
     customized_name: { type: String, default: "" },
+    customization_name_price: { type: Number, default: 0 },
+    customization_charge: { type: Number, default: 0 },
     giveaway_coupon: { type: String, default: "" },
     phone_stand_details: { type: mongoose.Schema.Types.Mixed, default: null },
 

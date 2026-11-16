@@ -936,6 +936,11 @@ const NewCheckout = () => {
                           {item.customized_name && (
                             <p style={{ margin: '0 0 3px', fontSize: 11, color: '#1890ff', fontWeight: 700 }}>
                               Customized: {item.customized_name}
+                              {Number(item.customization_charge) > 0 && (
+                                <span style={{ marginLeft: 6, color: '#d97706', fontWeight: 500 }}>
+                                  (+₹{Number(item.customization_charge).toFixed(2)})
+                                </span>
+                              )}
                             </p>
                           )}
                           {/* {item.giveaway_coupon && (

@@ -172,6 +172,8 @@ const CreateOrder = async (req, res) => {
         delivery_to_home,
         photo_frame_details: itemPhotoFrameDetails,
         customized_name: item.customized_name || "",
+        customization_name_price: Number(item.customization_name_price) || 0,
+        customization_charge: Number(item.customization_charge) || 0,
         giveaway_coupon: item.giveaway_coupon || coupenCode || "",
         phone_stand_details: item.phone_stand_details || null,
         DeliveryCharges,                              // ← 0 when no home delivery
@@ -272,7 +274,7 @@ const CollectMyOrders = async (req, res) => {
           total_before_discount:1, payment_option:1, payment_qr_code:1,
           created_by:1, admin_notes:1, created_by_admin_id:1,
           payment_failure_reason:1, coupon:1, createdAt:1, updatedAt:1,
-          customized_name:1, giveaway_coupon:1, phone_stand_details:1,
+          customized_name:1, customization_name_price:1, customization_charge:1, giveaway_coupon:1, phone_stand_details:1,
           order_delivery_timeline:1, user_details:1,
         },
       },

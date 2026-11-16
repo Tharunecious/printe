@@ -197,6 +197,8 @@ const createPaymentOrder = async (req, res) => {
           notes:               item.notes  || '',
           photo_frame_details: item.photo_frame_details || null,
           customized_name:     item.customized_name || req.body.customized_name || "",
+          customization_name_price: Number(item.customization_name_price) || 0,
+          customization_charge: Number(item.customization_charge) || 0,
           giveaway_coupon:     item.giveaway_coupon || req.body.giveaway_coupon || "",
           phone_stand_details: item.phone_stand_details || req.body.phone_stand_details || null,
         }))
@@ -267,7 +269,8 @@ const createPaymentOrder = async (req, res) => {
       isGiveawayOrder = Boolean(
         couponDoc.is_giveaway ||
         normalizedCode.startsWith('PHONESTAN') ||
-        processedCartItems.some(i => i.giveaway_coupon || String(i.product_code).toUpperCase() === 'PS0511')
+        (couponDoc.giveaway_product_code && couponDoc.giveaway_product_code.toUpperCase() === 'PS0511') ||
+        processedCartItems.some(i => i.giveaway_coupon)
       );
 
       if (isGiveawayOrder) {
@@ -367,6 +370,8 @@ const createPaymentOrder = async (req, res) => {
       created_by,
       photo_frame_details:   photo_frame_details || null,
       customized_name:       req.body.customized_name || processedCartItems.find(i => i.customized_name)?.customized_name || "",
+      customization_name_price: Number(req.body.customization_name_price) || processedCartItems.find(i => i.customization_name_price)?.customization_name_price || 0,
+      customization_charge:   Number(req.body.customization_charge) || processedCartItems.find(i => i.customization_charge)?.customization_charge || 0,
       giveaway_coupon:       couponCodeToValidate || req.body.giveaway_coupon || "",
       phone_stand_details:   req.body.phone_stand_details || processedCartItems.find(i => i.phone_stand_details)?.phone_stand_details || (couponCodeToValidate ? {
         coupon_code: couponCodeToValidate,
