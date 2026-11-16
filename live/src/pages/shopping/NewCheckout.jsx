@@ -238,10 +238,9 @@ const iStyle = (hasIcon = true, overrides = {}) => ({
 });
 
 // ─── Pricing helpers ──────────────────────────────────────────────────────────
-// subtotal → discount off subtotal (skipped for shipping coupons) → GST on
-// discounted base → + delivery (waived entirely for shipping coupons) = total
+// Subtotal already includes GST, so no additional predefined 18% GST is added.
 const calcPrices = (cartData, appliedCoupon, paymentOption, isTamilNaduDelivery) => {
-  const subtotal    = _.sum(cartData.map((i) => Number(i.final_total_withoutGst) || Number(i.final_total) || 0));
+  const subtotal    = _.sum(cartData.map((i) => Number(i.final_total) || Number(i.final_total_withoutGst) || 0));
   const rawDelivery = getTotalDeliveryCharge(cartData, isTamilNaduDelivery);
 
   const isShippingCoupon = appliedCoupon?.discountType === 'shipping';
@@ -250,13 +249,13 @@ const calcPrices = (cartData, appliedCoupon, paymentOption, isTamilNaduDelivery)
   // item subtotal, so `discount` (subtotal discount) is 0 in that case.
   const discount           = isShippingCoupon ? 0 : (appliedCoupon ? Number(appliedCoupon.discountAmount || 0) : 0);
   const discountedSubtotal = Math.max(0, subtotal - discount);
-  const tax                = discountedSubtotal * 0.18;
+  const tax                = 0; // Subtotal already includes GST
 
   const delivery         = isShippingCoupon ? 0 : rawDelivery;
   const deliveryDiscount = isShippingCoupon ? rawDelivery : 0; // amount saved on delivery
 
-  const total               = discountedSubtotal + tax + delivery;
-  const totalBeforeDiscount = subtotal + subtotal * 0.18 + rawDelivery;
+  const total               = discountedSubtotal + delivery;
+  const totalBeforeDiscount = subtotal + rawDelivery;
   const payable             = paymentOption === 'half' ? Math.ceil(total * 0.5) : total;
 
   return {
@@ -411,15 +410,15 @@ const NewCheckout = () => {
     if (!couponCode.trim()) { setCouponError('Enter a coupon code'); return; }
     try {
       setCouponLoading(true); setCouponError('');
-      const subtotal    = _.sum(cartData.map((i) => Number(i.final_total_withoutGst) || Number(i.final_total) || 0));
+      const subtotal    = _.sum(cartData.map((i) => Number(i.final_total) || Number(i.final_total_withoutGst) || 0));
       const delivery    = getTotalDeliveryCharge(cartData, isTN);
-      const orderAmount = parseFloat((subtotal + subtotal * 0.18 + delivery).toFixed(2));
+      const orderAmount = parseFloat((subtotal + delivery).toFixed(2));
       const cartItems   = cartData.map((item) => ({
         productId:  item.product_id?.$oid  || String(item.product_id  || item.productId  || ''),
         categoryId: item.category_id?.$oid || String(item.category_id || item.categoryId || item.category || item.product_category_id || item.cat_id || ''),
         name: item.product_name || '',
         quantity: Number(item.product_quantity) || 1,
-        price: parseFloat(((Number(item.final_total_withoutGst || item.final_total) || 0) / (Number(item.product_quantity) || 1)).toFixed(2)),
+        price: parseFloat(((Number(item.final_total || item.final_total_withoutGst) || 0) / (Number(item.product_quantity) || 1)).toFixed(2)),
       }));
       const resp = await applyCouponCode({
         code: couponCode.trim().toUpperCase(), orderAmount,
@@ -636,16 +635,14 @@ const NewCheckout = () => {
       </>
     );
 
-  // Build the price-breakdown rows for the order summary, handling the
-  // "shipping" coupon type as a delivery waiver rather than a subtotal cut.
+  // Build the price-breakdown rows for the order summary.
+  // Note: subtotal already includes GST, so predefined 18% GST row is removed.
   const summaryRows = [
     { label: `Subtotal (${cartData.length} item${cartData.length !== 1 ? 's' : ''})`, val: `₹${calc.subtotal.toFixed(2)}` },
   ];
-  // if (appliedCoupon && calc.discount > 0) {
-  //   summaryRows.push({ label: `Coupon — ${appliedCoupon.code}`, val: `−₹${calc.discount.toFixed(2)}`, highlight: true });
-  //   summaryRows.push({ label: 'Taxable amount', val: `₹${calc.discountedSubtotal.toFixed(2)}`, small: true });
-  // }
-  summaryRows.push({ label: `GST 18%${appliedCoupon && calc.discount > 0 ? ' (on discounted price)' : ''}`, val: `₹${calc.tax.toFixed(2)}` });
+  if (appliedCoupon && calc.discount > 0) {
+    summaryRows.push({ label: `Coupon — ${appliedCoupon.code}`, val: `−₹${calc.discount.toFixed(2)}`, highlight: true });
+  }
 
   if (calc.isShippingCoupon) {
     summaryRows.push({
@@ -961,7 +958,7 @@ const NewCheckout = () => {
                           {item.FreeDelivery && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Free delivery</p>}
                         </div>
                         <p style={{ margin: 0, fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 13, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>
-                          ₹{Number(item.final_total_withoutGst || item.final_total).toFixed(2)}
+                          ₹{Number(item.final_total || item.final_total_withoutGst).toFixed(2)}
                         </p>
                       </div>
                     );
