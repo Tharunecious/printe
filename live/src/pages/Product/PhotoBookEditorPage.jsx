@@ -60,7 +60,7 @@ import {
   SaveOutlined,
   InfoCircleOutlined,
   CloseCircleOutlined,
-ExclamationCircleOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import _ from "lodash";
@@ -434,11 +434,11 @@ const DEFAULT_VINTAGE_TEMPLATE = {
       },
       {
         page_id: "48a1cab3-4b64-422c-97f9-ed2acdf5e527",
-        name: "Interior - All Pages Default",
+        name: "Page 1",
         page_type: "interior",
         targeting_rule: {
-          rule_type: "all_interior",
-          page_number: 2,
+          rule_type: "exact_page",
+          page_number: 1,
         },
         background: {
           type: "gradient",
@@ -625,11 +625,11 @@ const DEFAULT_VINTAGE_TEMPLATE = {
       },
       {
         page_id: "1a26ba45-fe79-4987-a572-412cbe8f6265",
-        name: "Interior - 2 Photo Collage",
+        name: "Page 2",
         page_type: "interior",
         targeting_rule: {
-          rule_type: "odd_interior",
-          page_number: 3,
+          rule_type: "exact_page",
+          page_number: 2,
         },
         background: {
           type: "color",
@@ -873,11 +873,46 @@ const DEFAULT_VINTAGE_TEMPLATE = {
 };
 DEFAULT_VINTAGE_TEMPLATE.pages = DEFAULT_VINTAGE_TEMPLATE.published_snapshot.pages;
 
+export const dynamicallyLoadGoogleFont = (fontFamily) => {
+  if (!fontFamily || typeof document === "undefined") return;
+  const cleanName = String(fontFamily).replace(/['"]/g, "").trim();
+  if (!cleanName || cleanName.toLowerCase() === "inherit" || cleanName.toLowerCase() === "initial") return;
+
+  const systemFonts = [
+    "arial", "helvetica", "times new roman", "times", "courier new",
+    "courier", "georgia", "verdana", "tahoma", "trebuchet ms",
+    "impact", "comic sans ms", "sans-serif", "serif", "monospace", "cursive"
+  ];
+  if (systemFonts.includes(cleanName.toLowerCase())) return;
+
+  const fontId = `gfont-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+  if (document.getElementById(fontId)) return;
+
+  try {
+    const link = document.createElement("link");
+    link.id = fontId;
+    link.rel = "stylesheet";
+    const encodedName = cleanName.replace(/\s+/g, "+");
+    link.href = `https://fonts.googleapis.com/css2?family=${encodedName}:ital,wght@0,300..900;1,300..900&display=swap`;
+    document.head.appendChild(link);
+  } catch (e) {
+    // ignore
+  }
+};
+
 export const getFontFamilyFallback = (fontName) => {
-  if (!fontName) return "'Playfair Display', serif";
+  if (!fontName) return "'Inter', sans-serif";
   const cleanName = String(fontName).replace(/['"]/g, "").trim();
-  const sansFonts = ["Inter", "Jost", "Roboto", "Montserrat", "Arial", "Open Sans", "Lato"];
-  const scriptFonts = ["Caveat", "Dancing Script", "Great Vibes", "Pacifico"];
+  const sansFonts = [
+    "Inter", "Jost", "Roboto", "Montserrat", "Arial", "Open Sans",
+    "Lato", "Poppins", "Nunito", "Rubik", "Outfit", "Work Sans",
+    "Plus Jakarta Sans", "DM Sans", "Manrope", "Barlow"
+  ];
+  const scriptFonts = [
+    "Caveat", "Dancing Script", "Great Vibes", "Pacifico", "Alex Brush",
+    "Sacramento", "Satisfy", "Courgette", "Allura", "Parisienne",
+    "Yesteryear", "Kaushan Script", "Marck Script", "Tangerine"
+  ];
   if (scriptFonts.some((f) => f.toLowerCase() === cleanName.toLowerCase())) {
     return `'${cleanName}', cursive`;
   }
@@ -902,7 +937,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
       setZoom(frame?.crop?.zoom || 1);
       setOffsetX(frame?.crop?.offsetX || 0);
       setOffsetY(frame?.crop?.offsetY || 0);
-      setRotation(frame?.rotation || 0);
+      setRotation(frame?.crop?.rotation || 0);
       setFitMode(frame?.fit_mode || "cover");
     }
   }, [frame]);
@@ -952,8 +987,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
 
   const handleSave = () => {
     onApply({
-      crop: { zoom, offsetX, offsetY },
-      rotation,
+      crop: { zoom, offsetX, offsetY, rotation },
       fit_mode: fitMode,
     });
   };
@@ -1037,8 +1071,8 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
                     fitMode === "contain"
                       ? "xMidYMid meet"
                       : fitMode === "stretch" || fitMode === "fill"
-                      ? "none"
-                      : "xMidYMid slice"
+                        ? "none"
+                        : "xMidYMid slice"
                   }
                   style={{
                     transformOrigin: "50% 50%",
@@ -1173,11 +1207,10 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
                   key={deg}
                   type="button"
                   onClick={() => setRotation(deg)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded transition-colors cursor-default ${
-                    rotation === deg
-                      ? "bg-teal-600 text-white"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`text-[10px] font-bold px-2 py-1 rounded transition-colors cursor-default ${rotation === deg
+                    ? "bg-teal-600 text-white"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   {deg}°
                 </button>
@@ -1200,22 +1233,20 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
               <button
                 type="button"
                 onClick={() => setFitMode("cover")}
-                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${
-                  fitMode === "cover"
-                    ? "bg-teal-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-black"
-                }`}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${fitMode === "cover"
+                  ? "bg-teal-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-black"
+                  }`}
               >
                 Cover (Fill)
               </button>
               <button
                 type="button"
                 onClick={() => setFitMode("contain")}
-                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${
-                  fitMode === "contain"
-                    ? "bg-teal-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-black"
-                }`}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${fitMode === "contain"
+                  ? "bg-teal-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-black"
+                  }`}
               >
                 Contain (Fit)
               </button>
@@ -1392,9 +1423,8 @@ const BackgroundRepositionModal = ({
               backgroundSize: scale > 1 ? `${Math.round(scale * 100)}%` : fitMode,
               backgroundRepeat: "no-repeat",
             }}
-            className={`relative h-full overflow-hidden border-2 border-teal-400 shadow-2xl bg-white ${
-              isDragging ? "cursor-default" : "cursor-default"
-            }`}
+            className={`relative h-full overflow-hidden border-2 border-teal-400 shadow-2xl bg-white ${isDragging ? "cursor-default" : "cursor-default"
+              }`}
           >
             {/* Rule of Thirds Finder Grid */}
             <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-25">
@@ -1444,11 +1474,10 @@ const BackgroundRepositionModal = ({
                       setPosX(p.x);
                       setPosY(p.y);
                     }}
-                    className={`py-1.5 px-2 rounded border text-xs font-medium flex items-center justify-center gap-1 transition-all cursor-default ${
-                      isActive
-                        ? "bg-teal-600 text-white border-teal-600 shadow-xs"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:bg-teal-50/50"
-                    }`}
+                    className={`py-1.5 px-2 rounded border text-xs font-medium flex items-center justify-center gap-1 transition-all cursor-default ${isActive
+                      ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:bg-teal-50/50"
+                      }`}
                     title={p.label}
                   >
                     <span className="text-sm leading-none">{p.icon}</span>
@@ -1522,11 +1551,10 @@ const BackgroundRepositionModal = ({
                     key={mode.id}
                     type="button"
                     onClick={() => setFitMode(mode.id)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${
-                      fitMode === mode.id
-                        ? "bg-teal-600 text-white shadow-xs"
-                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-default ${fitMode === mode.id
+                      ? "bg-teal-600 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
                   >
                     {mode.label}
                   </button>
@@ -1707,9 +1735,8 @@ export const RealisticBookPreview = ({
 
   return (
     <div
-      className={`flex flex-col items-center select-none w-full max-w-4xl mx-auto overflow-hidden shadow-2xl rounded-2xl border transition-colors duration-300 ${
-        isDark ? "bg-[#0f1422] border-slate-800" : "bg-white border-slate-200"
-      }`}
+      className={`flex flex-col items-center select-none w-full max-w-4xl mx-auto overflow-hidden shadow-2xl rounded-2xl border transition-colors duration-300 ${isDark ? "bg-[#0f1422] border-slate-800" : "bg-white border-slate-200"
+        }`}
     >
       {/* Dynamic 3D Book Keyframe Styles */}
       <style>{`
@@ -1763,9 +1790,8 @@ export const RealisticBookPreview = ({
 
       {/* Top Header Bar (With Static Size & Dark/Light Toggle) */}
       <div
-        className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-b flex items-center justify-between gap-3 shrink-0 transition-colors duration-300 ${
-          isDark ? "bg-[#0f1422] border-slate-800" : "bg-gray-50 border-gray-200"
-        }`}
+        className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-b flex items-center justify-between gap-3 shrink-0 transition-colors duration-300 ${isDark ? "bg-[#0f1422] border-slate-800" : "bg-gray-50 border-gray-200"
+          }`}
       >
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-[#00a896] border border-teal-500/20 flex items-center justify-center shrink-0 shadow-2xs">
@@ -1773,24 +1799,22 @@ export const RealisticBookPreview = ({
           </div>
           <div className="flex items-center gap-2 min-w-0">
             <span
-              className={`text-sm font-bold truncate tracking-tight ${
-                isDark ? "text-white" : "text-gray-900"
-              }`}
+              className={`text-sm font-bold truncate tracking-tight ${isDark ? "text-white" : "text-gray-900"
+                }`}
             >
               {currentStep.title}
             </span>
             <span
-              className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${
-                isDark
-                  ? "bg-slate-800 text-teal-400 border-slate-700/80"
-                  : "bg-teal-50 text-[#00a896] border-teal-200"
-              }`}
+              className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${isDark
+                ? "bg-slate-800 text-teal-400 border-slate-700/80"
+                : "bg-teal-50 text-[#00a896] border-teal-200"
+                }`}
             >
               {currentStepIndex === 0
                 ? "Front Cover"
                 : currentStepIndex === totalSteps - 1
-                ? "Back Cover"
-                : `Spread ${currentStepIndex}/${totalSteps - 2}`}
+                  ? "Back Cover"
+                  : `Spread ${currentStepIndex}/${totalSteps - 2}`}
             </span>
           </div>
         </div>
@@ -1799,11 +1823,10 @@ export const RealisticBookPreview = ({
           {/* Static Size Display (Size Selection Disabled in Preview as Requested) */}
           {(sizeInfo?.name || sizeInfo?.dimensions || sizeInfo?.formattedSize) && (
             <div
-              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl border font-semibold select-none ${
-                isDark
-                  ? "bg-slate-800/90 text-slate-200 border-slate-700/80"
-                  : "bg-slate-100 text-slate-700 border-slate-300"
-              }`}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl border font-semibold select-none ${isDark
+                ? "bg-slate-800/90 text-slate-200 border-slate-700/80"
+                : "bg-slate-100 text-slate-700 border-slate-300"
+                }`}
             >
               <span className={`text-[11px] font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                 Size:
@@ -1821,11 +1844,10 @@ export const RealisticBookPreview = ({
           <button
             type="button"
             onClick={() => setPreviewTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold transition-all cursor-default select-none shadow-2xs ${
-              isDark
-                ? "bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700/80 hover:text-amber-200"
-                : "bg-white hover:bg-gray-100 text-slate-800 border-gray-300 hover:text-slate-900"
-            }`}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold transition-all cursor-default select-none shadow-2xs ${isDark
+              ? "bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700/80 hover:text-amber-200"
+              : "bg-white hover:bg-gray-100 text-slate-800 border-gray-300 hover:text-slate-900"
+              }`}
             title={`Switch to ${isDark ? "Light" : "Dark"} Studio Background`}
           >
             <span>{isDark ? "☀️ Light" : "🌙 Dark"}</span>
@@ -1835,11 +1857,10 @@ export const RealisticBookPreview = ({
           <button
             type="button"
             onClick={onClose}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-default shrink-0 shadow-2xs border ${
-              isDark
-                ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700/50"
-                : "bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-900 border-gray-300"
-            }`}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-default shrink-0 shadow-2xs border ${isDark
+              ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700/50"
+              : "bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-900 border-gray-300"
+              }`}
             title="Close Preview (Esc)"
           >
             <CloseOutlined className="text-xs sm:text-sm" />
@@ -1849,18 +1870,16 @@ export const RealisticBookPreview = ({
 
       {/* Main 3D Book Stage */}
       <div
-        className={`w-full relative flex items-center justify-center py-6 sm:py-10 px-3 sm:px-8 overflow-hidden flex-1 min-h-[280px] sm:min-h-[400px] max-h-[52vh] transition-colors duration-300 ${
-          isDark
-            ? "bg-gradient-to-b from-[#090d16] via-[#111827] to-[#090d16]"
-            : "bg-gradient-to-b from-[#f8fafc] via-[#e2e8f0] to-[#cbd5e1]"
-        }`}
+        className={`w-full relative flex items-center justify-center py-6 sm:py-10 px-3 sm:px-8 overflow-hidden flex-1 min-h-[280px] sm:min-h-[400px] max-h-[52vh] transition-colors duration-300 ${isDark
+          ? "bg-gradient-to-b from-[#090d16] via-[#111827] to-[#090d16]"
+          : "bg-gradient-to-b from-[#f8fafc] via-[#e2e8f0] to-[#cbd5e1]"
+          }`}
         style={{ perspective: "2400px" }}
       >
         {/* Soft studio table spotlight pattern */}
         <div
-          className={`absolute inset-0 pointer-events-none transition-opacity ${
-            isDark ? "opacity-15" : "opacity-8"
-          }`}
+          className={`absolute inset-0 pointer-events-none transition-opacity ${isDark ? "opacity-15" : "opacity-8"
+            }`}
           style={{
             backgroundImage: isDark
               ? "radial-gradient(#ffffff 1px, transparent 1px)"
@@ -1879,9 +1898,8 @@ export const RealisticBookPreview = ({
 
         {/* Ambient Book Soft Drop Shadow */}
         <div
-          className={`absolute bottom-3 w-[78%] h-9 blur-xl rounded-full pointer-events-none transition-colors ${
-            isDark ? "bg-black/90" : "bg-slate-900/35"
-          }`}
+          className={`absolute bottom-3 w-[78%] h-9 blur-xl rounded-full pointer-events-none transition-colors ${isDark ? "bg-black/90" : "bg-slate-900/35"
+            }`}
         />
 
         {/* Floating Prev Button */}
@@ -1889,13 +1907,11 @@ export const RealisticBookPreview = ({
           type="button"
           onClick={handlePrev}
           disabled={isFirst || isFlipping}
-          className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 w-9 h-9 sm:w-11 sm:h-11 rounded-full shadow-2xl backdrop-blur-md flex items-center justify-center transition-all border ${
-            isDark
-              ? "bg-slate-800/80 hover:bg-slate-700 text-white border-slate-700/60"
-              : "bg-white/95 hover:bg-white text-slate-800 border-gray-300 shadow-md"
-          } ${
-            isFirst || isFlipping ? "opacity-20 cursor-default pointer-events-none" : "hover:scale-110 active:scale-95 cursor-default"
-          }`}
+          className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 w-9 h-9 sm:w-11 sm:h-11 rounded-full shadow-2xl backdrop-blur-md flex items-center justify-center transition-all border ${isDark
+            ? "bg-slate-800/80 hover:bg-slate-700 text-white border-slate-700/60"
+            : "bg-white/95 hover:bg-white text-slate-800 border-gray-300 shadow-md"
+            } ${isFirst || isFlipping ? "opacity-20 cursor-default pointer-events-none" : "hover:scale-110 active:scale-95 cursor-default"
+            }`}
           title="Previous Page (←)"
         >
           <LeftOutlined className="text-xs sm:text-sm font-bold" />
@@ -1937,11 +1953,10 @@ export const RealisticBookPreview = ({
 
             {/* 3D Flipping Leaf */}
             <div
-              className={`absolute top-0 bottom-0 ${
-                flipDirection === "next"
-                  ? "left-1/2 w-1/2 origin-left book-leaf-turning-next"
-                  : "left-0 w-1/2 origin-right book-leaf-turning-prev"
-              }`}
+              className={`absolute top-0 bottom-0 ${flipDirection === "next"
+                ? "left-1/2 w-1/2 origin-left book-leaf-turning-next"
+                : "left-0 w-1/2 origin-right book-leaf-turning-prev"
+                }`}
               style={{
                 transformStyle: "preserve-3d",
                 zIndex: 60,
@@ -1957,11 +1972,10 @@ export const RealisticBookPreview = ({
               >
                 {renderPageFace(transitionData.leafFront, flipDirection === "prev")}
                 <div
-                  className={`absolute inset-0 pointer-events-none ${
-                    flipDirection === "next"
-                      ? "book-shadow-next-front bg-gradient-to-r from-black/30 to-transparent"
-                      : "book-shadow-prev-front bg-gradient-to-l from-black/30 to-transparent"
-                  }`}
+                  className={`absolute inset-0 pointer-events-none ${flipDirection === "next"
+                    ? "book-shadow-next-front bg-gradient-to-r from-black/30 to-transparent"
+                    : "book-shadow-prev-front bg-gradient-to-l from-black/30 to-transparent"
+                    }`}
                 />
               </div>
 
@@ -1976,11 +1990,10 @@ export const RealisticBookPreview = ({
               >
                 {renderPageFace(transitionData.leafBack, flipDirection === "next")}
                 <div
-                  className={`absolute inset-0 pointer-events-none ${
-                    flipDirection === "next"
-                      ? "book-shadow-next-back bg-gradient-to-l from-black/30 to-transparent"
-                      : "book-shadow-prev-back bg-gradient-to-r from-black/30 to-transparent"
-                  }`}
+                  className={`absolute inset-0 pointer-events-none ${flipDirection === "next"
+                    ? "book-shadow-next-back bg-gradient-to-l from-black/30 to-transparent"
+                    : "book-shadow-prev-back bg-gradient-to-r from-black/30 to-transparent"
+                    }`}
                 />
               </div>
             </div>
@@ -2112,13 +2125,11 @@ export const RealisticBookPreview = ({
           type="button"
           onClick={handleNext}
           disabled={isLast || isFlipping}
-          className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-40 w-9 h-9 sm:w-11 sm:h-11 rounded-full shadow-2xl backdrop-blur-md flex items-center justify-center transition-all border ${
-            isDark
-              ? "bg-slate-800/80 hover:bg-slate-700 text-white border-slate-700/60"
-              : "bg-white/95 hover:bg-white text-slate-800 border-gray-300 shadow-md"
-          } ${
-            isLast || isFlipping ? "opacity-20 cursor-default pointer-events-none" : "hover:scale-110 active:scale-95 cursor-default"
-          }`}
+          className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-40 w-9 h-9 sm:w-11 sm:h-11 rounded-full shadow-2xl backdrop-blur-md flex items-center justify-center transition-all border ${isDark
+            ? "bg-slate-800/80 hover:bg-slate-700 text-white border-slate-700/60"
+            : "bg-white/95 hover:bg-white text-slate-800 border-gray-300 shadow-md"
+            } ${isLast || isFlipping ? "opacity-20 cursor-default pointer-events-none" : "hover:scale-110 active:scale-95 cursor-default"
+            }`}
           title="Next Page (→)"
         >
           <RightOutlined className="text-xs sm:text-sm font-bold" />
@@ -2127,9 +2138,8 @@ export const RealisticBookPreview = ({
 
       {/* Bottom Interactive Navigation */}
       <div
-        className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-t flex flex-col items-center gap-2.5 shrink-0 transition-colors duration-300 ${
-          isDark ? "bg-[#0f1422] border-slate-800" : "bg-gray-50 border-gray-200"
-        }`}
+        className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-t flex flex-col items-center gap-2.5 shrink-0 transition-colors duration-300 ${isDark ? "bg-[#0f1422] border-slate-800" : "bg-gray-50 border-gray-200"
+          }`}
       >
         <div className="w-full flex items-center justify-between gap-2 max-w-lg">
           {/* Previous Page Button */}
@@ -2137,15 +2147,14 @@ export const RealisticBookPreview = ({
             type="button"
             onClick={handlePrev}
             disabled={isFirst || isFlipping}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold border transition-all ${
-              isFirst || isFlipping
-                ? isDark
-                  ? "border-slate-800 text-slate-600 bg-slate-900/40 cursor-default opacity-50"
-                  : "border-gray-200 text-gray-400 bg-gray-100 cursor-default opacity-50"
-                : isDark
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold border transition-all ${isFirst || isFlipping
+              ? isDark
+                ? "border-slate-800 text-slate-600 bg-slate-900/40 cursor-default opacity-50"
+                : "border-gray-200 text-gray-400 bg-gray-100 cursor-default opacity-50"
+              : isDark
                 ? "border-slate-700 text-slate-200 bg-slate-800 hover:bg-slate-700 active:scale-95 cursor-default shadow-xs"
                 : "border-gray-300 text-gray-700 bg-white hover:bg-gray-100 active:scale-95 cursor-default shadow-xs"
-            }`}
+              }`}
           >
             <LeftOutlined className="text-[10px]" />
             <span className="hidden sm:inline">
@@ -2159,37 +2168,33 @@ export const RealisticBookPreview = ({
           {/* Center Page Indicator Pill */}
           <div className="flex flex-col items-center gap-0.5">
             <div
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${
-                isDark
-                  ? "bg-slate-800 text-slate-200 border-slate-700"
-                  : "bg-white text-gray-800 border-gray-200 shadow-2xs"
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${isDark
+                ? "bg-slate-800 text-slate-200 border-slate-700"
+                : "bg-white text-gray-800 border-gray-200 shadow-2xs"
+                }`}
             >
               <span className="text-[#00a896]">{currentStepIndex + 1}</span>
               <span className={isDark ? "text-slate-500 font-normal" : "text-gray-400 font-normal"}>/</span>
               <span className={isDark ? "text-slate-400" : "text-gray-600"}>{totalSteps}</span>
             </div>
             <span
-              className={`hidden sm:inline text-[9.5px] font-medium mt-0.5 ${
-                isDark ? "text-slate-400" : "text-gray-500"
-              }`}
+              className={`hidden sm:inline text-[9.5px] font-medium mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"
+                }`}
             >
               Use{" "}
               <kbd
-                className={`px-1 py-0.2 text-[9px] rounded border font-mono ${
-                  isDark
-                    ? "bg-slate-800 border-slate-700 text-slate-300"
-                    : "bg-white border-gray-300 text-gray-700"
-                }`}
+                className={`px-1 py-0.2 text-[9px] rounded border font-mono ${isDark
+                  ? "bg-slate-800 border-slate-700 text-slate-300"
+                  : "bg-white border-gray-300 text-gray-700"
+                  }`}
               >
                 ←
               </kbd>{" "}
               <kbd
-                className={`px-1 py-0.2 text-[9px] rounded border font-mono ${
-                  isDark
-                    ? "bg-slate-800 border-slate-700 text-slate-300"
-                    : "bg-white border-gray-300 text-gray-700"
-                }`}
+                className={`px-1 py-0.2 text-[9px] rounded border font-mono ${isDark
+                  ? "bg-slate-800 border-slate-700 text-slate-300"
+                  : "bg-white border-gray-300 text-gray-700"
+                  }`}
               >
                 →
               </kbd>{" "}
@@ -2202,27 +2207,26 @@ export const RealisticBookPreview = ({
             type="button"
             onClick={handleNext}
             disabled={isLast || isFlipping}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
-              isLast || isFlipping
-                ? isDark
-                  ? "bg-slate-800 text-slate-600 cursor-default opacity-50 border border-slate-700/50"
-                  : "bg-gray-200 text-gray-400 cursor-default opacity-50 border border-gray-300"
-                : "bg-gradient-to-r from-[#00a896] to-[#02c39a] hover:opacity-95 active:scale-95 text-white cursor-default shadow-teal-500/20"
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-md ${isLast || isFlipping
+              ? isDark
+                ? "bg-slate-800 text-slate-600 cursor-default opacity-50 border border-slate-700/50"
+                : "bg-gray-200 text-gray-400 cursor-default opacity-50 border border-gray-300"
+              : "bg-gradient-to-r from-[#00a896] to-[#02c39a] hover:opacity-95 active:scale-95 text-white cursor-default shadow-teal-500/20"
+              }`}
           >
             <span className="hidden sm:inline">
               {currentStepIndex === 0
                 ? "Open Book 📖"
                 : currentStepIndex === totalSteps - 2
-                ? "Close Book (Back)"
-                : "Next Page"}
+                  ? "Close Book (Back)"
+                  : "Next Page"}
             </span>
             <span className="sm:hidden">
               {currentStepIndex === 0
                 ? "Open 📖"
                 : currentStepIndex === totalSteps - 2
-                ? "Close"
-                : "Next"}
+                  ? "Close"
+                  : "Next"}
             </span>
             <RightOutlined className="text-[10px]" />
           </button>
@@ -2236,13 +2240,12 @@ export const RealisticBookPreview = ({
               type="button"
               onClick={() => onStepChange(sIdx)}
               title={st.title}
-              className={`transition-all rounded-full cursor-default shrink-0 ${
-                sIdx === currentStepIndex
-                  ? "w-6 sm:w-8 h-1.5 sm:h-2 bg-[#00a896]"
-                  : isDark
+              className={`transition-all rounded-full cursor-default shrink-0 ${sIdx === currentStepIndex
+                ? "w-6 sm:w-8 h-1.5 sm:h-2 bg-[#00a896]"
+                : isDark
                   ? "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-slate-700 hover:bg-slate-600"
                   : "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-gray-300 hover:bg-gray-400"
-              }`}
+                }`}
             />
           ))}
         </div>
@@ -2368,7 +2371,7 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
       return {
         type: "path",
         attrs: {
-          d: "M 0.5,0.88 C 0.08,0.58 0,0.38 0,0.25 C 0,0.1 0.12,0 0.27,0 C 0.38,0 0.46,0.06 0.5,0.16 C 0.54,0.06 0.62,0 0.73,0 C 0.88,0 1,0.1 1,0.25 C 1,0.38 0.92,0.58 0.5,0.88 Z",
+          d: "M 0.5,1 C 0.08,0.66 0,0.43 0,0.28 C 0,0.11 0.12,0 0.27,0 C 0.38,0 0.46,0.07 0.5,0.18 C 0.54,0.07 0.62,0 0.73,0 C 0.88,0 1,0.11 1,0.28 C 1,0.43 0.92,0.66 0.5,1 Z",
         },
       };
 
@@ -2377,7 +2380,7 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
         type: "polygon",
         attrs: {
           points:
-            "0.5,0.02 0.63,0.36 0.98,0.38 0.71,0.61 0.79,0.96 0.5,0.77 0.21,0.96 0.29,0.61 0.02,0.38 0.37,0.36",
+            "0.5,0 0.63,0.36 1,0.38 0.72,0.63 0.81,1 0.5,0.79 0.19,1 0.28,0.63 0,0.38 0.37,0.36",
         },
       };
 
@@ -2385,7 +2388,7 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
       return {
         type: "polygon",
         attrs: {
-          points: "0.5,0.02 0.95,0.26 0.95,0.74 0.5,0.98 0.05,0.74 0.05,0.26",
+          points: "0.5,0 1,0.25 1,0.75 0.5,1 0,0.75 0,0.25",
         },
       };
 
@@ -2423,6 +2426,90 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
   }
 };
 
+export const getShape100Definition = (shape, cornerRadiusPercent = 0) => {
+  switch (shape) {
+    case "circle":
+    case "round":
+      return {
+        type: "ellipse",
+        attrs: { cx: "50", cy: "50", rx: "50", ry: "50" },
+      };
+
+    case "heart":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 50,100 C 8,66 0,43 0,28 C 0,11 12,0 27,0 C 38,0 46,7 50,18 C 54,7 62,0 73,0 C 88,0 100,11 100,28 C 100,43 92,66 50,100 Z",
+        },
+      };
+
+    case "star":
+      return {
+        type: "polygon",
+        attrs: {
+          points: "50,0 63,36 100,38 72,63 81,100 50,79 19,100 28,63 0,38 37,36",
+        },
+      };
+
+    case "hexagon":
+      return {
+        type: "polygon",
+        attrs: {
+          points: "50,0 100,25 100,75 50,100 0,75 0,25",
+        },
+      };
+
+    case "arch":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0,100 L 0,45 C 0,20 22,0 50,0 C 78,0 100,20 100,45 L 100,100 Z",
+        },
+      };
+
+    case "scallop":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 50,5 C 58,0 68,3 72,10 C 77,8 86,12 88,18 C 94,21 98,30 97,37 C 101,43 100,52 96,57 C 100,63 98,72 92,77 C 92,84 86,91 79,92 C 76,98 68,100 61,98 C 56,102 46,102 41,98 C 34,100 26,98 23,92 C 16,91 10,84 10,77 C 4,72 2,63 6,57 C 2,52 1,43 5,37 C 4,30 8,21 14,18 C 16,12 25,8 30,10 C 34,3 44,0 50,5 Z",
+        },
+      };
+
+    case "rectangle":
+    default:
+      return {
+        type: "rect",
+        attrs: {
+          x: "0",
+          y: "0",
+          width: "100",
+          height: "100",
+          rx: cornerRadiusPercent > 0 ? cornerRadiusPercent : 0,
+          ry: cornerRadiusPercent > 0 ? cornerRadiusPercent : 0,
+        },
+      };
+  }
+};
+
+export const renderShape100 = (def, fill, stroke, strokeWidth, style = {}) => {
+  if (!def) return null;
+  const { type: shapeType, attrs } = def;
+  const props = {
+    ...attrs,
+    fill: fill || "none",
+    stroke: stroke || "none",
+    strokeWidth: strokeWidth || 0,
+    strokeLinejoin: "round",
+    strokeLinecap: "round",
+    style,
+  };
+  if (shapeType === "ellipse") return <ellipse {...props} />;
+  if (shapeType === "path") return <path {...props} />;
+  if (shapeType === "polygon") return <polygon {...props} />;
+  if (shapeType === "rect") return <rect {...props} />;
+  return null;
+};
+
 export const renderShapeSvgClip = (clipDef, isScaled100 = false) => {
   if (!clipDef) return null;
   const { type, attrs } = clipDef;
@@ -2445,6 +2532,98 @@ export const renderShapeSvgClip = (clipDef, isScaled100 = false) => {
   return <rect x="0" y="0" width="1" height="1" />;
 };
 
+export const renderShapeSvgBorder = (clipDef, strokeColor, strokeWidthVal) => {
+  if (!clipDef || !strokeWidthVal) return null;
+  const { type: shapeType, attrs } = clipDef;
+
+  const strokeStyle = {
+    strokeWidth: `calc(${strokeWidthVal} * (100cqw / 707))`,
+  };
+
+  if (shapeType === "ellipse") {
+    return (
+      <ellipse
+        {...attrs}
+        fill="none"
+        stroke={strokeColor}
+        vectorEffect="non-scaling-stroke"
+        style={strokeStyle}
+      />
+    );
+  }
+  if (shapeType === "path") {
+    return (
+      <path
+        {...attrs}
+        fill="none"
+        stroke={strokeColor}
+        vectorEffect="non-scaling-stroke"
+        style={strokeStyle}
+      />
+    );
+  }
+  if (shapeType === "polygon") {
+    return (
+      <polygon
+        {...attrs}
+        fill="none"
+        stroke={strokeColor}
+        vectorEffect="non-scaling-stroke"
+        style={strokeStyle}
+      />
+    );
+  }
+  if (shapeType === "rect") {
+    return (
+      <rect
+        {...attrs}
+        fill="none"
+        stroke={strokeColor}
+        vectorEffect="non-scaling-stroke"
+        style={strokeStyle}
+      />
+    );
+  }
+  return null;
+};
+
+/**
+ * Universal 4-Sided Border Parser
+ */
+export const parseBorderValues = (border) => {
+  if (!border) {
+    return { top: 0, right: 0, bottom: 0, left: 0, width: 0, color: "#ffffff", radius: 0 };
+  }
+  const defaultWidth = Number(border.width) || 0;
+  return {
+    top: border.top !== undefined ? Number(border.top) : defaultWidth,
+    right: border.right !== undefined ? Number(border.right) : defaultWidth,
+    bottom: border.bottom !== undefined ? Number(border.bottom) : defaultWidth,
+    left: border.left !== undefined ? Number(border.left) : defaultWidth,
+    width: defaultWidth || Number(border.top) || 0,
+    color: border.color || "#ffffff",
+    radius: border.radius !== undefined ? Number(border.radius) : (Number(border.corner_radius) || 0),
+  };
+};
+
+/**
+ * Universal 4-Sided Padding Parser
+ */
+export const parsePaddingValues = (padding) => {
+  if (!padding) {
+    return { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+  if (typeof padding === "number") {
+    return { top: padding, right: padding, bottom: padding, left: padding };
+  }
+  return {
+    top: Number(padding.top) || 0,
+    right: Number(padding.right) || 0,
+    bottom: Number(padding.bottom) || 0,
+    left: Number(padding.left) || 0,
+  };
+};
+
 /**
  * Dynamically measures text width and height in percentage of canvas
  * based on the characters typed, font family, font size, and letter spacing.
@@ -2461,6 +2640,8 @@ export const calculateDynamicTextDimensions = ({
   lineHeight = 1.2,
   canvasWidth = 707,
   canvasHeight = 1000,
+  padding = null,
+  border = null,
 }) => {
   const text = String(content ?? "");
   const numFontSize = Number(fontSize) || 24;
@@ -2469,13 +2650,23 @@ export const calculateDynamicTextDimensions = ({
   const numLetterSpacing = Number(letterSpacing) || 0;
   const numLineHeight = Number(lineHeight) || 1.2;
 
+  // Font size rendered on canvas is proportional to 707 standard container width
+  const effectiveFontSizePx = (numFontSize * numCanvasW) / 707;
+  const effectiveLetterSpacingPx = numLetterSpacing ? (numLetterSpacing * numCanvasW) / 707 : 0;
+
+  // Parse element borders and paddings to expand the bounding box accurately
+  const pad = parsePaddingValues(padding);
+  const bord = parseBorderValues(border);
+  const extraWPx = (pad.left + pad.right) + (bord.left + bord.right);
+  const extraHPx = (pad.top + pad.bottom) + (bord.top + bord.bottom);
+
   // 1. If there is no letter (empty or whitespace only), width is low (1%)
   if (!text || text.trim().length === 0) {
-    const minWidthPct = 1.0;
-    const minHeightPx = Math.max(16, Math.round(numFontSize * 1.2));
+    const minWidthPct = Number((((10 + extraWPx) / numCanvasW) * 100).toFixed(2));
+    const minHeightPx = Math.max(16, Math.round(effectiveFontSizePx * 1.2)) + extraHPx;
     const minHeightPct = Number(((minHeightPx / numCanvasH) * 100).toFixed(2));
     return {
-      width_pct: minWidthPct,
+      width_pct: Math.max(1.0, minWidthPct),
       height_pct: Math.max(1.0, minHeightPct),
     };
   }
@@ -2490,36 +2681,36 @@ export const calculateDynamicTextDimensions = ({
       const ctx = canvas.getContext("2d");
       if (ctx) {
         const fallback = getFontFamilyFallback ? getFontFamilyFallback(fontFamily) : fontFamily;
-        ctx.font = `${fontStyle || "normal"} ${fontWeight || "normal"} ${numFontSize}px ${fallback}`;
+        ctx.font = `${fontStyle || "normal"} ${fontWeight || "normal"} ${effectiveFontSizePx}px ${fallback}`;
         for (const line of lines) {
           const metrics = ctx.measureText(line || " ");
           let w = metrics.width;
-          if (numLetterSpacing && line.length > 1) {
-            w += (line.length - 1) * numLetterSpacing;
+          if (effectiveLetterSpacingPx && line.length > 1) {
+            w += (line.length - 1) * effectiveLetterSpacingPx;
           }
           if (w > maxLineWidthPx) maxLineWidthPx = w;
         }
       }
     }
-  } catch (err) {}
+  } catch (err) { }
 
   if (maxLineWidthPx <= 0) {
-    const avgCharW = numFontSize * 0.58;
+    const avgCharW = effectiveFontSizePx * 0.58;
     for (const line of lines) {
-      const w = (line.length * avgCharW) + (line.length * numLetterSpacing);
+      const w = (line.length * avgCharW) + (line.length * effectiveLetterSpacingPx);
       if (w > maxLineWidthPx) maxLineWidthPx = w;
     }
   }
 
   // Generous breathing room for flourishes, cursive swashes, and custom font metrics
-  const paddingPx = Math.max(20, Math.round(numFontSize * 0.5));
-  const totalWidthPx = maxLineWidthPx + paddingPx;
+  const paddingPx = Math.max(12, Math.round(effectiveFontSizePx * 0.35));
+  const totalWidthPx = maxLineWidthPx + paddingPx + extraWPx;
   const calcWidthPct = Number(((totalWidthPx / numCanvasW) * 100).toFixed(2));
   const finalWidthPct = Math.min(100, Math.max(1.0, calcWidthPct));
 
   const totalHeightPx = Math.max(
-    Math.round(lines.length * (numFontSize * numLineHeight) + 6),
-    Math.round(numFontSize * 1.2)
+    Math.round(lines.length * (effectiveFontSizePx * numLineHeight) + 4) + extraHPx,
+    Math.round(effectiveFontSizePx * 1.2) + extraHPx
   );
   const calcHeightPct = Number(((totalHeightPx / numCanvasH) * 100).toFixed(2));
   const finalHeightPct = Math.min(100, Math.max(1.0, calcHeightPct));
@@ -2631,8 +2822,8 @@ export const getElementCoords = (el) => {
       canvasHeight: 1000,
     });
 
-    width = Math.max(width, dynamicDims.width_pct);
-    height = Math.max(height, dynamicDims.height_pct);
+    width = dynamicDims.width_pct;
+    height = dynamicDims.height_pct;
 
     // Only for legacy template elements lacking explicit percentage coordinate, anchor them centered
     if (el.x_pct === undefined && (typeof el.x === "number" && el.x > 1)) {
@@ -2705,8 +2896,8 @@ export const extractDatabaseDecorations = (tpl) => {
     tpl?.published_snapshot?.pages && tpl.published_snapshot.pages.length > 0
       ? tpl.published_snapshot.pages
       : tpl?.pages && tpl.pages.length > 0
-      ? tpl.pages
-      : [];
+        ? tpl.pages
+        : [];
 
   const list = [];
   const byId = {};
@@ -2721,45 +2912,45 @@ export const extractDatabaseDecorations = (tpl) => {
           el.width_pct !== undefined && el.width_pct !== null && !isNaN(Number(el.width_pct))
             ? Number(el.width_pct)
             : el.w_norm !== undefined && el.w_norm !== null && !isNaN(Number(el.w_norm))
-            ? Number((Number(el.w_norm) * 100).toFixed(4))
-            : typeof el.width_str === "string" && el.width_str.includes("%")
-            ? parseFloat(el.width_str)
-            : el.width > 100
-            ? Number(((Number(el.width) / 1000) * 100).toFixed(4))
-            : Number(el.width) || 15.52;
+              ? Number((Number(el.w_norm) * 100).toFixed(4))
+              : typeof el.width_str === "string" && el.width_str.includes("%")
+                ? parseFloat(el.width_str)
+                : el.width > 100
+                  ? Number(((Number(el.width) / 1000) * 100).toFixed(4))
+                  : Number(el.width) || 15.52;
 
         const heightPct =
           el.height_pct !== undefined && el.height_pct !== null && !isNaN(Number(el.height_pct))
             ? Number(el.height_pct)
             : el.h_norm !== undefined && el.h_norm !== null && !isNaN(Number(el.h_norm))
-            ? Number((Number(el.h_norm) * 100).toFixed(4))
-            : typeof el.height_str === "string" && el.height_str.includes("%")
-            ? parseFloat(el.height_str)
-            : el.height > 100
-            ? Number(((Number(el.height) / 1000) * 100).toFixed(4))
-            : Number(el.height) || 13.23;
+              ? Number((Number(el.h_norm) * 100).toFixed(4))
+              : typeof el.height_str === "string" && el.height_str.includes("%")
+                ? parseFloat(el.height_str)
+                : el.height > 100
+                  ? Number(((Number(el.height) / 1000) * 100).toFixed(4))
+                  : Number(el.height) || 13.23;
 
         const xPct =
           el.x_pct !== undefined && el.x_pct !== null && !isNaN(Number(el.x_pct))
             ? Number(el.x_pct)
             : el.x_norm !== undefined && el.x_norm !== null && !isNaN(Number(el.x_norm))
-            ? Number((Number(el.x_norm) * 100).toFixed(4))
-            : typeof el.x_str === "string" && el.x_str.includes("%")
-            ? parseFloat(el.x_str)
-            : el.x > 100
-            ? Number(((Number(el.x) / 1000) * 100).toFixed(4))
-            : Number(el.x) || 0;
+              ? Number((Number(el.x_norm) * 100).toFixed(4))
+              : typeof el.x_str === "string" && el.x_str.includes("%")
+                ? parseFloat(el.x_str)
+                : el.x > 100
+                  ? Number(((Number(el.x) / 1000) * 100).toFixed(4))
+                  : Number(el.x) || 0;
 
         const yPct =
           el.y_pct !== undefined && el.y_pct !== null && !isNaN(Number(el.y_pct))
             ? Number(el.y_pct)
             : el.y_norm !== undefined && el.y_norm !== null && !isNaN(Number(el.y_norm))
-            ? Number((Number(el.y_norm) * 100).toFixed(4))
-            : typeof el.y_str === "string" && el.y_str.includes("%")
-            ? parseFloat(el.y_str)
-            : el.y > 100
-            ? Number(((Number(el.y) / 1000) * 100).toFixed(4))
-            : Number(el.y) || 0;
+              ? Number((Number(el.y_norm) * 100).toFixed(4))
+              : typeof el.y_str === "string" && el.y_str.includes("%")
+                ? parseFloat(el.y_str)
+                : el.y > 100
+                  ? Number(((Number(el.y) / 1000) * 100).toFixed(4))
+                  : Number(el.y) || 0;
 
         const decInfo = {
           ...el,
@@ -3110,8 +3301,8 @@ const PhotoBookEditorPage = () => {
           Math.abs(width_in - height_in) < 0.2
             ? "SQUARE"
             : width_in > height_in
-            ? "HORIZONTAL"
-            : "VERTICAL";
+              ? "HORIZONTAL"
+              : "VERTICAL";
 
         const dimensions = formatBookSizeInches(szItem);
 
@@ -3180,8 +3371,8 @@ const PhotoBookEditorPage = () => {
           Math.abs(width_in - height_in) < 0.2
             ? "SQUARE"
             : width_in > height_in
-            ? "HORIZONTAL"
-            : "VERTICAL";
+              ? "HORIZONTAL"
+              : "VERTICAL";
         return {
           id: strVal,
           name: `${width_in} × ${height_in}`,
@@ -3254,8 +3445,8 @@ const PhotoBookEditorPage = () => {
         ? templateData.supported_sizes
         : Array.isArray(templateData?.published_snapshot?.supported_sizes) &&
           templateData.published_snapshot.supported_sizes.length > 0
-        ? templateData.published_snapshot.supported_sizes
-        : null;
+          ? templateData.published_snapshot.supported_sizes
+          : null;
 
     if (rawTplSizes && rawTplSizes.length > 0) {
       return rawTplSizes.map((sz, idx) => buildSizeObject(sz, idx));
@@ -3270,7 +3461,7 @@ const PhotoBookEditorPage = () => {
     if (templateSizes && templateSizes.length > 0) {
       try {
         localStorage.setItem("photobook_template_sizes", JSON.stringify(templateSizes));
-      } catch (e) {}
+      } catch (e) { }
     }
     if (isLoading) return;
     if (templateSizes && templateSizes.length > 0) {
@@ -3442,6 +3633,34 @@ const PhotoBookEditorPage = () => {
       "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Cinzel:wght@400..900&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Dancing+Script:wght@400..700&family=Great+Vibes&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jost:ital,wght@0,100..900;1,100..900&family=Merriweather:ital,wght@0,300..900;1,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap";
   }, []);
 
+  // ── Dynamically load any custom or admin template fonts across all pages and sizes ──
+  useEffect(() => {
+    if (!templateData && (!pagesData || pagesData.length === 0)) return;
+    const scanAndLoad = (elements) => {
+      (elements || []).forEach((el) => {
+        if (el && el.type === "text") {
+          const fn = el.font_family || el.fontFamily;
+          if (fn) dynamicallyLoadGoogleFont(fn);
+        }
+      });
+    };
+    (pagesData || []).forEach((pg) => scanAndLoad(pg?.elements));
+    (templateData?.pages || []).forEach((pg) => scanAndLoad(pg?.elements));
+    if (templateData?.size_designs) {
+      Object.values(templateData.size_designs).forEach((des) => {
+        (des?.pages || []).forEach((pg) => scanAndLoad(pg?.elements));
+      });
+    }
+    if (templateData?.published_snapshot) {
+      (templateData.published_snapshot.pages || []).forEach((pg) => scanAndLoad(pg?.elements));
+      if (templateData.published_snapshot.size_designs) {
+        Object.values(templateData.published_snapshot.size_designs).forEach((des) => {
+          (des?.pages || []).forEach((pg) => scanAndLoad(pg?.elements));
+        });
+      }
+    }
+  }, [templateData, pagesData]);
+
   // ── Mouse Listeners for Photoshop-like Drag & Drop / Resize Transform ──────
   useEffect(() => {
     if (!activeCustomerTransform) return;
@@ -3505,13 +3724,13 @@ const PhotoBookEditorPage = () => {
               y: legacyY,
               ...(el.type === "text"
                 ? {
-                    width_pct: baseW,
-                    height_pct: baseH,
-                    width_str: `${baseW}%`,
-                    height_str: `${baseH}%`,
-                    width: Math.round(baseW * 10),
-                    height: Math.round(baseH * 10),
-                  }
+                  width_pct: baseW,
+                  height_pct: baseH,
+                  width_str: `${baseW}%`,
+                  height_str: `${baseH}%`,
+                  width: Math.round(baseW * 10),
+                  height: Math.round(baseH * 10),
+                }
                 : {}),
             };
           }
@@ -3708,8 +3927,8 @@ const PhotoBookEditorPage = () => {
       matchedTemplate?.editions?.length > 0
         ? matchedTemplate.editions
         : templateData?.editions?.length > 0
-        ? templateData.editions
-        : [];
+          ? templateData.editions
+          : [];
     const editionNameOrId = String(selectedVariant || designData?.variant || "").trim().toLowerCase();
     const matchedEdition =
       editions.find(
@@ -3835,10 +4054,13 @@ const PhotoBookEditorPage = () => {
     // 8. Extra pages (only charged above base default pages)
     const extraPages = Math.max(0, photoBookPages - basePages);
     const extraPagesCost = extraPages * extraPricePerUnit;
-    const taxableTotal = basePrice + extraPagesCost;
+    // Customer price configured in admin is already inclusive of GST
+    const finalTotal = Number((basePrice + extraPagesCost).toFixed(2));
     const gstRate = parseFloat(productData?.GST || productData?.gst || 18) || 18;
-    const taxAmount = Number(((taxableTotal * gstRate) / 100).toFixed(2));
-    const finalTotal = Number((taxableTotal + taxAmount).toFixed(2));
+    const taxableTotal = Number((finalTotal / (1 + gstRate / 100)).toFixed(2));
+    const taxAmount = Number((finalTotal - taxableTotal).toFixed(2));
+    const mrpBase = Number(edPricingDetails?.mrp || productData?.MRP_price || basePrice);
+    const mrpTotal = Number((mrpBase + extraPagesCost).toFixed(2));
 
     return {
       basePages,
@@ -3848,6 +4070,8 @@ const PhotoBookEditorPage = () => {
       extraPricePerUnit,
       extraPagesCost,
       basePrice,
+      mrpBase,
+      mrpTotal,
       taxableTotal,
       gstRate,
       taxAmount,
@@ -3890,8 +4114,8 @@ const PhotoBookEditorPage = () => {
           (template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
             ? template.published_snapshot.pages
             : template?.pages && template.pages.length > 0
-            ? template.pages
-            : [])
+              ? template.pages
+              : [])
         );
       }
 
@@ -3916,18 +4140,40 @@ const PhotoBookEditorPage = () => {
         }
       }
 
-      // 2. Check each sizeDesign entry for exact match on key, size_id, size_name, or dimensions
+      const targetCleanName = targetName.replace(/\s*\([^)]*\).*/g, "").trim().toLowerCase();
+      const targetOrient = matchedSizeObj?.orientation ? String(matchedSizeObj.orientation).toLowerCase() : "";
+      const isLandscape =
+        targetOrient === "horizontal" ||
+        targetOrient === "landscape" ||
+        targetCleanName === "landscape" ||
+        targetName.includes("landscape") ||
+        (matchedSizeObj && Number(matchedSizeObj.width_in) > Number(matchedSizeObj.height_in));
+      const isPortrait =
+        targetOrient === "vertical" ||
+        targetOrient === "portrait" ||
+        targetCleanName === "portrait" ||
+        (targetName.includes("portrait") && !targetName.includes("landscape")) ||
+        (matchedSizeObj && Number(matchedSizeObj.width_in) < Number(matchedSizeObj.height_in));
+      const isSquare =
+        targetOrient === "square" ||
+        targetCleanName === "square" ||
+        (!isLandscape && !isPortrait);
+
+      // 2. Check each sizeDesign entry for exact match on key, size_id, size_name, clean name, or dimensions
       for (const [key, design] of entries) {
         if (!design || !Array.isArray(design.pages) || design.pages.length === 0) continue;
-        const keyLower = key.toLowerCase();
-        const designIdLower = String(design.size_id || "").toLowerCase();
-        const designNameLower = String(design.size_name || "").toLowerCase();
+        const keyLower = key.toLowerCase().trim();
+        const designIdLower = String(design.size_id || "").toLowerCase().trim();
+        const designNameLower = String(design.size_name || "").toLowerCase().trim();
+        const designClean = designNameLower.replace(/\s*\([^)]*\).*/g, "").trim();
 
-        // Direct key, size_id, or size_name match
+        // Direct key, size_id, size_name, or clean name match
         if (
           keyLower === targetSize ||
           keyLower === targetId ||
           keyLower === targetName ||
+          keyLower === targetCleanName ||
+          (designClean && (designClean === targetCleanName || designClean === targetName)) ||
           keyLower.replace(/\s+/g, "") === targetSize.replace(/\s+/g, "") ||
           (designIdLower && (designIdLower === targetSize || designIdLower === targetId || designIdLower === targetName)) ||
           (designNameLower && (designNameLower === targetSize || designNameLower === targetId || designNameLower === targetName))
@@ -3950,14 +4196,64 @@ const PhotoBookEditorPage = () => {
         }
       }
 
-      // 3. Fallback to template root pages (legacy or base design)
-      return (
-        (template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
+      // 3. Orientation-specific match (Landscape matches horizontal/landscape design, Portrait matches portrait design)
+      for (const [key, design] of entries) {
+        if (!design || !Array.isArray(design.pages) || design.pages.length === 0) continue;
+        const keyLower = key.toLowerCase().trim();
+        const dOrient = String(design.orientation || "").toLowerCase().trim();
+        const dName = String(design.size_name || "").toLowerCase().trim();
+        const dClean = dName.replace(/\s*\([^)]*\).*/g, "").trim();
+
+        if (isLandscape) {
+          if (
+            keyLower === "landscape" || keyLower === "horizontal" ||
+            dOrient === "horizontal" || dOrient === "landscape" ||
+            dClean === "landscape" || dClean === "horizontal" ||
+            dName.includes("landscape") ||
+            (design.page_width && design.page_height && Number(design.page_width) > Number(design.page_height))
+          ) {
+            return design.pages;
+          }
+        } else if (isPortrait) {
+          if (
+            keyLower === "portrait" || keyLower === "vertical" ||
+            dOrient === "vertical" || dOrient === "portrait" ||
+            dClean === "portrait" || dClean === "vertical" ||
+            (dName.includes("portrait") && !dName.includes("landscape")) ||
+            (design.page_width && design.page_height && Number(design.page_height) > Number(design.page_width))
+          ) {
+            return design.pages;
+          }
+        } else if (isSquare) {
+          if (
+            keyLower === "square" || dOrient === "square" || dClean === "square" ||
+            (design.page_width && design.page_height && Number(design.page_width) === Number(design.page_height))
+          ) {
+            return design.pages;
+          }
+        }
+      }
+
+      // 4. Fallback to template root pages (snapshot or pages)
+      const rootPages =
+        template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
           ? template.published_snapshot.pages
           : template?.pages && template.pages.length > 0
-          ? template.pages
-          : [])
-      );
+            ? template.pages
+            : [];
+
+      if (rootPages.length > 0) {
+        return rootPages;
+      }
+
+      // 5. Final fallback to any valid size design if available
+      for (const [_, design] of entries) {
+        if (design && Array.isArray(design.pages) && design.pages.length > 0) {
+          return design.pages;
+        }
+      }
+
+      return [];
     },
     [selectedSize, templateSizes]
   );
@@ -3974,29 +4270,17 @@ const PhotoBookEditorPage = () => {
       );
       if (interiorTPages.length === 0) return tPages[0] || null;
 
-      // 1. Exact page number match
-      const exact = interiorTPages.find(
-        (p) =>
-          p.targeting_rule?.rule_type === "exact_page" &&
-          p.targeting_rule?.page_number === pageNumber
-      );
-      if (exact) return exact;
-
-      // 2. Odd/Even Interior matches
-      if (pageNumber % 2 !== 0) {
-        const odd = interiorTPages.find((p) => p.targeting_rule?.rule_type === "odd_interior");
-        if (odd) return odd;
-      } else {
-        const even = interiorTPages.find((p) => p.targeting_rule?.rule_type === "even_interior");
-        if (even) return even;
+      // 1. Direct sequential 1:1 card match:
+      // In Admin photobook sequence, interior cards are ordered [P1, P2, P3, P4, P5, ...]
+      // Card 0 (P1) is Page 1, Card 1 (P2) is Page 2, Card 2 (P3) is Page 3, Card 3 (P4) is Page 4, etc.
+      // This MUST strictly match 1:1 with admin's sequential cards without any offset or duplication!
+      if (pageNumber >= 1 && pageNumber <= interiorTPages.length) {
+        return interiorTPages[pageNumber - 1];
       }
 
-      // 3. General All Interior
-      const allInterior = interiorTPages.find((p) => p.targeting_rule?.rule_type === "all_interior");
-      if (allInterior) return allInterior;
-
-      // Fallback to first available interior page
-      return interiorTPages[0] || tPages[0];
+      // If pageNumber is beyond the admin-created interior cards (e.g. admin creates 1 to 5, but book has 20 pages):
+      // Return null so the other pages show "No design created for this page"!
+      return null;
     },
     [resolveTemplatePagesForActiveSize]
   );
@@ -4018,6 +4302,8 @@ const PhotoBookEditorPage = () => {
           if (assignedPhoto) photoCursor++;
           return {
             ...el,
+            shape: el.shape || el.mask_shape || "rectangle",
+            mask_shape: el.mask_shape || el.shape || "rectangle",
             photo_url: assignedPhoto ? assignedPhoto.url : (el.photo_url || ""),
             photo_id: assignedPhoto ? assignedPhoto.id : (el.photo_id || ""),
             test_image_url: el.test_image_url || el.sample_image_url || "",
@@ -4029,16 +4315,26 @@ const PhotoBookEditorPage = () => {
           return resolveDbDecorationData(el, dbDecDefs);
         }
         if (el.type === "text") {
+          const fontFamily = el.font_family || el.fontFamily || "Inter";
+          const fontWeight = el.font_weight || el.fontWeight || "normal";
+          const fontStyle = el.font_style || el.fontStyle || "normal";
+          const letterSpacing = el.letter_spacing !== undefined ? el.letter_spacing : (el.letterSpacing !== undefined ? el.letterSpacing : 0);
+          const lineHeight = el.line_height || el.lineHeight || 1.2;
+          const textTransform = el.text_transform || el.textTransform || "none";
+          dynamicallyLoadGoogleFont(fontFamily);
           return {
             ...el,
             content: el.content !== undefined && el.content !== null ? el.content : "",
-            font_family: el.font_family || "Playfair Display",
-            font_size: el.font_size || 24,
-            font_weight: el.font_weight || "normal",
-            font_style: el.font_style || "normal",
-            text_transform: el.text_transform || el.textTransform || "none",
+            font_family: fontFamily,
+            font_size: el.font_size || el.fontSize || 24,
+            font_weight: fontWeight,
+            font_style: fontStyle,
+            letter_spacing: letterSpacing,
+            line_height: lineHeight,
+            text_transform: textTransform,
             color: el.color || "#1f2937",
             align: el.align || "center",
+            is_customer_editable: Boolean(el.is_customer_editable || el.allowCustomerEdit),
           };
         }
         return { ...el };
@@ -4120,15 +4416,42 @@ const PhotoBookEditorPage = () => {
       }
 
       // 3. Interior Pages (totalPages includes Front & Back Cover)
+      // Exactly matches Admin Photobook Sequence page-for-page
       const interiorPagesCount = Math.max(2, totalPages - 2);
+      const interiorTPages = tPages.filter(
+        (p) => p.page_type !== "front_cover" && p.page_type !== "back_cover"
+      );
+      const masterTplPage = interiorTPages[0] || tPages[0];
+
       for (let pNum = 1; pNum <= interiorPagesCount; pNum++) {
-        const tplPage = resolveTemplatePage(pNum, interiorPagesCount, template, sizeKey);
-        const clonedElements = (tplPage?.elements || []).map((el) => {
+        const curTplPage = resolveTemplatePage(pNum, totalPages, template, sizeKey);
+
+        if (!curTplPage) {
+          // If no design was created by admin for this page, show "No design created for this page"
+          builtPages.push({
+            page_number: pNum,
+            display_label: `Page ${pNum}`,
+            page_id: `page-${pNum}`,
+            name: `Page ${pNum}`,
+            page_type: "interior",
+            no_design: true,
+            has_design: false,
+            background: { type: "color", value: "#ffffff", opacity: 1 },
+            elements: [],
+          });
+          continue;
+        }
+
+        const curElementsList = curTplPage.elements || [];
+
+        const clonedElements = curElementsList.map((el) => {
           if (el.type === "photo_frame") {
             const assignedPhoto = (photos && photos[photoCursor]) || null;
             if (assignedPhoto) photoCursor++;
             return {
               ...el,
+              shape: el.shape || el.mask_shape || "rectangle",
+              mask_shape: el.mask_shape || el.shape || "rectangle",
               photo_url: assignedPhoto ? assignedPhoto.url : (el.photo_url || ""),
               photo_id: assignedPhoto ? assignedPhoto.id : (el.photo_id || ""),
               test_image_url: el.test_image_url || el.sample_image_url || "",
@@ -4140,63 +4463,30 @@ const PhotoBookEditorPage = () => {
             return resolveDbDecorationData(el, dbDecDefs);
           }
           if (el.type === "text") {
+            const fontFamily = el.font_family || el.fontFamily || "Inter";
+            const fontWeight = el.font_weight || el.fontWeight || "normal";
+            const fontStyle = el.font_style || el.fontStyle || "normal";
+            const letterSpacing = el.letter_spacing !== undefined ? el.letter_spacing : (el.letterSpacing !== undefined ? el.letterSpacing : 0);
+            const lineHeight = el.line_height || el.lineHeight || 1.2;
+            const textTransform = el.text_transform || el.textTransform || "none";
+            dynamicallyLoadGoogleFont(fontFamily);
             return {
               ...el,
               content: el.content !== undefined && el.content !== null ? el.content : "",
-              font_family: el.font_family || "Playfair Display",
-              font_size: el.font_size || 24,
-              font_weight: el.font_weight || "normal",
-              font_style: el.font_style || "normal",
-              text_transform: el.text_transform || el.textTransform || "none",
+              font_family: fontFamily,
+              font_size: el.font_size || el.fontSize || 24,
+              font_weight: fontWeight,
+              font_style: fontStyle,
+              letter_spacing: letterSpacing,
+              line_height: lineHeight,
+              text_transform: textTransform,
               color: el.color || "#1f2937",
               align: el.align || "center",
+              is_customer_editable: Boolean(el.is_customer_editable || el.allowCustomerEdit),
             };
           }
           return { ...el };
         });
-
-        const interiorRawList = clonedElements.length > 0 ? clonedElements : [
-          {
-            id: `p${pNum}-frame-1`,
-            frame_id: `p${pNum}_frame_1`,
-            type: "photo_frame",
-            x: 60,
-            y: 80,
-            width: 420,
-            height: 840,
-            x_pct: 6,
-            y_pct: 8,
-            width_pct: 42,
-            height_pct: 84,
-            unit: "%",
-            is_percentage: true,
-            rotation: 0,
-            shape: "rectangle",
-            fit_mode: "cover",
-            photo_url: photos && photos[photoCursor] ? photos[photoCursor++].url : "",
-            test_image_url: "",
-          },
-          {
-            id: `p${pNum}-frame-2`,
-            frame_id: `p${pNum}_frame_2`,
-            type: "photo_frame",
-            x: 520,
-            y: 80,
-            width: 420,
-            height: 840,
-            x_pct: 52,
-            y_pct: 8,
-            width_pct: 42,
-            height_pct: 84,
-            unit: "%",
-            is_percentage: true,
-            rotation: 0,
-            shape: "rectangle",
-            fit_mode: "cover",
-            photo_url: photos && photos[photoCursor] ? photos[photoCursor++].url : "",
-            test_image_url: "",
-          },
-        ];
 
         builtPages.push({
           page_number: pNum,
@@ -4204,8 +4494,10 @@ const PhotoBookEditorPage = () => {
           page_id: `page-${pNum}`,
           name: `Page ${pNum}`,
           page_type: "interior",
-          background: tplPage?.background || { type: "color", value: "#ffffff", opacity: 1 },
-          elements: interiorRawList.map(normalizeElementToPaperCoords),
+          no_design: false,
+          has_design: true,
+          background: curTplPage.background || { type: "color", value: "#ffffff", opacity: 1 },
+          elements: clonedElements.map(normalizeElementToPaperCoords),
         });
       }
 
@@ -4231,6 +4523,8 @@ const PhotoBookEditorPage = () => {
           if (assignedPhoto) photoCursor++;
           return {
             ...el,
+            shape: el.shape || el.mask_shape || "rectangle",
+            mask_shape: el.mask_shape || el.shape || "rectangle",
             photo_url: assignedPhoto ? assignedPhoto.url : (el.photo_url || ""),
             photo_id: assignedPhoto ? assignedPhoto.id : (el.photo_id || ""),
             test_image_url: el.test_image_url || el.sample_image_url || "",
@@ -4242,16 +4536,26 @@ const PhotoBookEditorPage = () => {
           return resolveDbDecorationData(el, dbDecDefs);
         }
         if (el.type === "text") {
+          const fontFamily = el.font_family || el.fontFamily || "Inter";
+          const fontWeight = el.font_weight || el.fontWeight || "normal";
+          const fontStyle = el.font_style || el.fontStyle || "normal";
+          const letterSpacing = el.letter_spacing !== undefined ? el.letter_spacing : (el.letterSpacing !== undefined ? el.letterSpacing : 0);
+          const lineHeight = el.line_height || el.lineHeight || 1.2;
+          const textTransform = el.text_transform || el.textTransform || "none";
+          dynamicallyLoadGoogleFont(fontFamily);
           return {
             ...el,
             content: el.content !== undefined && el.content !== null ? el.content : "",
-            font_family: el.font_family || "Playfair Display",
-            font_size: el.font_size || 24,
-            font_weight: el.font_weight || "normal",
-            font_style: el.font_style || "normal",
-            text_transform: el.text_transform || el.textTransform || "none",
+            font_family: fontFamily,
+            font_size: el.font_size || el.fontSize || 24,
+            font_weight: fontWeight,
+            font_style: fontStyle,
+            letter_spacing: letterSpacing,
+            line_height: lineHeight,
+            text_transform: textTransform,
             color: el.color || "#1f2937",
             align: el.align || "center",
+            is_customer_editable: Boolean(el.is_customer_editable || el.allowCustomerEdit),
           };
         }
         return { ...el };
@@ -4739,51 +5043,143 @@ const PhotoBookEditorPage = () => {
               tplPg = resolveTemplatePage(pg.page_number, pageCnt, activeTpl, activeBookSize);
             }
 
-            const enrichedElements = (pg.elements || []).map((el) => {
-              if (el.type === "photo_frame") {
-                const tplEl = tplPg?.elements?.find((te) => te.frame_id === el.frame_id || te.id === el.id);
-                return {
-                  ...el,
-                  shape: el.shape || el.mask_shape || tplEl?.shape || "rectangle",
-                  mask_shape: el.mask_shape || el.shape || tplEl?.mask_shape || "rectangle",
-                  test_image_url: el.test_image_url || tplEl?.test_image_url || "",
-                };
-              }
-              if (el.type === "decoration") {
-                const dbDecDefs = extractDatabaseDecorations(activeTpl);
-                const decMeta = resolveDbDecorationData(el, dbDecDefs);
-                // Saved positions, dimensions, rotation, z_index must NOT be overridden by template defaults!
-                return {
-                  ...decMeta,
-                  ...el,
-                  svg: el.svg || decMeta?.svg || resolveDecorationSvg(el),
-                  asset_url: el.asset_url || decMeta?.asset_url || "",
-                };
-              }
-              if (el.type === "text") {
-                const tplEl = tplPg?.elements?.find((te) => te.id === el.id);
-                return {
-                  ...el,
-                  font_family: el.font_family || tplEl?.font_family || "Playfair Display",
-                  font_size: el.font_size || tplEl?.font_size || 24,
-                  font_weight: el.font_weight || tplEl?.font_weight || "normal",
-                  font_style: el.font_style || tplEl?.font_style || "normal",
-                  text_transform: el.text_transform || el.textTransform || tplEl?.text_transform || "none",
-                  color: el.color || tplEl?.color || "#1f2937",
-                  align: el.align || tplEl?.align || "center",
-                };
-              }
-              return el;
-            });
+            // If this is an interior page and admin created no design for it (e.g. admin created 1-5, but book has 20 pages):
+            if (pg.page_type === "interior" && !tplPg) {
+              return {
+                ...pg,
+                no_design: true,
+                has_design: false,
+                elements: [],
+                background: { type: "color", value: "#ffffff", opacity: 1 },
+              };
+            }
+
+            const tplElements = tplPg?.elements || [];
+            // If the saved page elements do not match tplPg at all (e.g. from the previous duplicate bug):
+            const hasAnyMatchingFrame = (pg.elements || []).some((el) =>
+              el.type === "photo_frame" && tplElements.some((te) => (te.frame_id && te.frame_id === el.frame_id) || (te.id && te.id === el.id))
+            );
+            const isInteriorMismatched =
+              pg.page_type === "interior" &&
+              tplElements.length > 0 &&
+              !hasAnyMatchingFrame &&
+              (pg.elements || []).some((el) => el.type === "photo_frame");
+
+            let resolvedElements = [];
+            let resolvedBg = pg.background;
+
+            if (isInteriorMismatched) {
+              // The saved page has duplicate elements from a different card.
+              // Reconstruct with tplElements while safely preserving placed user photos in order!
+              const savedPhotos = (pg.elements || [])
+                .filter((el) => el.type === "photo_frame" && el.photo_url)
+                .map((el) => ({
+                  url: el.photo_url,
+                  id: el.photo_id,
+                  name: el.photo_name,
+                  crop: el.crop,
+                  rotation: el.rotation,
+                }));
+
+              let photoCursor = 0;
+              const dbDecDefs = extractDatabaseDecorations(activeTpl);
+
+              resolvedElements = tplElements.map((te) => {
+                if (te.type === "photo_frame") {
+                  const placedPhoto = savedPhotos[photoCursor++];
+                  return {
+                    ...te,
+                    shape: te.shape || te.mask_shape || "rectangle",
+                    mask_shape: te.mask_shape || te.shape || "rectangle",
+                    photo_url: placedPhoto ? placedPhoto.url : (te.photo_url || ""),
+                    photo_id: placedPhoto ? placedPhoto.id : (te.photo_id || ""),
+                    photo_name: placedPhoto ? placedPhoto.name : "",
+                    crop: placedPhoto?.crop || te.crop || { zoom: 1, offsetX: 0, offsetY: 0 },
+                    rotation: placedPhoto?.rotation || te.rotation || 0,
+                    test_image_url: te.test_image_url || te.sample_image_url || "",
+                  };
+                }
+                if (te.type === "decoration") {
+                  return resolveDbDecorationData(te, dbDecDefs);
+                }
+                if (te.type === "text") {
+                  const fontFamily = te.font_family || te.fontFamily || "Inter";
+                  dynamicallyLoadGoogleFont(fontFamily);
+                  return {
+                    ...te,
+                    content: te.content !== undefined && te.content !== null ? te.content : "",
+                    font_family: fontFamily,
+                    font_size: te.font_size || te.fontSize || 24,
+                    font_weight: te.font_weight || te.fontWeight || "normal",
+                    font_style: te.font_style || te.fontStyle || "normal",
+                    letter_spacing: te.letter_spacing !== undefined ? te.letter_spacing : 0,
+                    line_height: te.line_height || 1.2,
+                    text_transform: te.text_transform || "none",
+                    color: te.color || "#1f2937",
+                    align: te.align || "center",
+                    is_customer_editable: Boolean(te.is_customer_editable || te.allowCustomerEdit),
+                  };
+                }
+                return { ...te };
+              });
+              resolvedBg = tplPg?.background || { type: "color", value: "#ffffff", opacity: 1 };
+            } else {
+              resolvedElements = (pg.elements || []).map((el) => {
+                if (el.type === "photo_frame") {
+                  const tplEl = tplPg?.elements?.find((te) => te.frame_id === el.frame_id || te.id === el.id);
+                  return {
+                    ...el,
+                    shape: el.shape || el.mask_shape || tplEl?.shape || "rectangle",
+                    mask_shape: el.mask_shape || el.shape || tplEl?.mask_shape || "rectangle",
+                    test_image_url: el.test_image_url || tplEl?.test_image_url || "",
+                  };
+                }
+                if (el.type === "decoration") {
+                  const dbDecDefs = extractDatabaseDecorations(activeTpl);
+                  const decMeta = resolveDbDecorationData(el, dbDecDefs);
+                  // Saved positions, dimensions, rotation, z_index must NOT be overridden by template defaults!
+                  return {
+                    ...decMeta,
+                    ...el,
+                    svg: el.svg || decMeta?.svg || resolveDecorationSvg(el),
+                    asset_url: el.asset_url || decMeta?.asset_url || "",
+                  };
+                }
+                if (el.type === "text") {
+                  const tplEl = tplPg?.elements?.find((te) => te.id === el.id);
+                  const fontFamily = el.font_family || el.fontFamily || tplEl?.font_family || tplEl?.fontFamily || "Inter";
+                  const fontWeight = el.font_weight || el.fontWeight || tplEl?.font_weight || tplEl?.fontWeight || "normal";
+                  const fontStyle = el.font_style || el.fontStyle || tplEl?.font_style || tplEl?.fontStyle || "normal";
+                  const letterSpacing = el.letter_spacing !== undefined ? el.letter_spacing : (el.letterSpacing !== undefined ? el.letterSpacing : (tplEl?.letter_spacing !== undefined ? tplEl.letter_spacing : (tplEl?.letterSpacing !== undefined ? tplEl.letterSpacing : 0)));
+                  const lineHeight = el.line_height || el.lineHeight || tplEl?.line_height || tplEl?.lineHeight || 1.2;
+                  const textTransform = el.text_transform || el.textTransform || tplEl?.text_transform || tplEl?.textTransform || "none";
+                  dynamicallyLoadGoogleFont(fontFamily);
+                  return {
+                    ...el,
+                    font_family: fontFamily,
+                    font_size: el.font_size || el.fontSize || tplEl?.font_size || tplEl?.fontSize || 24,
+                    font_weight: fontWeight,
+                    font_style: fontStyle,
+                    letter_spacing: letterSpacing,
+                    line_height: lineHeight,
+                    text_transform: textTransform,
+                    color: el.color || tplEl?.color || "#1f2937",
+                    align: el.align || tplEl?.align || "center",
+                  };
+                }
+                return el;
+              });
+
+              resolvedBg =
+                pg.background && (pg.background.value || pg.background.type)
+                  ? pg.background
+                  : tplPg?.background || pg.background || { type: "color", value: "#ffffff", opacity: 1 };
+            }
 
             return {
               ...pg,
-              // Faithfully preserve saved user background
-              background:
-                pg.background && (pg.background.value || pg.background.type)
-                  ? pg.background
-                  : tplPg?.background || pg.background || { type: "color", value: "#ffffff", opacity: 1 },
-              elements: (enrichedElements.length > 0 ? enrichedElements : (pg.elements || [])).map(normalizeElementToPaperCoords),
+              background: resolvedBg,
+              elements: (resolvedElements.length > 0 ? resolvedElements : (pg.elements || [])).map(normalizeElementToPaperCoords),
             };
           });
 
@@ -5379,8 +5775,7 @@ const PhotoBookEditorPage = () => {
 
     if (duplicateCount > 0) {
       message.info(
-        `${duplicateCount} duplicate photo${
-          duplicateCount > 1 ? "s were" : " was"
+        `${duplicateCount} duplicate photo${duplicateCount > 1 ? "s were" : " was"
         } skipped. Each photo must be unique.`
       );
     }
@@ -5849,62 +6244,64 @@ const PhotoBookEditorPage = () => {
 
     let stepCount = 1;
 
+    const blankInsideFront = pagesData.find((p) => p.page_id === "blank-inside-front") || {
+      page_id: "blank-inside-front",
+      name: "Inside Front Cover",
+      display_label: "Inside Front Cover",
+      page_type: "blank",
+      page_number: "Inside Cover",
+      is_blank: true,
+      background: { type: "color", value: "#ffffff" },
+      elements: [],
+    };
+
+    const blankInsideBack = pagesData.find((p) => p.page_id === "blank-inside-back") || {
+      page_id: "blank-inside-back",
+      name: "Inside Back Cover",
+      display_label: "Inside Back Cover",
+      page_type: "blank",
+      page_number: "Inside Cover",
+      is_blank: true,
+      background: { type: "color", value: "#ffffff" },
+      elements: [],
+    };
+
     if (hasBlankPage) {
-      const blankInsideFront = pagesData.find((p) => p.page_id === "blank-inside-front") || {
-        page_id: "blank-inside-front",
-        name: "Blank Page",
-        display_label: "Blank Page",
-        page_type: "blank",
-        page_number: "Blank",
-        is_blank: true,
-        background: { type: "color", value: "#ffffff" },
-        elements: [],
-      };
-
-      const blankInsideBack = pagesData.find((p) => p.page_id === "blank-inside-back") || {
-        page_id: "blank-inside-back",
-        name: "Blank Page",
-        display_label: "Blank Page",
-        page_type: "blank",
-        page_number: "Blank",
-        is_blank: true,
-        background: { type: "color", value: "#ffffff" },
-        elements: [],
-      };
-
-      const page1 =
-        interiorPages.find((p) => p.page_number === 1) ||
-        interiorPages.find((p) => p.page_id === "page-1") ||
-        interiorPages[0];
-
-      // Step 1: Inside Cover & Page 1 (Spread)
+      // Step 1: Inside Front Cover & Page 1 (Spread)
       steps.push({
         type: "spread",
         stepIndex: 1,
         title: "Inside Cover & Page 1",
         leftPage: blankInsideFront,
-        rightPage: page1,
+        rightPage: interiorPages[0],
       });
 
       // Steps 2+: Page 2 & 3, Page 4 & 5, ...
-      const remainingPages = interiorPages.filter((p) => p.page_id !== page1?.page_id);
       stepCount = 2;
-      for (let i = 0; i < remainingPages.length; i += 2) {
-        const leftP = remainingPages[i];
-        const rightP = remainingPages[i + 1] || blankInsideBack;
+      for (let i = 1; i < interiorPages.length; i += 2) {
+        const leftP = interiorPages[i];
+        const rightP = interiorPages[i + 1] || blankInsideBack;
+        const leftLabel = leftP?.page_number ? `Page ${leftP.page_number}` : `Page ${i + 1}`;
+        const rightLabel = rightP?.is_blank
+          ? "Inside Back Cover"
+          : rightP?.page_number
+          ? `Page ${rightP.page_number}`
+          : `Page ${i + 2}`;
+
         steps.push({
           type: "spread",
           stepIndex: stepCount,
           title: rightP?.is_blank
-            ? `Page ${leftP?.page_number} & Inside Back Cover`
-            : `Pages ${leftP?.page_number} & ${rightP?.page_number}`,
+            ? `${leftLabel} & Inside Back Cover`
+            : `Pages ${leftP?.page_number || i + 1} & ${rightP?.page_number || i + 2}`,
           leftPage: leftP,
           rightPage: rightP,
         });
         stepCount++;
       }
     } else {
-      // Directly step through interior spreads without blank page
+      // Step 1: Page 1 and Page 2 (Left is Page 1, Right is Page 2)
+      // Step 2: Page 3 and Page 4 (Left is Page 3, Right is Page 4)...
       stepCount = 1;
       for (let i = 0; i < interiorPages.length; i += 2) {
         const leftP = interiorPages[i];
@@ -5913,8 +6310,8 @@ const PhotoBookEditorPage = () => {
           type: "spread",
           stepIndex: stepCount,
           title: rightP
-            ? `Pages ${leftP?.page_number} & ${rightP?.page_number}`
-            : `Page ${leftP?.page_number}`,
+            ? `Pages ${leftP?.page_number || i + 1} & ${rightP?.page_number || i + 2}`
+            : `Page ${leftP?.page_number || i + 1}`,
           leftPage: leftP,
           rightPage: rightP,
         });
@@ -6131,8 +6528,8 @@ const PhotoBookEditorPage = () => {
 
     const totalWidthPct = 88;
     const gapPct = 3;
-    const w1Pct = +( (clamped / 100) * totalWidthPct - gapPct / 2 ).toFixed(2);
-    const w2Pct = +( totalWidthPct - w1Pct - gapPct ).toFixed(2);
+    const w1Pct = +((clamped / 100) * totalWidthPct - gapPct / 2).toFixed(2);
+    const w2Pct = +(totalWidthPct - w1Pct - gapPct).toFixed(2);
     const left1 = 6;
     const left2 = +(left1 + w1Pct + gapPct).toFixed(2);
 
@@ -6263,6 +6660,10 @@ const PhotoBookEditorPage = () => {
 
   const handleOpenPageEditModal = (page) => {
     if (!page) return;
+    if (page.no_design || page.has_design === false) {
+      message.info("No template design has been created for this page.");
+      return;
+    }
     const sanitized = sanitizePageDraft(page);
     setEditingPageDraft(sanitized);
     setModalSubView("page");
@@ -6493,11 +6894,18 @@ const PhotoBookEditorPage = () => {
     }
     if (existingText) {
       const coords = getElementCoords(existingText);
+      const chosenFont = existingText.font_family || existingText.fontFamily || "Inter";
+      dynamicallyLoadGoogleFont(chosenFont);
       setTextFormDraft({
         id: existingText.id,
         content: existingText.content || "",
-        font_family: existingText.font_family || "Playfair Display",
-        font_size: existingText.font_size || 28,
+        font_family: chosenFont,
+        font_size: existingText.font_size || existingText.fontSize || 28,
+        font_weight: existingText.font_weight || existingText.fontWeight || "normal",
+        font_style: existingText.font_style || existingText.fontStyle || "normal",
+        letter_spacing: existingText.letter_spacing !== undefined ? existingText.letter_spacing : (existingText.letterSpacing !== undefined ? existingText.letterSpacing : 0),
+        line_height: existingText.line_height || existingText.lineHeight || 1.2,
+        text_transform: existingText.text_transform || existingText.textTransform || "none",
         color: existingText.color || "#1e293b",
         align: existingText.align || "center",
         shadow: existingText.shadow || { enable: false, color: "#000000", blur: 0, offsetX: 2, offsetY: 2 },
@@ -6515,8 +6923,13 @@ const PhotoBookEditorPage = () => {
       setTextFormDraft({
         id: null,
         content: "",
-        font_family: "Playfair Display",
+        font_family: "Inter",
         font_size: 28,
+        font_weight: "normal",
+        font_style: "normal",
+        letter_spacing: 0,
+        line_height: 1.2,
+        text_transform: "none",
         color: "#1e293b",
         align: "center",
         shadow: { enable: false, color: "#000000", blur: 0, offsetX: 2, offsetY: 2 },
@@ -6547,6 +6960,8 @@ const PhotoBookEditorPage = () => {
     const fontSize = Number(textFormDraft.font_size) || 28;
     const fontSizeRem = `${(fontSize / 16).toFixed(2)}rem`;
     const fontSizeCqmin = `${(fontSize / 10).toFixed(2)}cqmin`;
+    const chosenFont = textFormDraft.font_family || "Inter";
+    dynamicallyLoadGoogleFont(chosenFont);
 
     if (textFormDraft.id) {
       // Update existing text element
@@ -6555,7 +6970,7 @@ const PhotoBookEditorPage = () => {
           const updatedDraft = {
             ...el,
             content: textFormDraft.content,
-            font_family: textFormDraft.font_family,
+            font_family: chosenFont,
             font_size: fontSize,
             align: textFormDraft.align,
           };
@@ -6563,10 +6978,15 @@ const PhotoBookEditorPage = () => {
           return {
             ...el,
             content: textFormDraft.content,
-            font_family: textFormDraft.font_family,
+            font_family: chosenFont,
             font_size: fontSize,
             font_size_rem: fontSizeRem,
             font_size_cqmin: fontSizeCqmin,
+            font_weight: textFormDraft.font_weight || el.font_weight || "normal",
+            font_style: textFormDraft.font_style || el.font_style || "normal",
+            letter_spacing: textFormDraft.letter_spacing !== undefined ? textFormDraft.letter_spacing : (el.letter_spacing || 0),
+            line_height: textFormDraft.line_height || el.line_height || 1.2,
+            text_transform: textFormDraft.text_transform || el.text_transform || "none",
             color: textFormDraft.color,
             align: textFormDraft.align,
             shadow: textFormDraft.shadow || { enable: false, color: "#000000", blur: 0, offsetX: 0, offsetY: 0 },
@@ -6596,7 +7016,7 @@ const PhotoBookEditorPage = () => {
       const draftToMeasure = {
         type: "text",
         content: textFormDraft.content,
-        font_family: textFormDraft.font_family || "Playfair Display",
+        font_family: chosenFont,
         font_size: fontSize,
         align: textFormDraft.align || "center",
       };
@@ -6614,10 +7034,15 @@ const PhotoBookEditorPage = () => {
         id: `text_${Date.now()}`,
         type: "text",
         content: textFormDraft.content,
-        font_family: textFormDraft.font_family || "Playfair Display",
+        font_family: chosenFont,
         font_size: fontSize,
         font_size_rem: fontSizeRem,
         font_size_cqmin: fontSizeCqmin,
+        font_weight: textFormDraft.font_weight || "normal",
+        font_style: textFormDraft.font_style || "normal",
+        letter_spacing: textFormDraft.letter_spacing || 0,
+        line_height: textFormDraft.line_height || 1.2,
+        text_transform: textFormDraft.text_transform || "none",
         color: textFormDraft.color || "#1e293b",
         align: textFormDraft.align || "center",
         shadow: textFormDraft.shadow || { enable: false, color: "#000000", blur: 0, offsetX: 0, offsetY: 0 },
@@ -6812,7 +7237,7 @@ const PhotoBookEditorPage = () => {
       });
     } else if (activeModalTransform.type === "resize") {
       const { startX, startY, initialLeft, initialTop, initialWidth, initialHeight, handle, containerRect, elementId, is1to1Shape, rotation } = activeModalTransform;
-      
+
       const screenDX = e.clientX - startX;
       const screenDY = e.clientY - startY;
 
@@ -7591,6 +8016,31 @@ const PhotoBookEditorPage = () => {
   // ── Render Template Page on Canvas (1000 x 1000 coordinate system) ────────
   const renderTemplateCanvas = (page, isInteractive = true) => {
     if (!page) return null;
+
+    if (page.no_design || page.has_design === false) {
+      return (
+        <div
+          className="page-canvas-container relative w-full h-full overflow-hidden select-none flex flex-col items-center justify-center p-6 text-center border-2 border-dashed bg-slate-50 border-slate-300/80 text-slate-600"
+          style={{ containerType: "inline-size" }}
+        >
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2.5 shadow-xs border bg-white border-slate-200 text-slate-400">
+            <PictureOutlined className="text-xl" />
+          </div>
+          <p className="text-xs sm:text-sm font-bold tracking-wide mb-1 text-slate-700">
+            No design created for this page
+          </p>
+          <p className="text-[11px] max-w-[210px] leading-relaxed mb-2.5 text-slate-400">
+            The administrator has not configured a layout for {page.display_label || (page.page_number ? `Page ${page.page_number}` : "this page")}.
+          </p>
+          {page.page_number && (
+            <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full border bg-slate-200/70 border-slate-300 text-slate-500">
+              Page {page.page_number}
+            </span>
+          )}
+        </div>
+      );
+    }
+
     const elements = page.elements || [];
 
     // Background style
@@ -7604,12 +8054,25 @@ const PhotoBookEditorPage = () => {
           bg.value.startsWith("data:image/") ||
           /\.(jpg|jpeg|png|webp|avif|gif|svg)($|\?)/i.test(bg.value)));
 
+    const flipH = Boolean(bg.flip_h || bg.flipH);
+    const flipV = Boolean(bg.flip_v || bg.flipV);
+    const transform =
+      flipH && flipV
+        ? "scale(-1, -1)"
+        : flipH
+          ? "scaleX(-1)"
+          : flipV
+            ? "scaleY(-1)"
+            : undefined;
+
     const bgLayerStyle = {
       position: "absolute",
       inset: 0,
       pointerEvents: "none",
       zIndex: 0,
       opacity: bg.opacity ?? 1,
+      transform,
+      transformOrigin: transform ? "center center" : undefined,
     };
 
     if (bg.type === "gradient") {
@@ -7622,8 +8085,8 @@ const PhotoBookEditorPage = () => {
         fitMode === "stretch" || fitMode === "100% 100%"
           ? "100% 100%"
           : fitMode === "contain"
-          ? (bg.scale && bg.scale > 1 ? `${Math.round(bg.scale * 100)}%` : "contain")
-          : (bg.scale && bg.scale > 1 ? `${Math.round(bg.scale * 100)}%` : "cover");
+            ? (bg.scale && bg.scale > 1 ? `${Math.round(bg.scale * 100)}%` : "contain")
+            : (bg.scale && bg.scale > 1 ? `${Math.round(bg.scale * 100)}%` : "cover");
       bgLayerStyle.backgroundImage = `url("${bg.value}")`;
       bgLayerStyle.backgroundSize = size;
       bgLayerStyle.backgroundPosition = `${posX} ${posY}`;
@@ -7690,8 +8153,9 @@ const PhotoBookEditorPage = () => {
               "";
             const hasPhoto = Boolean(displayPhoto);
             const fitMode = el.fit_mode || "cover";
-            const borderWidth = el.border?.width || 0;
-            const borderColor = el.border?.color || "#ffffff";
+            const bord = parseBorderValues(el.border);
+            const pad = parsePaddingValues(el.padding);
+            const isRect = shape === "rectangle";
             const elRefDim = Math.max(
               50,
               Math.min(
@@ -7699,16 +8163,15 @@ const PhotoBookEditorPage = () => {
                 Number(el.height) > 10 ? Number(el.height) : (coords.height * 10)
               ) || 400
             );
-            const normalizedBorderStroke = borderWidth / elRefDim;
+            const normalizedBorderStroke = (bord.top || bord.width) / elRefDim;
             const shadow = el.shadow || {};
             const shadowFilter =
               shadow.blur > 0
-                ? `drop-shadow(${shadow.offsetX || 0}px ${shadow.offsetY || 4}px ${shadow.blur}px ${
-                    shadow.color || "rgba(0,0,0,0.15)"
-                  })`
+                ? `drop-shadow(${shadow.offsetX || 0}px ${shadow.offsetY || 4}px ${shadow.blur}px ${shadow.color || "rgba(0,0,0,0.15)"
+                })`
                 : "none";
 
-            const radiusVal = el.border?.radius ?? el.corner_radius ?? (isCircle ? 50 : 0);
+            const radiusVal = bord.radius ?? el.corner_radius ?? (isCircle ? 50 : 0);
             const clipDef = getShapeClipPathDefinition(shape, radiusVal);
             const clipId = `cust-clip-${page.page_id || page.page_number || "pg"}-${elKey}`;
 
@@ -7717,6 +8180,210 @@ const PhotoBookEditorPage = () => {
             const cropOffsetY = el.crop?.offsetY || 0;
             const cropRotation = el.crop?.rotation || 0;
             const isFlipped = Boolean(el.crop?.flipH || el.flip_h);
+            const hasPadding = pad.top > 0 || pad.right > 0 || pad.bottom > 0 || pad.left > 0;
+            const isHeart = shape === "heart" || el.mask_shape === "heart";
+            const maxBorder = Math.max(bord.top, bord.right, bord.bottom, bord.left, bord.width);
+            const innerRadius = Math.max(0, bord.radius - Math.min(bord.top, bord.left));
+
+            const elWidth = Math.max(1, Number(el.width) || 100);
+            const borderSvg = (maxBorder * 100) / elWidth;
+            const padVal = Math.max(pad.top || 0, pad.right || 0, pad.bottom || 0, pad.left || 0);
+            const padSvg = (padVal * 100) / elWidth;
+            const maskStroke = padSvg > 0 || borderSvg > 0 ? (borderSvg + 2 * padSvg) : 0;
+            const shape100Def = getShape100Definition(shape, radiusVal);
+            const maskId = `cust-mask-${page.page_id || page.page_number || "pg"}-${elKey}`;
+            const elementBg = el.bg_color || el.background?.value;
+
+            const renderFrameControls = () => (
+              isSelected && isInteractive ? (
+                <>
+                  <div className="absolute inset-0 border-2 border-[#00a896] pointer-events-none shadow-sm" />
+
+                  {/* Allowed Photo Controls Mini Toolbar with High-ZIndex Tooltips */}
+                  <div
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                      bottom: (coords.top || topPct) < 14 ? undefined : "calc(100% + 10px)",
+                      top: (coords.top || topPct) < 14 ? "calc(100% + 10px)" : undefined,
+                    }}
+                    className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-900 text-white px-2.5 py-1 rounded-lg shadow-xl pointer-events-auto z-[1000] text-[10px] whitespace-nowrap select-none"
+                  >
+                    {hasPhoto && (
+                      <button
+                        type="button"
+                        onClick={() => setCropModalFrame({ ...el, pageId: page.page_id || page.page_number })}
+                        className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
+                        title="Zoom & Pan Photo inside Placeholder"
+                      >
+                        <ScissorOutlined className="text-xs text-teal-400" />
+                        <span>Zoom & Pan</span>
+                      </button>
+                    )}
+                    <Tooltip
+                      title="Change Image"
+                      placement="top"
+                      getPopupContainer={() => document.body}
+                      zIndex={99999}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetPhotoSlot(el.frame_id || el.id);
+                          setIsReplacePhotoModalOpen(true);
+                        }}
+                        className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
+                      >
+                        <PictureOutlined className="text-xs" />
+                        <span>Change Image</span>
+                      </button>
+                    </Tooltip>
+                    {hasPhoto && (
+                      <>
+                        <div className="w-px h-3 bg-slate-700 mx-0.5" />
+                        <Tooltip
+                          title="Flip Image"
+                          placement="top"
+                          getPopupContainer={() => document.body}
+                          zIndex={99999}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleCanvasFrameFlip(page.page_id || page.page_number, el.frame_id || el.id, e)}
+                            className="hover:text-sky-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
+                          >
+                            <SwapOutlined className="text-xs" />
+                            <span>Flip</span>
+                          </button>
+                        </Tooltip>
+                      </>
+                    )}
+                    {hasPhoto && (
+                      <>
+                        <div className="w-px h-3 bg-slate-700 mx-0.5" />
+                        <Tooltip
+                          title="Remove Image"
+                          placement="top"
+                          getPopupContainer={() => document.body}
+                          zIndex={99999}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemovePhotoFromFrame(el.frame_id, e)}
+                            className="hover:text-rose-400 text-slate-400 hover:bg-slate-800 px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
+                          >
+                            <DeleteOutlined className="text-[10px]" />
+                            <span>Remove</span>
+                          </button>
+                        </Tooltip>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : null
+            );
+
+            if (isRect) {
+              return (
+                <div
+                  key={elKey}
+                  style={{
+                    ...baseStyle,
+                    filter: shadowFilter,
+                    borderTop: bord.top ? `calc(${bord.top} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                    borderRight: bord.right ? `calc(${bord.right} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                    borderBottom: bord.bottom ? `calc(${bord.bottom} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                    borderLeft: bord.left ? `calc(${bord.left} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                    borderRadius: bord.radius ? `calc(${bord.radius} * (100cqw / 707))` : undefined,
+                    backgroundColor: elementBg || "transparent",
+                    boxSizing: "border-box",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isInteractive) setSelectedFrameId(el.frame_id || el.id);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (isInteractive) setDragOverFrameId(el.frame_id);
+                  }}
+                  onDragLeave={() => isInteractive && setDragOverFrameId(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const photoDataStr = e.dataTransfer.getData("application/json");
+                    if (photoDataStr) {
+                      try {
+                        const photo = JSON.parse(photoDataStr);
+                        handleFrameDrop(el.frame_id, photo);
+                      } catch (err) {
+                        console.error("Drop parse error:", err);
+                      }
+                    }
+                  }}
+                  className={`group relative overflow-visible transition-all flex items-center justify-center cursor-default`}
+                >
+                  <div
+                    className={`absolute overflow-hidden ${!hasPhoto ? `bg-slate-100/90 border border-dashed border-slate-300 rounded` : ""}`}
+                    style={{
+                      top: pad.top ? `calc(${pad.top} * (100cqw / 707))` : 0,
+                      right: pad.right ? `calc(${pad.right} * (100cqw / 707))` : 0,
+                      bottom: pad.bottom ? `calc(${pad.bottom} * (100cqw / 707))` : 0,
+                      left: pad.left ? `calc(${pad.left} * (100cqw / 707))` : 0,
+                      borderRadius: innerRadius ? `calc(${innerRadius} * (100cqw / 707))` : undefined,
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0"
+                      style={{ backgroundColor: hasPhoto ? "transparent" : "#f1f5f9" }}
+                    />
+                    {hasPhoto ? (
+                      <img
+                        src={displayPhoto}
+                        alt=""
+                        style={{
+                          position: "absolute",
+                          left: `${cropOffsetX}%`,
+                          top: `${cropOffsetY}%`,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: fitMode,
+                          transformOrigin: "50% 50%",
+                          transform: `scale(${isFlipped ? -cropZoom : cropZoom}, ${cropZoom}) rotate(${cropRotation}deg)`,
+                          transition: "transform 0.1s ease",
+                          maxWidth: "none",
+                          maxHeight: "none",
+                          pointerEvents: "none",
+                          userSelect: "none",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTargetPhotoSlot(el.frame_id || el.id);
+                          setIsReplacePhotoModalOpen(true);
+                        }}
+                        className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-auto cursor-default"
+                      >
+                        <div className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-sm mb-1 text-slate-500 group-hover:scale-110 transition-transform">
+                          <PictureOutlined className="text-xl text-teal-600" />
+                        </div>
+                        <span className="text-[11px] font-semibold text-slate-700 tracking-wide uppercase">
+                          {el.frame_id || "Photo Placeholder"}
+                        </span>
+                        <span className="text-[9px] text-slate-500">
+                          {shape} • {fitMode}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {renderFrameControls()}
+                </div>
+              );
+            }
+
+            const totalPadTop = (bord.top !== undefined ? bord.top : bord.width) + (pad.top || 0);
+            const totalPadRight = (bord.right !== undefined ? bord.right : bord.width) + (pad.right || 0);
+            const totalPadBottom = (bord.bottom !== undefined ? bord.bottom : bord.width) + (pad.bottom || 0);
+            const totalPadLeft = (bord.left !== undefined ? bord.left : bord.width) + (pad.left || 0);
 
             return (
               <div
@@ -7724,6 +8391,7 @@ const PhotoBookEditorPage = () => {
                 style={{
                   ...baseStyle,
                   filter: shadowFilter,
+                  boxSizing: "border-box",
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -7748,19 +8416,36 @@ const PhotoBookEditorPage = () => {
                 }}
                 className={`group relative overflow-visible transition-all flex items-center justify-center cursor-default`}
               >
-                {/* SVG Defs for objectBoundingBox clip */}
-                <svg width="0" height="0" className="absolute pointer-events-none">
+                {/* SVG clip-path definition in objectBoundingBox coordinates */}
+                <svg width="0" height="0" className="absolute pointer-events-none" style={{ position: "absolute", width: 0, height: 0 }}>
                   <defs>
                     <clipPath id={clipId} clipPathUnits="objectBoundingBox">
-                      {renderShapeSvgClip(clipDef, false)}
+                      {clipDef.type === "ellipse" && <ellipse {...clipDef.attrs} />}
+                      {clipDef.type === "path" && <path {...clipDef.attrs} />}
+                      {clipDef.type === "polygon" && <polygon {...clipDef.attrs} />}
+                      {clipDef.type === "rect" && <rect {...clipDef.attrs} />}
                     </clipPath>
                   </defs>
                 </svg>
 
-                {/* Clipped container: HTML clipping with clipPathUnits="objectBoundingBox" guarantees 100% boundary locking */}
+                {/* Outer shape background (visible in the padding gap / matting area) */}
                 <div
-                  className="w-full h-full relative overflow-hidden"
+                  className="w-full h-full absolute inset-0 pointer-events-none"
                   style={{
+                    backgroundColor: elementBg || "transparent",
+                    clipPath: `url(#${clipId})`,
+                    WebkitClipPath: `url(#${clipId})`,
+                  }}
+                />
+
+                {/* Inner photo/placeholder area - Inset uniformly on all sides by (border + padding) */}
+                <div
+                  className={`absolute overflow-hidden ${!hasPhoto ? "bg-slate-100/90" : ""}`}
+                  style={{
+                    top: totalPadTop ? `calc(${totalPadTop} * (100cqw / 707))` : 0,
+                    right: totalPadRight ? `calc(${totalPadRight} * (100cqw / 707))` : 0,
+                    bottom: totalPadBottom ? `calc(${totalPadBottom} * (100cqw / 707))` : 0,
+                    left: totalPadLeft ? `calc(${totalPadLeft} * (100cqw / 707))` : 0,
                     clipPath: `url(#${clipId})`,
                     WebkitClipPath: `url(#${clipId})`,
                   }}
@@ -7769,8 +8454,7 @@ const PhotoBookEditorPage = () => {
                     className="absolute inset-0"
                     style={{ backgroundColor: hasPhoto ? "transparent" : "#f1f5f9" }}
                   />
-
-                  {hasPhoto && (
+                  {hasPhoto ? (
                     <img
                       src={displayPhoto}
                       alt=""
@@ -7780,12 +8464,7 @@ const PhotoBookEditorPage = () => {
                         top: `${cropOffsetY}%`,
                         width: "100%",
                         height: "100%",
-                        objectFit:
-                          fitMode === "contain"
-                            ? "contain"
-                            : fitMode === "stretch" || fitMode === "fill"
-                            ? "fill"
-                            : "cover",
+                        objectFit: fitMode,
                         transformOrigin: "50% 50%",
                         transform: `scale(${isFlipped ? -cropZoom : cropZoom}, ${cropZoom}) rotate(${cropRotation}deg)`,
                         transition: "transform 0.1s ease",
@@ -7795,135 +8474,39 @@ const PhotoBookEditorPage = () => {
                         userSelect: "none",
                       }}
                     />
-                  )}
-
-                  {!hasPhoto && (
+                  ) : (
                     <div
                       onClick={(e) => {
                         e.stopPropagation();
                         setTargetPhotoSlot(el.frame_id || el.id);
                         setIsReplacePhotoModalOpen(true);
                       }}
-                      className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-auto cursor-default"
+                      className="w-full h-full flex flex-col items-center justify-center p-2 text-center pointer-events-auto cursor-default bg-slate-100/90"
                     >
                       <div className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-sm mb-1 text-slate-500 group-hover:scale-110 transition-transform">
                         <PictureOutlined className="text-xl text-teal-600" />
                       </div>
-                      <span className="text-xs font-semibold text-slate-700 tracking-wide uppercase">
-                        {el.frame_id ? `Photo ${el.frame_id.split('-').pop()}` : "Add Photo"}
+                      <span className="text-[11px] font-semibold text-slate-700 tracking-wide uppercase">
+                        {el.frame_id || "Photo Placeholder"}
                       </span>
-                      <span className="text-[9px] text-slate-400 capitalize">
+                      <span className="text-[9px] text-slate-500">
                         {shape} • {fitMode}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Border overlay following the exact clip shape */}
-                {borderWidth > 0 && (
+                {/* Outer Border SVG Overlay */}
+                {maxBorder > 0 && (
                   <svg
                     viewBox="0 0 100 100"
                     preserveAspectRatio="none"
-                    className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
-                    style={{ zIndex: 10, overflow: "visible" }}
+                    className="w-full h-full absolute inset-0 select-none overflow-visible pointer-events-none"
                   >
-                    <g
-                      transform="scale(100, 100)"
-                      fill="none"
-                      stroke={borderColor}
-                      strokeWidth={borderWidth / elRefDim}
-                    >
-                      {renderShapeSvgClip(clipDef, false)}
-                    </g>
+                    {renderShapeSvgBorder(shape100Def, bord.color, maxBorder)}
                   </svg>
                 )}
-
-                {/* Selection Border and Allowed Photo Controls */}
-                {isSelected && isInteractive && (
-                  <>
-                    <div className="absolute inset-0 border-2 border-[#00a896] pointer-events-none shadow-sm" />
-
-                    {/* Allowed Photo Controls Mini Toolbar with High-ZIndex Tooltips */}
-                    <div
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className={`absolute ${
-                        (coords.top || topPct) < 14
-                          ? "top-[calc(100%+8px)] left-1/2 -translate-x-1/2"
-                          : "-top-11 left-1/2 -translate-x-1/2"
-                      } flex items-center gap-1.5 bg-slate-900 text-white px-2.5 py-1 rounded-lg shadow-xl pointer-events-auto z-[1000] text-[10px] whitespace-nowrap select-none`}
-                    >
-                      {hasPhoto && (
-                        <button
-                          type="button"
-                          onClick={() => setCropModalFrame({ ...el, pageId: page.page_id || page.page_number })}
-                          className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
-                          title="Zoom & Pan Photo inside Placeholder"
-                        >
-                          <ScissorOutlined className="text-xs text-teal-400" />
-                          <span>Zoom & Pan</span>
-                        </button>
-                      )}
-                      <Tooltip
-                        title="Change Image"
-                        placement="top"
-                        getPopupContainer={() => document.body}
-                        zIndex={99999}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTargetPhotoSlot(el.frame_id || el.id);
-                            setIsReplacePhotoModalOpen(true);
-                          }}
-                          className="hover:text-teal-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
-                        >
-                          <PictureOutlined className="text-xs" />
-                          <span>Change Image</span>
-                        </button>
-                      </Tooltip>
-                      {hasPhoto && (
-                        <>
-                          <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                          <Tooltip
-                            title="Flip Image"
-                            placement="top"
-                            getPopupContainer={() => document.body}
-                            zIndex={99999}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => handleToggleCanvasFrameFlip(page.page_id || page.page_number, el.frame_id || el.id, e)}
-                              className="hover:text-sky-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors"
-                            >
-                              <SwapOutlined className="text-xs" />
-                              <span>Flip</span>
-                            </button>
-                          </Tooltip>
-                        </>
-                      )}
-                      {hasPhoto && (
-                        <>
-                          <div className="w-px h-3 bg-slate-700 mx-0.5" />
-                          <Tooltip
-                            title="Remove Image"
-                            placement="top"
-                            getPopupContainer={() => document.body}
-                            zIndex={99999}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => handleRemovePhotoFromFrame(el.frame_id, e)}
-                              className="hover:text-rose-400 text-slate-400 hover:bg-slate-800 px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
-                            >
-                              <DeleteOutlined className="text-[10px]" />
-                              <span>Remove</span>
-                            </button>
-                          </Tooltip>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
+                {renderFrameControls()}
               </div>
             );
           }
@@ -7932,7 +8515,16 @@ const PhotoBookEditorPage = () => {
           if (el.type === "text") {
             const hasExplicitNewlines = el.content && String(el.content).includes("\n");
             const isTextCustomerEditable = Boolean(el.is_customer_editable || el.allowCustomerEdit);
+            const textBord = parseBorderValues(el.border);
+            const textPad = parsePaddingValues(el.padding);
+            const effectiveFontFamily = el.font_family || el.fontFamily || "Inter";
+            const effectiveFontWeight = el.font_weight || el.fontWeight || "normal";
+            const effectiveFontStyle = el.font_style || el.fontStyle || "normal";
             const effectiveTextTransform = el.text_transform || el.textTransform || "none";
+            const effectiveLetterSpacing = el.letter_spacing !== undefined ? el.letter_spacing : (el.letterSpacing !== undefined ? el.letterSpacing : 0);
+            const effectiveLineHeight = el.line_height || el.lineHeight || 1.2;
+            dynamicallyLoadGoogleFont(effectiveFontFamily);
+
             return (
               <div
                 key={elKey}
@@ -7940,13 +8532,13 @@ const PhotoBookEditorPage = () => {
                   ...baseStyle,
                   width: `${widthPct}%`,
                   maxWidth: "100%",
-                  fontFamily: getFontFamilyFallback(el.font_family || "Playfair Display"),
+                  fontFamily: getFontFamilyFallback(effectiveFontFamily),
                   fontSize: `calc(${Number(el.font_size || 24)} * (100cqw / 707))`,
-                  fontWeight: el.font_weight || "normal",
-                  fontStyle: el.font_style || "normal",
+                  fontWeight: effectiveFontWeight,
+                  fontStyle: effectiveFontStyle,
                   textTransform: effectiveTextTransform,
-                  letterSpacing: el.letter_spacing ? `calc(${Number(el.letter_spacing)} * (100cqw / 707))` : "normal",
-                  lineHeight: el.line_height || 1.2,
+                  letterSpacing: effectiveLetterSpacing ? `calc(${Number(effectiveLetterSpacing)} * (100cqw / 707))` : "normal",
+                  lineHeight: effectiveLineHeight,
                   color: el.color || "#1f2937",
                   textAlign: el.align || "center",
                   display: "flex",
@@ -7955,8 +8547,8 @@ const PhotoBookEditorPage = () => {
                     el.align === "left"
                       ? "flex-start"
                       : el.align === "right"
-                      ? "flex-end"
-                      : "center",
+                        ? "flex-end"
+                        : "center",
                   wordBreak: "break-word",
                   overflowWrap: "break-word",
                   whiteSpace: hasExplicitNewlines ? "pre-line" : "normal",
@@ -7968,15 +8560,37 @@ const PhotoBookEditorPage = () => {
                     el.background?.type !== "none" && el.background?.value
                       ? el.background.value
                       : el.bg_color || undefined,
-                  padding:
-                    el.background?.value || el.bg_color
-                      ? `${el.background?.padding ?? 4}px ${(el.background?.padding ?? 4) * 1.5}px`
+                  borderTop: textBord.top ? `calc(${textBord.top} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                  borderRight: textBord.right ? `calc(${textBord.right} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                  borderBottom: textBord.bottom ? `calc(${textBord.bottom} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                  borderLeft: textBord.left ? `calc(${textBord.left} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                  borderRadius: textBord.radius
+                    ? `calc(${textBord.radius} * (100cqw / 707))`
+                    : el.background?.value || el.bg_color
+                      ? `calc(${el.background?.radius ?? 4} * (100cqw / 707))`
                       : undefined,
-                  borderRadius:
-                    el.background?.value || el.bg_color
-                      ? `${el.background?.radius ?? 4}px`
+                  paddingTop: textPad.top
+                    ? `calc(${textPad.top} * (100cqw / 707))`
+                    : el.background?.value || el.bg_color
+                      ? `calc(${el.background?.padding ?? 4} * (100cqw / 707))`
                       : undefined,
-                  border: isSelected && isInteractive && isTextCustomerEditable ? "2px solid #00a896" : "none",
+                  paddingRight: textPad.right
+                    ? `calc(${textPad.right} * (100cqw / 707))`
+                    : el.background?.value || el.bg_color
+                      ? `calc(${((el.background?.padding ?? 4) * 1.5)} * (100cqw / 707))`
+                      : undefined,
+                  paddingBottom: textPad.bottom
+                    ? `calc(${textPad.bottom} * (100cqw / 707))`
+                    : el.background?.value || el.bg_color
+                      ? `calc(${el.background?.padding ?? 4} * (100cqw / 707))`
+                      : undefined,
+                  paddingLeft: textPad.left
+                    ? `calc(${textPad.left} * (100cqw / 707))`
+                    : el.background?.value || el.bg_color
+                      ? `calc(${((el.background?.padding ?? 4) * 1.5)} * (100cqw / 707))`
+                      : undefined,
+                  boxSizing: "border-box",
+                  outline: isSelected && isInteractive && isTextCustomerEditable ? "2px solid #00a896" : "none",
                   zIndex: isSelected ? 150 : Math.max(100, Number(el.z_index) || 100),
                 }}
                 onClick={(e) => {
@@ -8054,7 +8668,7 @@ const PhotoBookEditorPage = () => {
                     </svg>
                   ) : isExplicitHeart ? (
                     <svg viewBox="0 0 24 24" fill={el.tint || "#ec4899"} className="w-full h-full drop-shadow">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   ) : isInteractive ? (
                     <div className="w-full h-full border border-dashed border-teal-300 bg-teal-50/40 rounded flex items-center justify-center text-teal-700 text-xs font-semibold px-1 text-center">
@@ -8112,10 +8726,10 @@ const PhotoBookEditorPage = () => {
           (pg.page_type === "front_cover" || pg.page_id === "front-cover")
             ? "Front Cover"
             : (pg.page_type === "back_cover" || pg.page_id === "back-cover")
-            ? "Back Cover"
-            : typeof pg.page_number === "number"
-            ? `Page ${pg.page_number}`
-            : pg.display_label || pg.name || `Page ${pgIdx + 1}`;
+              ? "Back Cover"
+              : typeof pg.page_number === "number"
+                ? `Page ${pg.page_number}`
+                : pg.display_label || pg.name || `Page ${pgIdx + 1}`;
 
         // Find the spread index in spreads array that contains this page
         const spreadIdx = (spreads || []).findIndex(
@@ -8436,26 +9050,24 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={() => handleStepperStepClick(step)}
                     title={isLocked ? "Complete previous step to unlock" : label}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-bold transition-all ${
-                      isLocked
-                        ? "bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-default opacity-60"
-                        : isActive
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-bold transition-all ${isLocked
+                      ? "bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-default opacity-60"
+                      : isActive
                         ? "bg-[#00a896] text-white shadow-md shadow-teal-500/25 border border-teal-400 cursor-default"
                         : isCompleted
-                        ? "bg-teal-950/70 text-teal-300 border border-teal-700/60 hover:bg-teal-900/60 cursor-default"
-                        : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-default"
-                    }`}
+                          ? "bg-teal-950/70 text-teal-300 border border-teal-700/60 hover:bg-teal-900/60 cursor-default"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-default"
+                      }`}
                   >
                     <span
-                      className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
-                        isActive
-                          ? "bg-white text-[#00a896]"
-                          : isCompleted
+                      className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold ${isActive
+                        ? "bg-white text-[#00a896]"
+                        : isCompleted
                           ? "bg-[#00a896] text-white"
                           : isLocked
-                          ? "bg-slate-700 text-slate-400"
-                          : "bg-slate-700 text-slate-300"
-                      }`}
+                            ? "bg-slate-700 text-slate-400"
+                            : "bg-slate-700 text-slate-300"
+                        }`}
                     >
                       {isCompleted ? "✓" : displayNum}
                     </span>
@@ -8463,9 +9075,8 @@ const PhotoBookEditorPage = () => {
                   </button>
                   {idx < arr.length - 1 && (
                     <div
-                      className={`w-5 lg:w-8 h-0.5 transition-colors ${
-                        currentStep > step ? "bg-[#00a896]" : "bg-slate-700"
-                      }`}
+                      className={`w-5 lg:w-8 h-0.5 transition-colors ${currentStep > step ? "bg-[#00a896]" : "bg-slate-700"
+                        }`}
                     />
                   )}
                 </React.Fragment>
@@ -8529,9 +9140,8 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={handleUndo}
                     disabled={undoStack.length === 0}
-                    className={`p-1 sm:p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${
-                      undoStack.length === 0 ? "opacity-30 cursor-default" : "text-slate-300 hover:text-white"
-                    }`}
+                    className={`p-1 sm:p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${undoStack.length === 0 ? "opacity-30 cursor-default" : "text-slate-300 hover:text-white"
+                      }`}
                     title="Undo"
                   >
                     <UndoOutlined className="text-xs sm:text-sm" />
@@ -8540,9 +9150,8 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={handleRedo}
                     disabled={redoStack.length === 0}
-                    className={`p-1 sm:p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${
-                      redoStack.length === 0 ? "opacity-30 cursor-default" : "text-slate-300 hover:text-white"
-                    }`}
+                    className={`p-1 sm:p-1.5 rounded-lg hover:bg-slate-800 transition-colors ${redoStack.length === 0 ? "opacity-30 cursor-default" : "text-slate-300 hover:text-white"
+                      }`}
                     title="Redo"
                   >
                     <RedoOutlined className="text-xs sm:text-sm" />
@@ -8584,24 +9193,22 @@ const PhotoBookEditorPage = () => {
                 <button
                   type="button"
                   onClick={() => handleStepperStepClick(step)}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all ${
-                    isLocked
-                      ? "text-slate-500 opacity-50 cursor-default"
-                      : isActive
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all ${isLocked
+                    ? "text-slate-500 opacity-50 cursor-default"
+                    : isActive
                       ? "bg-[#00a896] text-white shadow-xs border border-teal-400 cursor-default"
                       : isCompleted
-                      ? "text-teal-300 hover:text-white cursor-default"
-                      : "text-slate-300 hover:text-white cursor-default"
-                  }`}
+                        ? "text-teal-300 hover:text-white cursor-default"
+                        : "text-slate-300 hover:text-white cursor-default"
+                    }`}
                 >
                   <span
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-extrabold ${
-                      isActive
-                        ? "bg-white text-[#00a896]"
-                        : isCompleted
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-extrabold ${isActive
+                      ? "bg-white text-[#00a896]"
+                      : isCompleted
                         ? "bg-[#00a896] text-white"
                         : "bg-slate-800 text-slate-400 border border-slate-700"
-                    }`}
+                      }`}
                   >
                     {isCompleted ? "✓" : displayNum}
                   </span>
@@ -8609,9 +9216,8 @@ const PhotoBookEditorPage = () => {
                 </button>
                 {idx < arr.length - 1 && (
                   <div
-                    className={`flex-1 mx-1.5 h-0.5 transition-colors ${
-                      currentStep > step ? "bg-[#00a896]" : "bg-slate-800"
-                    }`}
+                    className={`flex-1 mx-1.5 h-0.5 transition-colors ${currentStep > step ? "bg-[#00a896]" : "bg-slate-800"
+                      }`}
                   />
                 )}
               </React.Fragment>
@@ -8673,38 +9279,37 @@ const PhotoBookEditorPage = () => {
               ]
                 .filter((tool) => !isGiveaway || tool.id === "add" || tool.id === "design")
                 .map((tool) => {
-                const resolvedTool = isBelowMd ? activeStudioTool : (activeStudioTool || "add");
-                const isActive = resolvedTool === tool.id;
-                return (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    onClick={() => {
-                      if (isBelowMd) {
-                        setActiveStudioTool((prev) => (prev === tool.id ? null : tool.id));
-                      } else {
-                        setActiveStudioTool(tool.id);
-                      }
-                    }}
-                    className={`w-[58px] py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 cursor-default relative group ${
-                      isActive
+                  const resolvedTool = isBelowMd ? activeStudioTool : (activeStudioTool || "add");
+                  const isActive = resolvedTool === tool.id;
+                  return (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      onClick={() => {
+                        if (isBelowMd) {
+                          setActiveStudioTool((prev) => (prev === tool.id ? null : tool.id));
+                        } else {
+                          setActiveStudioTool(tool.id);
+                        }
+                      }}
+                      className={`w-[58px] py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 cursor-default relative group ${isActive
                         ? "bg-teal-50 text-[#00a896] shadow-2xs ring-1 ring-teal-200 font-bold"
                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                    title={tool.desc}
-                  >
-                    {isActive && (
-                      <span className="absolute -left-[8px] top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#00a896] rounded-r-full shadow-xs" />
-                    )}
-                    <div className={`text-lg transition-transform duration-200 group-hover:scale-110 ${isActive ? "text-[#00a896]" : "text-gray-500 group-hover:text-gray-900"}`}>
-                      {tool.icon}
-                    </div>
-                    <span className={`text-[10px] mt-1 tracking-tight ${isActive ? "font-bold text-[#00a896]" : "font-medium text-gray-600 group-hover:text-gray-900"}`}>
-                      {tool.label}
-                    </span>
-                  </button>
-                );
-              })}
+                        }`}
+                      title={tool.desc}
+                    >
+                      {isActive && (
+                        <span className="absolute -left-[8px] top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#00a896] rounded-r-full shadow-xs" />
+                      )}
+                      <div className={`text-lg transition-transform duration-200 group-hover:scale-110 ${isActive ? "text-[#00a896]" : "text-gray-500 group-hover:text-gray-900"}`}>
+                        {tool.icon}
+                      </div>
+                      <span className={`text-[10px] mt-1 tracking-tight ${isActive ? "font-bold text-[#00a896]" : "font-medium text-gray-600 group-hover:text-gray-900"}`}>
+                        {tool.label}
+                      </span>
+                    </button>
+                  );
+                })}
             </div>
 
             {/* Bottom Help Tooltip */}
@@ -8722,9 +9327,8 @@ const PhotoBookEditorPage = () => {
           {/* ================================================================= */}
           <main
             ref={centerScrollRef}
-            className={`flex-1 w-full min-w-0 bg-[#eaebee] relative overflow-y-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-6 flex flex-col items-center scroll-smooth ${
-              isBelowMd && activeStudioTool ? "pointer-events-none select-none" : ""
-            }`}
+            className={`flex-1 w-full min-w-0 bg-[#eaebee] relative overflow-y-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-6 flex flex-col items-center scroll-smooth ${isBelowMd && activeStudioTool ? "pointer-events-none select-none" : ""
+              }`}
           >
             {/* Top Subtitle Bar: THE BOOK • {photoBookPages} PAGES (INCL. COVERS) */}
             <div
@@ -8759,11 +9363,10 @@ const PhotoBookEditorPage = () => {
                 type="button"
                 onClick={scrollToPrevSpread}
                 disabled={currentSpreadIndex === 0}
-                className={`w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-gray-700 transition-all ${
-                  currentSpreadIndex === 0
-                    ? "opacity-40 cursor-default"
-                    : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-default"
-                }`}
+                className={`w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-gray-700 transition-all ${currentSpreadIndex === 0
+                  ? "opacity-40 cursor-default"
+                  : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-default"
+                  }`}
                 title="Previous Spread"
               >
                 <UpOutlined className="text-xs" />
@@ -8772,11 +9375,10 @@ const PhotoBookEditorPage = () => {
                 type="button"
                 onClick={scrollToNextSpread}
                 disabled={currentSpreadIndex >= spreads.length - 1}
-                className={`w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-gray-700 transition-all ${
-                  currentSpreadIndex >= spreads.length - 1
-                    ? "opacity-40 cursor-default"
-                    : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-default"
-                }`}
+                className={`w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-gray-700 transition-all ${currentSpreadIndex >= spreads.length - 1
+                  ? "opacity-40 cursor-default"
+                  : "hover:bg-gray-50 hover:text-black hover:scale-105 cursor-default"
+                  }`}
                 title="Next Spread"
               >
                 <DownOutlined className="text-xs" />
@@ -8813,9 +9415,8 @@ const PhotoBookEditorPage = () => {
                             handleOpenPageEditModal(spread.leftPage);
                           }
                         }}
-                        className={`flex-1 h-full relative flex flex-col group ${
-                          spread.leftPage && !spread.leftPage.is_blank ? "cursor-default" : ""
-                        }`}
+                        className={`flex-1 h-full relative flex flex-col group ${spread.leftPage && !spread.leftPage.is_blank ? "cursor-default" : ""
+                          }`}
                       >
                         {spread.leftPage ? (
                           spread.leftPage.is_blank ? (
@@ -8832,17 +9433,19 @@ const PhotoBookEditorPage = () => {
                               {/* Inner spine shadow on right edge of left page */}
                               <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10" />
                               {/* Centered Edit Overlay with background blur on hover (strictly on top of everything) */}
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenPageEditModal(spread.leftPage);
-                                }}
-                                className="hidden md:flex absolute inset-0 z-[500] items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-950/40 backdrop-blur-sm cursor-default pointer-events-auto"
-                              >
-                                <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-2xl border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all z-[501]">
-                                  <EditOutlined className="text-[#00a896] text-sm" /> Edit Page
-                                </span>
-                              </div>
+                              {!spread.leftPage?.no_design && (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenPageEditModal(spread.leftPage);
+                                  }}
+                                  className="hidden md:flex absolute inset-0 z-[500] items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-950/40 backdrop-blur-sm cursor-default pointer-events-auto"
+                                >
+                                  <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-2xl border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all z-[501]">
+                                    <EditOutlined className="text-[#00a896] text-sm" /> Edit Page
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )
                         ) : (
@@ -8863,9 +9466,8 @@ const PhotoBookEditorPage = () => {
                             handleOpenPageEditModal(spread.rightPage);
                           }
                         }}
-                        className={`flex-1 h-full relative flex flex-col group ${
-                          spread.rightPage && !spread.rightPage.is_blank ? "cursor-default" : ""
-                        }`}
+                        className={`flex-1 h-full relative flex flex-col group ${spread.rightPage && !spread.rightPage.is_blank ? "cursor-default" : ""
+                          }`}
                       >
                         {spread.rightPage ? (
                           spread.rightPage.is_blank ? (
@@ -8882,17 +9484,19 @@ const PhotoBookEditorPage = () => {
                               {/* Inner spine shadow on left edge of right page */}
                               <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10" />
                               {/* Centered Edit Overlay with background blur on hover (strictly on top of everything) */}
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenPageEditModal(spread.rightPage);
-                                }}
-                                className="hidden md:flex absolute inset-0 z-[500] items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-950/40 backdrop-blur-sm cursor-default pointer-events-auto"
-                              >
-                                <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-2xl border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all z-[501]">
-                                  <EditOutlined className="text-[#00a896] text-sm" /> Edit Page
-                                </span>
-                              </div>
+                              {!spread.rightPage?.no_design && (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenPageEditModal(spread.rightPage);
+                                  }}
+                                  className="hidden md:flex absolute inset-0 z-[500] items-center justify-center opacity-0 group-hover/canvas:opacity-100 transition-all duration-200 bg-slate-950/40 backdrop-blur-sm cursor-default pointer-events-auto"
+                                >
+                                  <span className="bg-white/95 hover:bg-white text-gray-900 font-bold text-xs px-4 py-2 rounded-full shadow-2xl border border-gray-200/90 flex items-center gap-2 transform translate-y-1 group-hover/canvas:translate-y-0 hover:scale-105 active:scale-95 transition-all z-[501]">
+                                    <EditOutlined className="text-[#00a896] text-sm" /> Edit Page
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )
                         ) : (
@@ -8942,9 +9546,8 @@ const PhotoBookEditorPage = () => {
           {isBelowMd && (activeStudioTool || isBottomSheetClosing) && (
             <div
               onClick={closeStudioTool}
-              className={`md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity duration-200 ${
-                isBottomSheetClosing ? "opacity-0 pointer-events-none" : "opacity-100"
-              }`}
+              className={`md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity duration-200 ${isBottomSheetClosing ? "opacity-0 pointer-events-none" : "opacity-100"
+                }`}
             />
           )}
 
@@ -8954,180 +9557,178 @@ const PhotoBookEditorPage = () => {
           {(!isBelowMd || activeStudioTool || isBottomSheetClosing) && (() => {
             const resolvedTool = isBelowMd ? (activeStudioTool || "add") : (activeStudioTool || "add");
             return (
-          <aside
-            style={
-              isBelowMd
-                ? {
-                    transform: isBottomSheetClosing
-                      ? "translateY(100%)"
-                      : sheetDragY !== 0
-                      ? `translateY(${Math.max(-20, sheetDragY)}px)`
-                      : "translateY(0)",
-                    transition: isSheetDraggingRef.current
-                      ? "none"
-                      : "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)",
-                  }
-                : undefined
-            }
-            className={
-              isBelowMd
-                ? "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[82vh] h-[72vh] overflow-hidden border-t border-gray-200/80 md:hidden will-change-transform"
-                : "hidden md:flex static md:w-[280px] lg:w-[360px] bg-white border-l border-gray-200 h-full overflow-hidden shrink-0 flex-col z-20 shadow-xs"
-            }
-          >
-            {/* Mobile Bottom Sheet Drag Handle */}
-            {isBelowMd && (
-              <div
-                onTouchStart={handleSheetTouchStart}
-                onTouchMove={handleSheetTouchMove}
-                onTouchEnd={handleSheetTouchEnd}
-                className="w-full pt-3 pb-2 flex flex-col items-center justify-center shrink-0 touch-none cursor-grab active:cursor-grabbing select-none"
-                title="Swipe down to close"
+              <aside
+                style={
+                  isBelowMd
+                    ? {
+                      transform: isBottomSheetClosing
+                        ? "translateY(100%)"
+                        : sheetDragY !== 0
+                          ? `translateY(${Math.max(-20, sheetDragY)}px)`
+                          : "translateY(0)",
+                      transition: isSheetDraggingRef.current
+                        ? "none"
+                        : "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)",
+                    }
+                    : undefined
+                }
+                className={
+                  isBelowMd
+                    ? "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[82vh] h-[72vh] overflow-hidden border-t border-gray-200/80 md:hidden will-change-transform"
+                    : "hidden md:flex static md:w-[280px] lg:w-[360px] bg-white border-l border-gray-200 h-full overflow-hidden shrink-0 flex-col z-20 shadow-xs"
+                }
               >
-                <div className="w-12 h-1.5 bg-gray-300 hover:bg-gray-400 active:bg-gray-500 rounded-full transition-colors" />
-              </div>
-            )}
-            {/* Case B: Book Size */}
-            {resolvedTool === "size" && (
-              <div className="p-5 flex flex-col gap-5 select-none overflow-y-auto h-full">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-sm">Book Size</h3>
-                    <span className="text-[10px] text-gray-400 font-medium">
-                      {templateSizes.length} {templateSizes.length === 1 ? "Option" : "Options"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={closeStudioTool}
-                    className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
-                    title="Close panel"
+                {/* Mobile Bottom Sheet Drag Handle */}
+                {isBelowMd && (
+                  <div
+                    onTouchStart={handleSheetTouchStart}
+                    onTouchMove={handleSheetTouchMove}
+                    onTouchEnd={handleSheetTouchEnd}
+                    className="w-full pt-3 pb-2 flex flex-col items-center justify-center shrink-0 touch-none cursor-grab active:cursor-grabbing select-none"
+                    title="Swipe down to close"
                   >
-                    <CloseOutlined className="text-xs" />
-                  </button>
-                </div>
-
-                {/* Dedicated Size Layout Notice */}
-                <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200/80 flex items-start gap-2.5 text-xs text-teal-950 shadow-2xs">
-                  <InfoCircleOutlined className="text-[#00a896] text-sm mt-0.5 shrink-0" />
-                  <div className="flex flex-col gap-0.5 leading-snug">
-                    <span className="font-bold text-teal-900">Dedicated Size Layouts</span>
-                    <span className="text-[11px] text-teal-800/90">
-                      Selecting a size loads its dedicated template layout. Your current design will be replaced with the new size layout, but all your uploaded photos will be automatically preserved.
-                    </span>
+                    <div className="w-12 h-1.5 bg-gray-300 hover:bg-gray-400 active:bg-gray-500 rounded-full transition-colors" />
                   </div>
-                </div>
-
-                {/* Only sizes created for the template */}
-                <div className={`grid ${templateSizes.length <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"} gap-2.5`}>
-                  {templateSizes.map((s) => {
-                    const isSelected =
-                      activeSizeInfo.matchedId === s.id ||
-                      activeSizeInfo.name === s.name ||
-                      selectedSize === s.id ||
-                      selectedSize === s.name;
-
-                    const aspect = s.width && s.height ? s.width / s.height : 1;
-                    const boxHeight = 28;
-                    const boxWidth = Math.max(16, Math.min(46, Math.round(boxHeight * aspect)));
-
-                    return (
-                      <div
-                        key={s.id}
-                        onClick={() => handleSizeSelect(s.id)}
-                        className={`relative p-3 rounded-xl border flex flex-col items-center justify-center text-center cursor-default transition-all ${
-                          isSelected
-                            ? "border-2 border-[#f97316] text-[#f97316] bg-orange-50/40 font-semibold shadow-xs"
-                            : "border-gray-200 hover:border-gray-300 text-gray-700 bg-white"
-                        }`}
-                      >
-                        {s.popular && (
-                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-[#00a896] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                            POPULAR
-                          </span>
-                        )}
-                        <span className="text-[9px] font-bold tracking-wider text-gray-400 uppercase mb-1.5">
-                          {s.orientation}
+                )}
+                {/* Case B: Book Size */}
+                {resolvedTool === "size" && (
+                  <div className="p-5 flex flex-col gap-5 select-none overflow-y-auto h-full">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-sm">Book Size</h3>
+                        <span className="text-[10px] text-gray-400 font-medium">
+                          {templateSizes.length} {templateSizes.length === 1 ? "Option" : "Options"}
                         </span>
-                        {/* Dynamic Wireframe Box proportioned to actual width/height */}
-                        <div
-                          className="rounded-xs border-2 border-current mb-2 opacity-80"
-                          style={{
-                            width: `${boxWidth}px`,
-                            height: `${boxHeight}px`,
-                          }}
-                        />
-                        <span className="text-xs font-bold leading-tight">{s.name}</span>
-                        {/* Explicit Width and Height display */}
-                        <span className="text-[10px] font-semibold text-gray-700 mt-1 bg-gray-100 px-1.5 py-0.5 rounded leading-tight">
-                          {s.dimensions}
-                        </span>
-                        <div className="flex flex-col text-[9px] text-gray-500 font-medium mt-1 leading-tight">
-                          <span>W: {s.width_in || s.width} in</span>
-                          <span>H: {s.height_in || s.height} in</span>
-                        </div>
-                        {(() => {
-                          const activeEd =
-                            availableEditions.find((e) => (e.edition_name || e.name) === selectedVariant) ||
-                            availableEditions[0];
-                          const allKnownSizes = [
-                            ...(templateSizes || []),
-                            ...(productData?.photobook_config?.sizes || []),
-                          ];
-                          const sizePrice = resolveEditionPriceForSize(activeEd, s.id, allKnownSizes);
-                          if (!sizePrice) return null;
-                          return (
-                            <span
-                              className={`text-[11px] font-bold mt-1.5 ${
-                                isSelected ? "text-[#f97316]" : "text-[#00a896]"
-                              }`}
-                            >
-                              {/* ₹{sizePrice} */}
-                            </span>
-                          );
-                        })()}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Case C: Add Photos */}
-            {resolvedTool === "add" && (
-              <div className="flex flex-col h-full select-none overflow-hidden">
-                {/* Header Section */}
-                <div className="p-4 border-b border-gray-100 flex flex-col gap-3 bg-white shrink-0 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-sm">Add Photos</h3>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {uploadedPhotos.length} of {maxImages} uploaded •{" "}
-                        <span className="text-[#00a896] font-semibold">{usedPhotoUrls.size} placed</span>
-                      </p>
+                      <button
+                        type="button"
+                        onClick={closeStudioTool}
+                        className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
+                        title="Close panel"
+                      >
+                        <CloseOutlined className="text-xs" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={closeStudioTool}
-                      className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
-                      title="Close panel"
-                    >
-                      <CloseOutlined className="text-xs" />
-                    </button>
-                  </div>
 
-                  {/* Actions: Upload & Autofill */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => sidebarPhotoInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="flex-1 bg-[#00a896] hover:bg-[#008f80] text-white text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-default disabled:opacity-50"
-                    >
-                      <UploadOutlined />
-                      <span>{isUploading ? "Uploading..." : "+ Upload Photos"}</span>
-                    </button>
-                    {/* <button
+                    {/* Dedicated Size Layout Notice */}
+                    <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200/80 flex items-start gap-2.5 text-xs text-teal-950 shadow-2xs">
+                      <InfoCircleOutlined className="text-[#00a896] text-sm mt-0.5 shrink-0" />
+                      <div className="flex flex-col gap-0.5 leading-snug">
+                        <span className="font-bold text-teal-900">Dedicated Size Layouts</span>
+                        <span className="text-[11px] text-teal-800/90">
+                          Selecting a size loads its dedicated template layout. Your current design will be replaced with the new size layout, but all your uploaded photos will be automatically preserved.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Only sizes created for the template */}
+                    <div className={`grid ${templateSizes.length <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"} gap-2.5`}>
+                      {templateSizes.map((s) => {
+                        const isSelected =
+                          activeSizeInfo.matchedId === s.id ||
+                          activeSizeInfo.name === s.name ||
+                          selectedSize === s.id ||
+                          selectedSize === s.name;
+
+                        const aspect = s.width && s.height ? s.width / s.height : 1;
+                        const boxHeight = 28;
+                        const boxWidth = Math.max(16, Math.min(46, Math.round(boxHeight * aspect)));
+
+                        return (
+                          <div
+                            key={s.id}
+                            onClick={() => handleSizeSelect(s.id)}
+                            className={`relative p-3 rounded-xl border flex flex-col items-center justify-center text-center cursor-default transition-all ${isSelected
+                              ? "border-2 border-[#f97316] text-[#f97316] bg-orange-50/40 font-semibold shadow-xs"
+                              : "border-gray-200 hover:border-gray-300 text-gray-700 bg-white"
+                              }`}
+                          >
+                            {s.popular && (
+                              <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-[#00a896] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                POPULAR
+                              </span>
+                            )}
+                            <span className="text-[9px] font-bold tracking-wider text-gray-400 uppercase mb-1.5">
+                              {s.orientation}
+                            </span>
+                            {/* Dynamic Wireframe Box proportioned to actual width/height */}
+                            <div
+                              className="rounded-xs border-2 border-current mb-2 opacity-80"
+                              style={{
+                                width: `${boxWidth}px`,
+                                height: `${boxHeight}px`,
+                              }}
+                            />
+                            <span className="text-xs font-bold leading-tight">{s.name}</span>
+                            {/* Explicit Width and Height display */}
+                            <span className="text-[10px] font-semibold text-gray-700 mt-1 bg-gray-100 px-1.5 py-0.5 rounded leading-tight">
+                              {s.dimensions}
+                            </span>
+                            <div className="flex flex-col text-[9px] text-gray-500 font-medium mt-1 leading-tight">
+                              <span>W: {s.width_in || s.width} in</span>
+                              <span>H: {s.height_in || s.height} in</span>
+                            </div>
+                            {(() => {
+                              const activeEd =
+                                availableEditions.find((e) => (e.edition_name || e.name) === selectedVariant) ||
+                                availableEditions[0];
+                              const allKnownSizes = [
+                                ...(templateSizes || []),
+                                ...(productData?.photobook_config?.sizes || []),
+                              ];
+                              const sizePrice = resolveEditionPriceForSize(activeEd, s.id, allKnownSizes);
+                              if (!sizePrice) return null;
+                              return (
+                                <span
+                                  className={`text-[11px] font-bold mt-1.5 ${isSelected ? "text-[#f97316]" : "text-[#00a896]"
+                                    }`}
+                                >
+                                  {/* ₹{sizePrice} */}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Case C: Add Photos */}
+                {resolvedTool === "add" && (
+                  <div className="flex flex-col h-full select-none overflow-hidden">
+                    {/* Header Section */}
+                    <div className="p-4 border-b border-gray-100 flex flex-col gap-3 bg-white shrink-0 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-gray-900 text-sm">Add Photos</h3>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {uploadedPhotos.length} of {maxImages} uploaded •{" "}
+                            <span className="text-[#00a896] font-semibold">{usedPhotoUrls.size} placed</span>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={closeStudioTool}
+                          className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
+                          title="Close panel"
+                        >
+                          <CloseOutlined className="text-xs" />
+                        </button>
+                      </div>
+
+                      {/* Actions: Upload & Autofill */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => sidebarPhotoInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="flex-1 bg-[#00a896] hover:bg-[#008f80] text-white text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-default disabled:opacity-50"
+                        >
+                          <UploadOutlined />
+                          <span>{isUploading ? "Uploading..." : "+ Upload Photos"}</span>
+                        </button>
+                        {/* <button
                       type="button"
                       onClick={handleAutofillEmptySlots}
                       disabled={uploadedPhotos.length === 0 || unusedPhotosCount === 0}
@@ -9137,735 +9738,726 @@ const PhotoBookEditorPage = () => {
                       <ThunderboltOutlined />
                       <span>Autofill</span>
                     </button> */}
-                    <input
-                      ref={sidebarPhotoInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => {
-                        handleFilesSelected(e);
-                        setHasUnsavedChanges(true);
-                      }}
-                      className="hidden"
-                    />
-                  </div>
+                        <input
+                          ref={sidebarPhotoInputRef}
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => {
+                            handleFilesSelected(e);
+                            setHasUnsavedChanges(true);
+                          }}
+                          className="hidden"
+                        />
+                      </div>
 
-                  {/* Filter Tabs */}
-                  <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-medium">
-                    <button
-                      type="button"
-                      onClick={() => setPhotoFilter("all")}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${
-                        photoFilter === "all"
-                          ? "bg-white text-gray-900 font-bold shadow-xs"
-                          : "text-gray-500 hover:text-gray-900"
-                      }`}
-                    >
-                      All ({uploadedPhotos.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPhotoFilter("unused")}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${
-                        photoFilter === "unused"
-                          ? "bg-white text-[#00a896] font-bold shadow-xs"
-                          : "text-gray-500 hover:text-gray-900"
-                      }`}
-                    >
-                      Unused ({unusedPhotosCount})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPhotoFilter("placed")}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${
-                        photoFilter === "placed"
-                          ? "bg-white text-teal-800 font-bold shadow-xs"
-                          : "text-gray-500 hover:text-gray-900"
-                      }`}
-                    >
-                      Placed ({usedPhotoUrls.size})
-                    </button>
-                  </div>
+                      {/* Filter Tabs */}
+                      <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-medium">
+                        <button
+                          type="button"
+                          onClick={() => setPhotoFilter("all")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${photoFilter === "all"
+                            ? "bg-white text-gray-900 font-bold shadow-xs"
+                            : "text-gray-500 hover:text-gray-900"
+                            }`}
+                        >
+                          All ({uploadedPhotos.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPhotoFilter("unused")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${photoFilter === "unused"
+                            ? "bg-white text-[#00a896] font-bold shadow-xs"
+                            : "text-gray-500 hover:text-gray-900"
+                            }`}
+                        >
+                          Unused ({unusedPhotosCount})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPhotoFilter("placed")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-default ${photoFilter === "placed"
+                            ? "bg-white text-teal-800 font-bold shadow-xs"
+                            : "text-gray-500 hover:text-gray-900"
+                            }`}
+                        >
+                          Placed ({usedPhotoUrls.size})
+                        </button>
+                      </div>
 
-                  {/* Hint */}
-                  {/* <div className="bg-teal-50/60 rounded-xl p-2 border border-teal-100 text-[11px] text-teal-800 flex items-center gap-1.5">
+                      {/* Hint */}
+                      {/* <div className="bg-teal-50/60 rounded-xl p-2 border border-teal-100 text-[11px] text-teal-800 flex items-center gap-1.5">
                     <InfoCircleOutlined className="text-teal-600 shrink-0" />
                     <span className="truncate">
                       Click any photo to place into next open frame.
                     </span>
                   </div> */}
 
-                  {/* Upload Progress Bar if uploading */}
-                  {isUploading && (
-                    <div className="bg-teal-50/70 p-2.5 rounded-xl border border-teal-100 flex flex-col gap-1.5 shadow-2xs">
-                      <div className="flex items-center justify-between text-[11px] text-teal-800 font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <Spin size="small" /> Uploading photos...
-                        </span>
-                        <span className="font-bold text-teal-700">{uploadPercent}%</span>
-                      </div>
-                      <Progress percent={uploadPercent} showInfo={false} strokeColor="#00a896" size="small" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Photos Grid Container with guaranteed CSS grid sizing */}
-                <div className="flex-1 min-h-0 overflow-y-auto p-4">
-                  {filteredPhotos.length === 0 ? (
-                    <div
-                      onClick={() => sidebarPhotoInputRef.current?.click()}
-                      className="border-2 border-dashed border-gray-200 hover:border-[#00a896] hover:bg-teal-50/20 rounded-xl p-8 text-center cursor-default transition-all flex flex-col items-center justify-center gap-2 group mt-2"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-teal-50 text-[#00a896] flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                        <UploadOutlined />
-                      </div>
-                      <span className="text-xs font-bold text-gray-700 group-hover:text-[#00a896]">
-                        {photoFilter === "unused"
-                          ? "All photos have been placed!"
-                          : photoFilter === "placed"
-                          ? "No photos placed yet"
-                          : "Click to Browse Photos"}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {photoFilter === "all" ? "JPG, PNG, WebP supported" : "Switch tabs or upload more photos"}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                        gridAutoRows: "135px",
-                        gap: "12px",
-                        alignContent: "start",
-                      }}
-                      className="pb-6"
-                    >
-                      {filteredPhotos.map((p, idx) => {
-                        const isUsed = usedPhotoUrls.has(p.url);
-                        return (
-                          <div
-                            key={p.id || `photo-${idx}-${p.url}`}
-                            onClick={() => handleAssignPhotoToPage(p)}
-                            style={{
-                              width: "100%",
-                              height: "135px",
-                              minHeight: "135px",
-                              maxHeight: "135px",
-                              position: "relative",
-                              borderRadius: "12px",
-                              overflow: "hidden",
-                            }}
-                            className={`group border cursor-default select-none transition-all duration-200 bg-gray-100 ${
-                              isUsed
-                                ? "border-teal-300 ring-1 ring-teal-200/50 shadow-2xs"
-                                : "border-gray-200 hover:border-[#00a896] hover:shadow-md"
-                            }`}
-                            title={isUsed ? "Photo placed • Click to place again" : "Click to place into book page"}
-                          >
-                            <img
-                              src={p.url}
-                              alt={p.name || `Photo ${idx + 1}`}
-                              referrerPolicy="no-referrer"
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                              className="group-hover:scale-105 transition-transform duration-200"
-                              loading="lazy"
-                            />
-
-                            {/* Top-Left: Index Badge */}
-                            <div className="absolute top-1.5 left-1.5 z-10 pointer-events-none">
-                              <span className="bg-black/75 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
-                                #{idx + 1}
-                              </span>
-                            </div>
-
-                            {/* Top-Right: Status Badge */}
-                            <div className="absolute top-1.5 right-1.5 z-10 pointer-events-none">
-                              {isUsed ? (
-                                <span className="bg-[#00a896] text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-0.5">
-                                  ✓ Placed
-                                </span>
-                              ) : (
-                                <span className="bg-white/90 text-gray-700 text-[8px] font-medium px-1.5 py-0.5 rounded shadow-xs border border-gray-200">
-                                  Unused
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Hover Overlay */}
-                            <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 z-10">
-                              <div className="flex justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPreviewModalUrl(p.url);
-                                  }}
-                                  className="w-7 h-7 rounded-full bg-white/90 hover:bg-white text-gray-800 flex items-center justify-center text-xs shadow-xs transition-transform active:scale-95"
-                                  title="Preview"
-                                >
-                                  <EyeOutlined />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeletePhoto(p.id);
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-xs shadow-xs transition-transform active:scale-95"
-                                  title="Delete"
-                                >
-                                  <DeleteOutlined />
-                                </button>
-                              </div>
-                              <div className="text-center">
-                                <span className="inline-block bg-[#00a896] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                  {isUsed ? "Place Again" : "+ Add to Page"}
-                                </span>
-                              </div>
-                            </div>
+                      {/* Upload Progress Bar if uploading */}
+                      {isUploading && (
+                        <div className="bg-teal-50/70 p-2.5 rounded-xl border border-teal-100 flex flex-col gap-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between text-[11px] text-teal-800 font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Spin size="small" /> Uploading photos...
+                            </span>
+                            <span className="font-bold text-teal-700">{uploadPercent}%</span>
                           </div>
-                        );
-                      })}
+                          <Progress percent={uploadPercent} showInfo={false} strokeColor="#00a896" size="small" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
 
-
-
-            {/* Case E: Design Themes */}
-            {resolvedTool === "design" && (
-              <div className="p-4 sm:p-5 flex flex-col gap-4 select-none h-full overflow-y-auto styled-scrollbar">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-3 shrink-0">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-sm">Theme Design</h3>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Select a published theme. Your photos and pages adapt automatically.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={closeStudioTool}
-                    className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default shrink-0"
-                    title="Close panel"
-                  >
-                    <CloseOutlined className="text-xs" />
-                  </button>
-                </div>
-
-                {/* Theme Switch Layout Notice */}
-                <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200/80 flex items-start gap-2.5 text-xs text-teal-950 shadow-2xs shrink-0">
-                  <InfoCircleOutlined className="text-[#00a896] text-sm mt-0.5 shrink-0" />
-                  <div className="flex flex-col gap-0.5 leading-snug">
-                    <span className="font-bold text-teal-900">Theme Layout Switch</span>
-                    <span className="text-[11px] text-teal-800/90">
-                      Selecting a theme replaces the current page design with the new theme's layout. All your uploaded and placed photos will be automatically preserved.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3.5 pb-6">
-                  {availableTemplates.map((tpl) => {
-                    const isSelected =
-                      (selectedTemplateName && (selectedTemplateName === tpl.template_name || selectedTemplateName.trim().toLowerCase() === String(tpl.template_name || "").trim().toLowerCase())) ||
-                      (templateData && (
-                        String(templateData._id || "") === String(tpl._id || "") ||
-                        String(templateData.template_id || "").toLowerCase() === String(tpl.template_id || "").toLowerCase() ||
-                        String(templateData.template_id || "").toLowerCase() === String(tpl._id || "").toLowerCase()
-                      )) ||
-                      (selectedTemplateId && (
-                        String(selectedTemplateId) === String(tpl._id || "") ||
-                        String(selectedTemplateId).toLowerCase() === String(tpl.template_id || "").toLowerCase()
-                      ));
-
-                    const frontPage =
-                      (tpl.pages || []).find((p) => p.page_type === "front_cover") ||
-                      (tpl.published_snapshot?.pages || []).find((p) => p.page_type === "front_cover") ||
-                      (tpl.pages || [])[0];
-
-                    const coverBg = frontPage?.background || { type: "color", value: "#1e1e2d" };
-                    const coverImageUrl =
-                      tpl.thumbnail_url ||
-                      tpl.cover_image ||
-                      tpl.cover_image_url ||
-                      (coverBg.type === "image" ? coverBg.value : null);
-
-                    const bgStyle =
-                      coverBg.type === "gradient" && coverBg.gradient
-                        ? { background: coverBg.gradient }
-                        : coverBg.type === "image" && coverBg.value
-                        ? { backgroundImage: `url(${coverBg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
-                        : { backgroundColor: coverBg.value || "#1e1e2d" };
-
-                    return (
-                      <div
-                        key={tpl._id || tpl.template_id || tpl.template_name}
-                        onClick={() => confirmTemplateSwitch(tpl)}
-                        className={`rounded-2xl border overflow-hidden cursor-default transition-all flex flex-col group shrink-0 ${
-                          isSelected
-                            ? "border-2 border-[#00a896] shadow-md ring-2 ring-teal-500/10"
-                            : "border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white"
-                        }`}
-                      >
-                        {/* Visual Cover Preview Thumbnail */}
+                    {/* Photos Grid Container with guaranteed CSS grid sizing */}
+                    <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                      {filteredPhotos.length === 0 ? (
                         <div
-                          className="h-36 shrink-0 relative overflow-hidden flex flex-col items-center justify-center p-3 text-center transition-transform group-hover:scale-[1.01]"
-                          style={bgStyle}
+                          onClick={() => sidebarPhotoInputRef.current?.click()}
+                          className="border-2 border-dashed border-gray-200 hover:border-[#00a896] hover:bg-teal-50/20 rounded-xl p-8 text-center cursor-default transition-all flex flex-col items-center justify-center gap-2 group mt-2"
                         >
-                          {coverImageUrl ? (
-                            <img
-                              src={coverImageUrl}
-                              alt={tpl.template_name}
-                              referrerPolicy="no-referrer"
-                              className="absolute inset-0 w-full h-full object-cover"
-                              onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                          ) : null}
-
-                          {/* Dark overlay for contrast */}
-                          <div className="absolute inset-0 bg-black/25 pointer-events-none" />
-
-                          {/* Cover Typography */}
-                          <div className="relative z-10 px-3 py-2 bg-black/40 backdrop-blur-xs rounded-xl max-w-[85%] border border-white/20">
-                            <span className="text-white text-xs font-bold tracking-wide block truncate">
-                              {tpl.template_name}
-                            </span>
-                            <span className="text-white/80 text-[10px] tracking-wider uppercase block mt-0.5">
-                              {tpl.category || "Photobook"} Edition
-                            </span>
+                          <div className="w-12 h-12 rounded-full bg-teal-50 text-[#00a896] flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                            <UploadOutlined />
                           </div>
-
-                          {/* Active Pill Badge */}
-                          {isSelected && (
-                            <div className="absolute top-2.5 right-2.5 z-20">
-                              <span className="bg-[#00a896] text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                                <CheckOutlined /> Active
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Blank Page Status Chip */}
-                          <div className="absolute bottom-2 left-2 z-20">
-                            <span className="bg-black/50 text-white/90 text-[8px] font-medium px-1.5 py-0.5 rounded backdrop-blur-xs">
-                              {Boolean(tpl.include_blank_page || tpl.page_config?.include_blank_page)
-                                ? "Blank Page Enabled"
-                                : "Continuous Pages"}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Card Info Section */}
-                        <div className="p-3 bg-white flex items-center justify-between">
-                          <div>
-                            <div className="font-bold text-xs text-gray-900 group-hover:text-[#00a896] transition-colors">
-                              {tpl.template_name}
-                            </div>
-                            <div className="text-[10px] text-gray-400 mt-0.5">
-                              {tpl.category || "General"}
-                            </div>
-                          </div>
-                          <span
-                            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
-                              isSelected
-                                ? "bg-teal-50 text-teal-700 font-bold"
-                                : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
-                            }`}
-                          >
-                            {isSelected ? "Selected" : "Use Theme"}
+                          <span className="text-xs font-bold text-gray-700 group-hover:text-[#00a896]">
+                            {photoFilter === "unused"
+                              ? "All photos have been placed!"
+                              : photoFilter === "placed"
+                                ? "No photos placed yet"
+                                : "Click to Browse Photos"}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {photoFilter === "all" ? "JPG, PNG, WebP supported" : "Switch tabs or upload more photos"}
                           </span>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Case F: Book Options */}
-            {resolvedTool === "options" && !isGiveaway && (() => {
-              // Extract bounds and pricing strictly from real template / edition data via priceDetails
-              const activeEditionObj =
-                availableEditions.find(
-                  (e) => (e.edition_name || e.name) === selectedVariant
-                ) || availableEditions[0];
-
-              const minPages = Number(
-                priceDetails.minPages ||
-                activeEditionObj?.min_pages ||
-                templateData?.min_pages ||
-                templateData?.page_config?.min_pages ||
-                productData?.photobook_config?.min_pages ||
-                10
-              );
-              const maxPages = Number(
-                priceDetails.maxPages ||
-                activeEditionObj?.max_pages ||
-                templateData?.max_pages ||
-                templateData?.page_config?.max_pages ||
-                productData?.photobook_config?.max_pages ||
-                60
-              );
-              const basePages = Number(
-                priceDetails.basePages ||
-                activeEditionObj?.default_pages ||
-                templateData?.default_pages ||
-                templateData?.page_config?.default_pages ||
-                productData?.photobook_config?.default_pages ||
-                20
-              );
-              const pricePerExtraPage = Number(
-                priceDetails.extraPricePerUnit ??
-                activeEditionObj?.price_per_extra_page ??
-                templateData?.price_per_extra_page ??
-                templateData?.page_config?.price_per_extra_page ??
-                productData?.photobook_config?.price_per_extra_page ??
-                15
-              );
-
-              // Quick select page chips strictly bounded by real min and max
-              const standardSteps = [10, 16, 20, 26, 32, 40, 50, 60];
-              const quickPageList = Array.from(
-                new Set([minPages, ...standardSteps.filter((n) => n >= minPages && n <= maxPages), maxPages])
-              ).sort((a, b) => a - b);
-
-              const handleUpdatePageCount = (newPageCount) => {
-                const clamped = Math.max(minPages, Math.min(maxPages, newPageCount));
-                if (clamped === photoBookPages) return;
-                setPhotoBookPages(clamped);
-
-                // Identify covers, blanks, and existing interior pages
-                const frontCover = pagesData.find(
-                  (p) => p.page_type === "front_cover" || p.page_id === "front-cover"
-                ) || pagesData[0];
-                const blankInsideFront = pagesData.find((p) => p.page_id === "blank-inside-front");
-                const blankInsideBack = pagesData.find((p) => p.page_id === "blank-inside-back");
-                const backCover = pagesData.find(
-                  (p) => p.page_type === "back_cover" || p.page_id === "back-cover"
-                ) || pagesData[pagesData.length - 1];
-
-                const existingInterior = pagesData.filter((p) => {
-                  if (p.page_type === "front_cover" || p.page_id === "front-cover") return false;
-                  if (p.page_type === "back_cover" || p.page_id === "back-cover") return false;
-                  if (p.page_id === "blank-inside-front" || p.page_id === "blank-inside-back") return false;
-                  if (p.is_blank) return false;
-                  return true;
-                });
-
-                const targetInteriorCount = Math.max(2, clamped - 2);
-                const currentInteriorCount = existingInterior.length;
-
-                let nextInterior = [...existingInterior];
-
-                if (targetInteriorCount > currentInteriorCount) {
-                  // Only ADD the newly required pages; PRESERVE all existing edited interior pages
-                  const usedUrls = new Set();
-                  pagesData.forEach((pg) => {
-                    (pg.elements || []).forEach((el) => {
-                      if (el.type === "photo_frame" && el.photo_url) {
-                        usedUrls.add(el.photo_url);
-                      }
-                    });
-                  });
-                  const unusedPhotos = uploadedPhotos.filter((p) => !usedUrls.has(p.url));
-                  let unusedIdx = 0;
-                  const getNextPhoto = () => {
-                    if (unusedIdx < unusedPhotos.length) {
-                      return unusedPhotos[unusedIdx++];
-                    }
-                    return null;
-                  };
-
-                  const activeTpl = templateData || DEFAULT_VINTAGE_TEMPLATE;
-                  const dbDecDefs = extractDatabaseDecorations(activeTpl);
-
-                  for (let pNum = currentInteriorCount + 1; pNum <= targetInteriorCount; pNum++) {
-                    const tplPage = resolveTemplatePage(pNum, targetInteriorCount, activeTpl);
-                    const clonedElements = (tplPage?.elements || []).map((el) => {
-                      if (el.type === "photo_frame") {
-                        const assignedPhoto = getNextPhoto();
-                        return {
-                          ...el,
-                          photo_url: assignedPhoto ? assignedPhoto.url : (el.photo_url || ""),
-                          photo_id: assignedPhoto ? assignedPhoto.id : (el.photo_id || ""),
-                          test_image_url: el.test_image_url || el.sample_image_url || "",
-                          crop: el.crop || { zoom: 1, offsetX: 0, offsetY: 0 },
-                          rotation: el.rotation || 0,
-                        };
-                      }
-                      if (el.type === "decoration") {
-                        return resolveDbDecorationData(el, dbDecDefs);
-                      }
-                      return { ...el };
-                    });
-
-                    const interiorRawList = clonedElements.length > 0 ? clonedElements : [
-                      {
-                        id: `p${pNum}-frame-1`,
-                        frame_id: `p${pNum}_frame_1`,
-                        type: "photo_frame",
-                        x: 60,
-                        y: 80,
-                        width: 420,
-                        height: 840,
-                        x_pct: 6,
-                        y_pct: 8,
-                        width_pct: 42,
-                        height_pct: 84,
-                        unit: "%",
-                        is_percentage: true,
-                        rotation: 0,
-                        shape: "rectangle",
-                        fit_mode: "cover",
-                        photo_url: getNextPhoto()?.url || "",
-                        test_image_url: "",
-                      },
-                      {
-                        id: `p${pNum}-frame-2`,
-                        frame_id: `p${pNum}_frame_2`,
-                        type: "photo_frame",
-                        x: 520,
-                        y: 80,
-                        width: 420,
-                        height: 840,
-                        x_pct: 52,
-                        y_pct: 8,
-                        width_pct: 42,
-                        height_pct: 84,
-                        unit: "%",
-                        is_percentage: true,
-                        rotation: 0,
-                        shape: "rectangle",
-                        fit_mode: "cover",
-                        photo_url: getNextPhoto()?.url || "",
-                        test_image_url: "",
-                      },
-                    ];
-
-                    nextInterior.push({
-                      page_number: pNum,
-                      display_label: `Page ${pNum}`,
-                      page_id: `page-${pNum}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                      name: `Page ${pNum}`,
-                      page_type: "interior",
-                      background: tplPage?.background || { type: "color", value: "#ffffff", opacity: 1 },
-                      elements: interiorRawList.map(normalizeElementToPaperCoords),
-                    });
-                  }
-                } else if (targetInteriorCount < currentInteriorCount) {
-                  // Only remove trailing interior pages; PRESERVE all existing edited pages up to the target
-                  nextInterior = nextInterior.slice(0, targetInteriorCount);
-                }
-
-                // Renumber display labels cleanly
-                const renumberedInterior = nextInterior.map((pg, idx) => ({
-                  ...pg,
-                  page_number: idx + 1,
-                  display_label: `Page ${idx + 1}`,
-                  name: `Page ${idx + 1}`,
-                }));
-
-                const finalPages = [
-                  frontCover,
-                  ...(blankInsideFront ? [blankInsideFront] : []),
-                  ...renumberedInterior,
-                  ...(blankInsideBack ? [blankInsideBack] : []),
-                  backCover,
-                ].filter(Boolean);
-
-                setPagesData(finalPages);
-                setHasUnsavedChanges(true);
-                message.success(`Updated book to ${clamped} pages`);
-              };
-
-              const extraPages = priceDetails.extraPages ?? Math.max(0, photoBookPages - basePages);
-              const extraPagesCost = priceDetails.extraPagesCost ?? (extraPages * pricePerExtraPage);
-              const editionSurcharge =
-                availableEditions.find((e) => (e.edition_name || e.name) === selectedVariant)?.surcharge || 0;
-
-              const liveTotal =
-                priceDetails.finalTotal ||
-                ((Number(priceDetails.basePrice) || 1499) + extraPagesCost + editionSurcharge);
-
-              return (
-                <div className="flex flex-col h-full select-none overflow-hidden">
-                  {/* Sticky Header */}
-                  <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0 shadow-2xs">
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-sm">Book Options</h3>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        Real template specifications, page range & finishes
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={closeStudioTool}
-                      className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
-                      title="Close panel"
-                    >
-                      <CloseOutlined className="text-xs" />
-                    </button>
-                  </div>
-
-                  {/* Scrollable Options Body */}
-                  <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
-                    {/* 1. Edition (Rendered only if real editions exist in template data) */}
-                    {availableEditions.length > 0 ? (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-baseline gap-1.5">
-                            <label className="text-xs font-bold text-gray-800">Book Edition</label>
-                            <span className="text-[10px] text-gray-400 font-medium">
-                              for {activeSizeInfo?.dimensions || activeSizeInfo?.name || "Selected Size"}
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-[#00a896] font-semibold">
-                            {selectedVariant || availableEditions[0]?.edition_name || availableEditions[0]?.name}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                          {availableEditions.map((ed) => {
-                            const isChosen =
-                              selectedVariant === (ed.edition_name || ed.name) ||
-                              (!selectedVariant && ed === availableEditions[0]);
-
-                            const allKnownSizes = [
-                              ...(templateSizes || []),
-                              ...(productData?.photobook_config?.sizes || []),
-                            ];
-                            const activeSizeIdentifier =
-                              selectedSize ||
-                              activeSizeInfo?.id ||
-                              activeSizeInfo?.matchedId ||
-                              activeSizeInfo?.name ||
-                              designData?.size ||
-                              "8x8";
-
-                            const edPricing = getEditionPricingDetailsForSize(
-                              ed,
-                              activeSizeIdentifier,
-                              allKnownSizes
-                            );
-                            const edPriceVal = edPricing?.customerPrice;
-                            const edMrpVal = edPricing?.mrp;
-
+                      ) : (
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                            gridAutoRows: "135px",
+                            gap: "12px",
+                            alignContent: "start",
+                          }}
+                          className="pb-6"
+                        >
+                          {filteredPhotos.map((p, idx) => {
+                            const isUsed = usedPhotoUrls.has(p.url);
                             return (
                               <div
-                                key={ed._id || ed.edition_name || ed.name}
-                                onClick={() => {
-                                  setSelectedVariant(ed.edition_name || ed.name);
-                                  setHasUnsavedChanges(true);
+                                key={p.id || `photo-${idx}-${p.url}`}
+                                onClick={() => handleAssignPhotoToPage(p)}
+                                style={{
+                                  width: "100%",
+                                  height: "135px",
+                                  minHeight: "135px",
+                                  maxHeight: "135px",
+                                  position: "relative",
+                                  borderRadius: "12px",
+                                  overflow: "hidden",
                                 }}
-                                className={`p-3 rounded-xl border flex items-center justify-between cursor-default transition-all ${
-                                  isChosen
-                                    ? "border-[#00a896] bg-teal-50/50 shadow-2xs font-semibold ring-1 ring-teal-200"
-                                    : "border-gray-200 hover:border-gray-300 bg-white"
-                                }`}
+                                className={`group border cursor-default select-none transition-all duration-200 bg-gray-100 ${isUsed
+                                  ? "border-teal-300 ring-1 ring-teal-200/50 shadow-2xs"
+                                  : "border-gray-200 hover:border-[#00a896] hover:shadow-md"
+                                  }`}
+                                title={isUsed ? "Photo placed • Click to place again" : "Click to place into book page"}
                               >
-                                <div className="pr-2">
-                                  <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                                    {isChosen && <CheckOutlined className="text-[#00a896] text-xs" />}
-                                    <span>{ed.edition_name || ed.name}</span>
-                                  </div>
-                                  {ed.description && (
-                                    <div className="text-[10px] text-gray-500 mt-0.5 leading-snug">
-                                      {ed.description}
-                                    </div>
+                                <img
+                                  src={p.url}
+                                  alt={p.name || `Photo ${idx + 1}`}
+                                  referrerPolicy="no-referrer"
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                  className="group-hover:scale-105 transition-transform duration-200"
+                                  loading="lazy"
+                                />
+
+                                {/* Top-Left: Index Badge */}
+                                <div className="absolute top-1.5 left-1.5 z-10 pointer-events-none">
+                                  <span className="bg-black/75 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                    #{idx + 1}
+                                  </span>
+                                </div>
+
+                                {/* Top-Right: Status Badge */}
+                                <div className="absolute top-1.5 right-1.5 z-10 pointer-events-none">
+                                  {isUsed ? (
+                                    <span className="bg-[#00a896] text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-0.5">
+                                      ✓ Placed
+                                    </span>
+                                  ) : (
+                                    <span className="bg-white/90 text-gray-700 text-[8px] font-medium px-1.5 py-0.5 rounded shadow-xs border border-gray-200">
+                                      Unused
+                                    </span>
                                   )}
                                 </div>
-                                <div className="text-right shrink-0">
-                                  {edPriceVal !== null && edPriceVal !== undefined ? (
-                                    <div className="flex items-baseline gap-1.5 justify-end">
-                                      {edMrpVal && edMrpVal > edPriceVal && (
-                                        <span className="text-[10px] text-gray-400 line-through">
-                                          ₹{edMrpVal}
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`text-xs font-bold ${
-                                          isChosen ? "text-[#00a896]" : "text-gray-700"
-                                        }`}
-                                      >
-                                        ₹{edPriceVal}
-                                      </span>
-                                    </div>
-                                  ) : ed.price_tag ? (
-                                    <span
-                                      className={`text-[11px] font-bold ${
-                                        isChosen ? "text-[#00a896]" : "text-gray-500"
-                                      }`}
+
+                                {/* Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 z-10">
+                                  <div className="flex justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPreviewModalUrl(p.url);
+                                      }}
+                                      className="w-7 h-7 rounded-full bg-white/90 hover:bg-white text-gray-800 flex items-center justify-center text-xs shadow-xs transition-transform active:scale-95"
+                                      title="Preview"
                                     >
-                                      {ed.price_tag}
+                                      <EyeOutlined />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeletePhoto(p.id);
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                      className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-xs shadow-xs transition-transform active:scale-95"
+                                      title="Delete"
+                                    >
+                                      <DeleteOutlined />
+                                    </button>
+                                  </div>
+                                  <div className="text-center">
+                                    <span className="inline-block bg-[#00a896] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                      {isUsed ? "Place Again" : "+ Add to Page"}
                                     </span>
-                                  ) : null}
+                                  </div>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold block">Selected Template</span>
-                          <span className="text-xs font-bold text-gray-800">{selectedTemplateName || templateData?.template_name || "Photo Book"}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-[#00a896] bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">
-                          Standard Edition
-                        </span>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* 3. Bottom Sticky Pricing Details */}
-                  <div className="p-4 border-t border-gray-200 bg-white shrink-0 shadow-lg">
-                    <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
-                      <div className="flex justify-between text-xs text-slate-600">
-                        <span>Base Photobook</span>
-                        <span>₹{priceDetails.basePrice || 1499}</span>
-                      </div>
-
-                      {extraPages > 0 && (
-                        <div className="flex justify-between text-xs text-slate-600">
-                          <span>Extra {extraPages} Pages (₹{pricePerExtraPage}/p)</span>
-                          <span className="text-[#00a896] font-semibold">
-                            + ₹{extraPagesCost}
-                          </span>
-                        </div>
                       )}
-
-                      {editionSurcharge > 0 && (
-                        <div className="flex justify-between text-xs text-slate-600">
-                          <span>{selectedVariant}</span>
-                          <span className="text-[#00a896] font-semibold">+ ₹{editionSurcharge}</span>
-                        </div>
-                      )}
-
-                      <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
-                        <span className="text-xs font-bold text-slate-800">Total Price</span>
-                        <span className="text-lg font-bold text-[#00a896]">
-                          ₹{liveTotal}
-                        </span>
-                      </div>
-
-                      <div className="pt-1.5 flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-medium">
-                        <SafetyCertificateOutlined className="text-[#00a896]" />
-                        <span>100% Quality & Print Guarantee</span>
-                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
-          </aside>
+                )}
+
+
+
+                {/* Case E: Design Themes */}
+                {resolvedTool === "design" && (
+                  <div className="p-4 sm:p-5 flex flex-col gap-4 select-none h-full overflow-y-auto styled-scrollbar">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3 shrink-0">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-sm">Theme Design</h3>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          Select a published theme. Your photos and pages adapt automatically.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closeStudioTool}
+                        className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default shrink-0"
+                        title="Close panel"
+                      >
+                        <CloseOutlined className="text-xs" />
+                      </button>
+                    </div>
+
+                    {/* Theme Switch Layout Notice */}
+                    <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200/80 flex items-start gap-2.5 text-xs text-teal-950 shadow-2xs shrink-0">
+                      <InfoCircleOutlined className="text-[#00a896] text-sm mt-0.5 shrink-0" />
+                      <div className="flex flex-col gap-0.5 leading-snug">
+                        <span className="font-bold text-teal-900">Theme Layout Switch</span>
+                        <span className="text-[11px] text-teal-800/90">
+                          Selecting a theme replaces the current page design with the new theme's layout. All your uploaded and placed photos will be automatically preserved.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3.5 pb-6">
+                      {availableTemplates.map((tpl) => {
+                        const isSelected =
+                          (selectedTemplateName && (selectedTemplateName === tpl.template_name || selectedTemplateName.trim().toLowerCase() === String(tpl.template_name || "").trim().toLowerCase())) ||
+                          (templateData && (
+                            String(templateData._id || "") === String(tpl._id || "") ||
+                            String(templateData.template_id || "").toLowerCase() === String(tpl.template_id || "").toLowerCase() ||
+                            String(templateData.template_id || "").toLowerCase() === String(tpl._id || "").toLowerCase()
+                          )) ||
+                          (selectedTemplateId && (
+                            String(selectedTemplateId) === String(tpl._id || "") ||
+                            String(selectedTemplateId).toLowerCase() === String(tpl.template_id || "").toLowerCase()
+                          ));
+
+                        const frontPage =
+                          (tpl.pages || []).find((p) => p.page_type === "front_cover") ||
+                          (tpl.published_snapshot?.pages || []).find((p) => p.page_type === "front_cover") ||
+                          (tpl.pages || [])[0];
+
+                        const coverBg = frontPage?.background || { type: "color", value: "#1e1e2d" };
+                        const coverImageUrl =
+                          tpl.thumbnail_url ||
+                          tpl.cover_image ||
+                          tpl.cover_image_url ||
+                          (coverBg.type === "image" ? coverBg.value : null);
+
+                        const bgStyle =
+                          coverBg.type === "gradient" && coverBg.gradient
+                            ? { background: coverBg.gradient }
+                            : coverBg.type === "image" && coverBg.value
+                              ? { backgroundImage: `url(${coverBg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
+                              : { backgroundColor: coverBg.value || "#1e1e2d" };
+
+                        return (
+                          <div
+                            key={tpl._id || tpl.template_id || tpl.template_name}
+                            onClick={() => confirmTemplateSwitch(tpl)}
+                            className={`rounded-2xl border overflow-hidden cursor-default transition-all flex flex-col group shrink-0 ${isSelected
+                              ? "border-2 border-[#00a896] shadow-md ring-2 ring-teal-500/10"
+                              : "border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white"
+                              }`}
+                          >
+                            {/* Visual Cover Preview Thumbnail */}
+                            <div
+                              className="h-36 shrink-0 relative overflow-hidden flex flex-col items-center justify-center p-3 text-center transition-transform group-hover:scale-[1.01]"
+                              style={bgStyle}
+                            >
+                              {coverImageUrl ? (
+                                <img
+                                  src={coverImageUrl}
+                                  alt={tpl.template_name}
+                                  referrerPolicy="no-referrer"
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              ) : null}
+
+                              {/* Dark overlay for contrast */}
+                              <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+
+                              {/* Cover Typography */}
+                              <div className="relative z-10 px-3 py-2 bg-black/40 backdrop-blur-xs rounded-xl max-w-[85%] border border-white/20">
+                                <span className="text-white text-xs font-bold tracking-wide block truncate">
+                                  {tpl.template_name}
+                                </span>
+                                <span className="text-white/80 text-[10px] tracking-wider uppercase block mt-0.5">
+                                  {tpl.category || "Photobook"} Edition
+                                </span>
+                              </div>
+
+                              {/* Active Pill Badge */}
+                              {isSelected && (
+                                <div className="absolute top-2.5 right-2.5 z-20">
+                                  <span className="bg-[#00a896] text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                    <CheckOutlined /> Active
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Blank Page Status Chip */}
+                              <div className="absolute bottom-2 left-2 z-20">
+                                <span className="bg-black/50 text-white/90 text-[8px] font-medium px-1.5 py-0.5 rounded backdrop-blur-xs">
+                                  {Boolean(tpl.include_blank_page || tpl.page_config?.include_blank_page)
+                                    ? "Blank Page Enabled"
+                                    : "Continuous Pages"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Card Info Section */}
+                            <div className="p-3 bg-white flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-xs text-gray-900 group-hover:text-[#00a896] transition-colors">
+                                  {tpl.template_name}
+                                </div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                  {tpl.category || "General"}
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${isSelected
+                                  ? "bg-teal-50 text-teal-700 font-bold"
+                                  : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+                                  }`}
+                              >
+                                {isSelected ? "Selected" : "Use Theme"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Case F: Book Options */}
+                {resolvedTool === "options" && !isGiveaway && (() => {
+                  // Extract bounds and pricing strictly from real template / edition data via priceDetails
+                  const activeEditionObj =
+                    availableEditions.find(
+                      (e) => (e.edition_name || e.name) === selectedVariant
+                    ) || availableEditions[0];
+
+                  const minPages = Number(
+                    priceDetails.minPages ||
+                    activeEditionObj?.min_pages ||
+                    templateData?.min_pages ||
+                    templateData?.page_config?.min_pages ||
+                    productData?.photobook_config?.min_pages ||
+                    10
+                  );
+                  const maxPages = Number(
+                    priceDetails.maxPages ||
+                    activeEditionObj?.max_pages ||
+                    templateData?.max_pages ||
+                    templateData?.page_config?.max_pages ||
+                    productData?.photobook_config?.max_pages ||
+                    60
+                  );
+                  const basePages = Number(
+                    priceDetails.basePages ||
+                    activeEditionObj?.default_pages ||
+                    templateData?.default_pages ||
+                    templateData?.page_config?.default_pages ||
+                    productData?.photobook_config?.default_pages ||
+                    20
+                  );
+                  const pricePerExtraPage = Number(
+                    priceDetails.extraPricePerUnit ??
+                    activeEditionObj?.price_per_extra_page ??
+                    templateData?.price_per_extra_page ??
+                    templateData?.page_config?.price_per_extra_page ??
+                    productData?.photobook_config?.price_per_extra_page ??
+                    15
+                  );
+
+                  // Quick select page chips strictly bounded by real min and max
+                  const standardSteps = [10, 16, 20, 26, 32, 40, 50, 60];
+                  const quickPageList = Array.from(
+                    new Set([minPages, ...standardSteps.filter((n) => n >= minPages && n <= maxPages), maxPages])
+                  ).sort((a, b) => a - b);
+
+                  const handleUpdatePageCount = (newPageCount) => {
+                    const clamped = Math.max(minPages, Math.min(maxPages, newPageCount));
+                    if (clamped === photoBookPages) return;
+                    setPhotoBookPages(clamped);
+
+                    // Identify covers, blanks, and existing interior pages
+                    const frontCover = pagesData.find(
+                      (p) => p.page_type === "front_cover" || p.page_id === "front-cover"
+                    ) || pagesData[0];
+                    const blankInsideFront = pagesData.find((p) => p.page_id === "blank-inside-front");
+                    const blankInsideBack = pagesData.find((p) => p.page_id === "blank-inside-back");
+                    const backCover = pagesData.find(
+                      (p) => p.page_type === "back_cover" || p.page_id === "back-cover"
+                    ) || pagesData[pagesData.length - 1];
+
+                    const existingInterior = pagesData.filter((p) => {
+                      if (p.page_type === "front_cover" || p.page_id === "front-cover") return false;
+                      if (p.page_type === "back_cover" || p.page_id === "back-cover") return false;
+                      if (p.page_id === "blank-inside-front" || p.page_id === "blank-inside-back") return false;
+                      if (p.is_blank) return false;
+                      return true;
+                    });
+
+                    const targetInteriorCount = Math.max(2, clamped - 2);
+                    const currentInteriorCount = existingInterior.length;
+
+                    let nextInterior = [...existingInterior];
+
+                    if (targetInteriorCount > currentInteriorCount) {
+                      // Only ADD the newly required pages; PRESERVE all existing edited interior pages
+                      const usedUrls = new Set();
+                      pagesData.forEach((pg) => {
+                        (pg.elements || []).forEach((el) => {
+                          if (el.type === "photo_frame" && el.photo_url) {
+                            usedUrls.add(el.photo_url);
+                          }
+                        });
+                      });
+                      const unusedPhotos = uploadedPhotos.filter((p) => !usedUrls.has(p.url));
+                      let unusedIdx = 0;
+                      const getNextPhoto = () => {
+                        if (unusedIdx < unusedPhotos.length) {
+                          return unusedPhotos[unusedIdx++];
+                        }
+                        return null;
+                      };
+
+                      const activeTpl = templateData || DEFAULT_VINTAGE_TEMPLATE;
+                      const dbDecDefs = extractDatabaseDecorations(activeTpl);
+
+                      for (let pNum = currentInteriorCount + 1; pNum <= targetInteriorCount; pNum++) {
+                        const tplPage = resolveTemplatePage(pNum, targetInteriorCount, activeTpl);
+
+                        if (!tplPage) {
+                          // If no design was created by admin for this page, show "No design created for this page"
+                          nextInterior.push({
+                            page_number: pNum,
+                            display_label: `Page ${pNum}`,
+                            page_id: `page-${pNum}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                            name: `Page ${pNum}`,
+                            page_type: "interior",
+                            no_design: true,
+                            has_design: false,
+                            background: { type: "color", value: "#ffffff", opacity: 1 },
+                            elements: [],
+                          });
+                          continue;
+                        }
+
+                        const clonedElements = (tplPage?.elements || []).map((el) => {
+                          if (el.type === "photo_frame") {
+                            const assignedPhoto = getNextPhoto();
+                            return {
+                              ...el,
+                              shape: el.shape || el.mask_shape || "rectangle",
+                              mask_shape: el.mask_shape || el.shape || "rectangle",
+                              photo_url: assignedPhoto ? assignedPhoto.url : (el.photo_url || ""),
+                              photo_id: assignedPhoto ? assignedPhoto.id : (el.photo_id || ""),
+                              test_image_url: el.test_image_url || el.sample_image_url || "",
+                              crop: el.crop || { zoom: 1, offsetX: 0, offsetY: 0 },
+                              rotation: el.rotation || 0,
+                            };
+                          }
+                          if (el.type === "decoration") {
+                            return resolveDbDecorationData(el, dbDecDefs);
+                          }
+                          if (el.type === "text") {
+                            const fontFamily = el.font_family || el.fontFamily || "Inter";
+                            dynamicallyLoadGoogleFont(fontFamily);
+                            return {
+                              ...el,
+                              content: el.content !== undefined && el.content !== null ? el.content : "",
+                              font_family: fontFamily,
+                              font_size: el.font_size || el.fontSize || 24,
+                              font_weight: el.font_weight || el.fontWeight || "normal",
+                              font_style: el.font_style || el.fontStyle || "normal",
+                              color: el.color || "#1f2937",
+                              align: el.align || "center",
+                              is_customer_editable: Boolean(el.is_customer_editable || el.allowCustomerEdit),
+                            };
+                          }
+                          return { ...el };
+                        });
+
+                        nextInterior.push({
+                          page_number: pNum,
+                          display_label: `Page ${pNum}`,
+                          page_id: `page-${pNum}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                          name: `Page ${pNum}`,
+                          page_type: "interior",
+                          no_design: false,
+                          has_design: true,
+                          background: tplPage?.background || { type: "color", value: "#ffffff", opacity: 1 },
+                          elements: clonedElements.map(normalizeElementToPaperCoords),
+                        });
+                      }
+                    } else if (targetInteriorCount < currentInteriorCount) {
+                      // Only remove trailing interior pages; PRESERVE all existing edited pages up to the target
+                      nextInterior = nextInterior.slice(0, targetInteriorCount);
+                    }
+
+                    // Renumber display labels cleanly
+                    const renumberedInterior = nextInterior.map((pg, idx) => ({
+                      ...pg,
+                      page_number: idx + 1,
+                      display_label: `Page ${idx + 1}`,
+                      name: `Page ${idx + 1}`,
+                    }));
+
+                    const finalPages = [
+                      frontCover,
+                      ...(blankInsideFront ? [blankInsideFront] : []),
+                      ...renumberedInterior,
+                      ...(blankInsideBack ? [blankInsideBack] : []),
+                      backCover,
+                    ].filter(Boolean);
+
+                    setPagesData(finalPages);
+                    setHasUnsavedChanges(true);
+                    message.success(`Updated book to ${clamped} pages`);
+                  };
+
+                  const extraPages = priceDetails.extraPages ?? Math.max(0, photoBookPages - basePages);
+                  const extraPagesCost = priceDetails.extraPagesCost ?? (extraPages * pricePerExtraPage);
+                  const editionSurcharge =
+                    availableEditions.find((e) => (e.edition_name || e.name) === selectedVariant)?.surcharge || 0;
+
+                  const liveTotal =
+                    priceDetails.finalTotal ||
+                    ((Number(priceDetails.basePrice) || 1499) + extraPagesCost + editionSurcharge);
+
+                  return (
+                    <div className="flex flex-col h-full select-none overflow-hidden">
+                      {/* Sticky Header */}
+                      <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0 shadow-2xs">
+                        <div>
+                          <h3 className="font-bold text-gray-900 text-sm">Book Options</h3>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Real template specifications, page range & finishes
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={closeStudioTool}
+                          className="md:hidden w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-default"
+                          title="Close panel"
+                        >
+                          <CloseOutlined className="text-xs" />
+                        </button>
+                      </div>
+
+                      {/* Scrollable Options Body */}
+                      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
+                        {/* 1. Edition (Rendered only if real editions exist in template data) */}
+                        {availableEditions.length > 0 ? (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-baseline gap-1.5">
+                                <label className="text-xs font-bold text-gray-800">Book Edition</label>
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                  for {activeSizeInfo?.dimensions || activeSizeInfo?.name || "Selected Size"}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-[#00a896] font-semibold">
+                                {selectedVariant || availableEditions[0]?.edition_name || availableEditions[0]?.name}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2">
+                              {availableEditions.map((ed) => {
+                                const isChosen =
+                                  selectedVariant === (ed.edition_name || ed.name) ||
+                                  (!selectedVariant && ed === availableEditions[0]);
+
+                                const allKnownSizes = [
+                                  ...(templateSizes || []),
+                                  ...(productData?.photobook_config?.sizes || []),
+                                ];
+                                const activeSizeIdentifier =
+                                  selectedSize ||
+                                  activeSizeInfo?.id ||
+                                  activeSizeInfo?.matchedId ||
+                                  activeSizeInfo?.name ||
+                                  designData?.size ||
+                                  "8x8";
+
+                                const edPricing = getEditionPricingDetailsForSize(
+                                  ed,
+                                  activeSizeIdentifier,
+                                  allKnownSizes
+                                );
+                                const edPriceVal = edPricing?.customerPrice;
+                                const edMrpVal = edPricing?.mrp;
+
+                                return (
+                                  <div
+                                    key={ed._id || ed.edition_name || ed.name}
+                                    onClick={() => {
+                                      setSelectedVariant(ed.edition_name || ed.name);
+                                      setHasUnsavedChanges(true);
+                                    }}
+                                    className={`p-3 rounded-xl border flex items-center justify-between cursor-default transition-all ${isChosen
+                                      ? "border-[#00a896] bg-teal-50/50 shadow-2xs font-semibold ring-1 ring-teal-200"
+                                      : "border-gray-200 hover:border-gray-300 bg-white"
+                                      }`}
+                                  >
+                                    <div className="pr-2">
+                                      <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                        {isChosen && <CheckOutlined className="text-[#00a896] text-xs" />}
+                                        <span>{ed.edition_name || ed.name}</span>
+                                      </div>
+                                      {ed.description && (
+                                        <div className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+                                          {ed.description}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      {edPriceVal !== null && edPriceVal !== undefined ? (
+                                        <div className="flex items-baseline gap-1.5 justify-end">
+                                          {edMrpVal && edMrpVal > edPriceVal && (
+                                            <span className="text-[10px] text-gray-400 line-through">
+                                              ₹{edMrpVal}
+                                            </span>
+                                          )}
+                                          <span
+                                            className={`text-xs font-bold ${isChosen ? "text-[#00a896]" : "text-gray-700"
+                                              }`}
+                                          >
+                                            ₹{edPriceVal}
+                                          </span>
+                                        </div>
+                                      ) : ed.price_tag ? (
+                                        <span
+                                          className={`text-[11px] font-bold ${isChosen ? "text-[#00a896]" : "text-gray-500"
+                                            }`}
+                                        >
+                                          {ed.price_tag}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold block">Selected Template</span>
+                              <span className="text-xs font-bold text-gray-800">{selectedTemplateName || templateData?.template_name || "Photo Book"}</span>
+                            </div>
+                            <span className="text-xs font-semibold text-[#00a896] bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">
+                              Standard Edition
+                            </span>
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* 3. Bottom Sticky Pricing Details */}
+                      <div className="p-4 border-t border-gray-200 bg-white shrink-0 shadow-lg">
+                        <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
+                          <div className="flex justify-between text-xs text-slate-600">
+                            <span>Base Photobook</span>
+                            <span>₹{priceDetails.basePrice || 1499}</span>
+                          </div>
+
+                          {extraPages > 0 && (
+                            <div className="flex justify-between text-xs text-slate-600">
+                              <span>Extra {extraPages} Pages (₹{pricePerExtraPage}/p)</span>
+                              <span className="text-[#00a896] font-semibold">
+                                + ₹{extraPagesCost}
+                              </span>
+                            </div>
+                          )}
+
+                          {editionSurcharge > 0 && (
+                            <div className="flex justify-between text-xs text-slate-600">
+                              <span>{selectedVariant}</span>
+                              <span className="text-[#00a896] font-semibold">+ ₹{editionSurcharge}</span>
+                            </div>
+                          )}
+
+                          <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
+                            <span className="text-xs font-bold text-slate-800">Total Price</span>
+                            <div className="flex items-baseline gap-2">
+                              {Number(priceDetails.mrpTotal) > Number(liveTotal) && (
+                                <span className="text-xs text-slate-400 line-through font-medium">
+                                  ₹{priceDetails.mrpTotal}
+                                </span>
+                              )}
+                              <span className="text-lg font-bold text-[#00a896]">
+                                ₹{liveTotal}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-1.5 flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-medium">
+                            <SafetyCertificateOutlined className="text-[#00a896]" />
+                            <span>100% Quality & Print Guarantee</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </aside>
             );
           })()}
 
@@ -9893,11 +10485,10 @@ const PhotoBookEditorPage = () => {
                         openStudioTool(tool.id);
                       }
                     }}
-                    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-default ${
-                      isActive
-                        ? "text-[#00a896] bg-teal-50 font-bold shadow-2xs"
-                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
+                    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-default ${isActive
+                      ? "text-[#00a896] bg-teal-50 font-bold shadow-2xs"
+                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                      }`}
                   >
                     <div className="text-lg leading-none">{tool.icon}</div>
                     <span className="text-[10px] mt-1 font-medium tracking-tight">{tool.label}</span>
@@ -10023,9 +10614,8 @@ const PhotoBookEditorPage = () => {
                           </span>
                         </div>
                         <div
-                          className={`w-full min-h-[96px] p-4 rounded-xl border flex items-center justify-center shadow-inner overflow-hidden transition-colors duration-200 ${
-                            isWhiteFamily ? "bg-slate-950 border-slate-800" : "bg-white border-gray-200"
-                          }`}
+                          className={`w-full min-h-[96px] p-4 rounded-xl border flex items-center justify-center shadow-inner overflow-hidden transition-colors duration-200 ${isWhiteFamily ? "bg-slate-950 border-slate-800" : "bg-white border-gray-200"
+                            }`}
                           style={{
                             backgroundColor: isWhiteFamily ? "#0a0f1d" : "#ffffff",
                             textAlign: textFormDraft.align || "center",
@@ -10033,11 +10623,15 @@ const PhotoBookEditorPage = () => {
                         >
                           <span
                             style={{
-                              fontFamily: getFontFamilyFallback(textFormDraft.font_family || "Playfair Display"),
+                              fontFamily: getFontFamilyFallback(textFormDraft.font_family || "Inter"),
                               fontSize: `${Math.max(14, Math.min(48, Number(textFormDraft.font_size) || 28))}px`,
+                              fontWeight: textFormDraft.font_weight || "normal",
+                              fontStyle: textFormDraft.font_style || "normal",
+                              textTransform: textFormDraft.text_transform || "none",
+                              letterSpacing: textFormDraft.letter_spacing ? `${textFormDraft.letter_spacing}px` : "normal",
+                              lineHeight: textFormDraft.line_height || 1.25,
                               color: textFormDraft.color || (isWhiteFamily ? "#ffffff" : "#1e293b"),
                               textAlign: textFormDraft.align || "center",
-                              lineHeight: 1.25,
                               wordBreak: "break-word",
                               textShadow:
                                 textFormDraft.shadow?.blur || textFormDraft.shadow?.offsetX || textFormDraft.shadow?.offsetY
@@ -10059,9 +10653,8 @@ const PhotoBookEditorPage = () => {
                           >
                             {textFormDraft.content || (
                               <span
-                                className={`italic font-sans text-sm ${
-                                  isWhiteFamily ? "text-slate-500" : "text-gray-300"
-                                }`}
+                                className={`italic font-sans text-sm ${isWhiteFamily ? "text-slate-500" : "text-gray-300"
+                                  }`}
                               >
                                 (Type text below to see live preview)
                               </span>
@@ -10088,6 +10681,10 @@ const PhotoBookEditorPage = () => {
                       onChange={(e) => setTextFormDraft((prev) => ({ ...prev, content: e.target.value }))}
                       placeholder="e.g. Summer Memories, Goa Trip 2024, With Love..."
                       className="w-full p-3 text-sm text-gray-800 bg-gray-50/50 border border-gray-300 rounded-xl focus:border-[#00a896] focus:bg-white focus:ring-2 focus:ring-[#00a896]/20 outline-none transition-all resize-none shadow-2xs"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      style={{ textTransform: "none" }}
                       autoFocus
                     />
                   </div>
@@ -10098,27 +10695,37 @@ const PhotoBookEditorPage = () => {
                       Choose Font
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {AVAILABLE_FONTS.map((f) => {
-                        const isSelected = textFormDraft.font_family === f.name;
-                        return (
-                          <button
-                            key={f.name}
-                            type="button"
-                            onClick={() => setTextFormDraft((prev) => ({ ...prev, font_family: f.name }))}
-                            style={{ fontFamily: getFontFamilyFallback(f.name) }}
-                            className={`p-2.5 rounded-xl border text-left transition-all cursor-default flex flex-col ${
-                              isSelected
+                      {(() => {
+                        const currentFont = textFormDraft.font_family || "Inter";
+                        const fontList = [...AVAILABLE_FONTS];
+                        if (currentFont && !fontList.some((f) => f.name.toLowerCase() === currentFont.toLowerCase())) {
+                          fontList.unshift({ name: currentFont, label: `${currentFont} (Template Font)` });
+                        }
+                        return fontList.map((f) => {
+                          const isSelected = String(textFormDraft.font_family || "").toLowerCase() === f.name.toLowerCase();
+                          dynamicallyLoadGoogleFont(f.name);
+                          return (
+                            <button
+                              key={f.name}
+                              type="button"
+                              onClick={() => {
+                                dynamicallyLoadGoogleFont(f.name);
+                                setTextFormDraft((prev) => ({ ...prev, font_family: f.name }));
+                              }}
+                              style={{ fontFamily: getFontFamilyFallback(f.name) }}
+                              className={`p-2.5 rounded-xl border text-left transition-all cursor-default flex flex-col ${isSelected
                                 ? "border-2 border-[#00a896] bg-[#00a896]/10 text-[#00a896] font-bold shadow-xs"
                                 : "border-gray-200 hover:border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="text-base truncate">{f.name}</span>
-                            <span className="text-[10px] text-gray-400 font-sans font-normal truncate">
-                              {f.label}
-                            </span>
-                          </button>
-                        );
-                      })}
+                                }`}
+                            >
+                              <span className="text-base truncate">{f.name}</span>
+                              <span className="text-[10px] text-gray-400 font-sans font-normal truncate">
+                                {f.label}
+                              </span>
+                            </button>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
@@ -10186,11 +10793,79 @@ const PhotoBookEditorPage = () => {
                               key={val}
                               type="button"
                               onClick={() => setTextFormDraft((prev) => ({ ...prev, align: val }))}
-                              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-default ${
-                                isSelected
-                                  ? "bg-white text-gray-900 shadow-xs"
-                                  : "text-gray-500 hover:text-gray-900"
-                              }`}
+                              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-default ${isSelected
+                                ? "bg-white text-gray-900 shadow-xs"
+                                : "text-gray-500 hover:text-gray-900"
+                                }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Font Style, Weight & Casing Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Font Weight & Italic */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-700">Font Weight & Style</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTextFormDraft((prev) => ({
+                              ...prev,
+                              font_weight:
+                                prev.font_weight === "bold" || prev.font_weight === "700" ? "normal" : "bold",
+                            }))
+                          }
+                          className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg border transition-all cursor-default ${textFormDraft.font_weight === "bold" || textFormDraft.font_weight === "700"
+                            ? "bg-[#00a896] text-white border-[#00a896] shadow-xs"
+                            : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                            }`}
+                        >
+                          Bold
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTextFormDraft((prev) => ({
+                              ...prev,
+                              font_style: prev.font_style === "italic" ? "normal" : "italic",
+                            }))
+                          }
+                          className={`flex-1 py-1.5 px-3 text-xs italic font-semibold rounded-lg border transition-all cursor-default ${textFormDraft.font_style === "italic"
+                            ? "bg-[#00a896] text-white border-[#00a896] shadow-xs"
+                            : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                            }`}
+                        >
+                          Italic
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Text Casing */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-700">Text Casing</label>
+                      <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+                        {[
+                          { val: "none", label: "As Typed" },
+                          { val: "uppercase", label: "UPPER" },
+                          { val: "capitalize", label: "Title" },
+                          { val: "lowercase", label: "lower" },
+                        ].map(({ val, label }) => {
+                          const isSelected = (textFormDraft.text_transform || "none") === val;
+                          return (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setTextFormDraft((prev) => ({ ...prev, text_transform: val }))}
+                              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-default ${isSelected
+                                ? "bg-white text-gray-900 shadow-xs"
+                                : "text-gray-500 hover:text-gray-900"
+                                }`}
                             >
                               {label}
                             </button>
@@ -10223,9 +10898,8 @@ const PhotoBookEditorPage = () => {
                             type="button"
                             onClick={() => setTextFormDraft((prev) => ({ ...prev, color: c.value }))}
                             style={{ backgroundColor: c.value }}
-                            className={`w-7 h-7 rounded-full transition-transform cursor-default relative shadow-xs ${
-                              isSelected ? "scale-125 ring-2 ring-offset-2 ring-[#00a896]" : "hover:scale-110"
-                            } ${c.value === "#ffffff" ? "border border-gray-300" : ""}`}
+                            className={`w-7 h-7 rounded-full transition-transform cursor-default relative shadow-xs ${isSelected ? "scale-125 ring-2 ring-offset-2 ring-[#00a896]" : "hover:scale-110"
+                              } ${c.value === "#ffffff" ? "border border-gray-300" : ""}`}
                             title={c.label}
                           />
                         );
@@ -10357,11 +11031,10 @@ const PhotoBookEditorPage = () => {
                               }))
                             }
                             style={{ backgroundColor: sc }}
-                            className={`w-5 h-5 rounded-full border transition-transform cursor-default ${
-                              (textFormDraft.shadow?.color || "rgba(0,0,0,0.6)") === sc
-                                ? "ring-2 ring-[#00a896] scale-110 border-white"
-                                : "border-gray-300 hover:scale-105"
-                            }`}
+                            className={`w-5 h-5 rounded-full border transition-transform cursor-default ${(textFormDraft.shadow?.color || "rgba(0,0,0,0.6)") === sc
+                              ? "ring-2 ring-[#00a896] scale-110 border-white"
+                              : "border-gray-300 hover:scale-105"
+                              }`}
                           />
                         ))}
                         <label className="w-5 h-5 rounded-full border border-dashed border-gray-400 flex items-center justify-center cursor-default relative overflow-hidden" title="Custom color">
@@ -10430,9 +11103,8 @@ const PhotoBookEditorPage = () => {
                                   }));
                                 }
                               }}
-                              className={`px-2 py-0.5 rounded capitalize font-semibold transition-all cursor-default ${
-                                isActive ? "bg-white text-teal-800 shadow-xs" : "text-gray-500 hover:text-black"
-                              }`}
+                              className={`px-2 py-0.5 rounded capitalize font-semibold transition-all cursor-default ${isActive ? "bg-white text-teal-800 shadow-xs" : "text-gray-500 hover:text-black"
+                                }`}
                             >
                               {mode}
                             </button>
@@ -10461,11 +11133,10 @@ const PhotoBookEditorPage = () => {
                                 }))
                               }
                               style={{ backgroundColor: bgc.value }}
-                              className={`w-6 h-6 rounded-full border transition-transform cursor-default ${
-                                textFormDraft.background?.value === bgc.value
-                                  ? "ring-2 ring-[#00a896] scale-110 border-white shadow-xs"
-                                  : "border-gray-300 hover:scale-105"
-                              }`}
+                              className={`w-6 h-6 rounded-full border transition-transform cursor-default ${textFormDraft.background?.value === bgc.value
+                                ? "ring-2 ring-[#00a896] scale-110 border-white shadow-xs"
+                                : "border-gray-300 hover:scale-105"
+                                }`}
                               title={bgc.label}
                             />
                           ))}
@@ -10514,9 +11185,8 @@ const PhotoBookEditorPage = () => {
                                   }))
                                 }
                                 style={{ background: g.value }}
-                                className={`p-1.5 rounded-lg border text-left cursor-default transition-all h-8 flex items-end shadow-2xs ${
-                                  isSelected ? "ring-2 ring-teal-500 border-white" : "border-gray-200 hover:opacity-90"
-                                }`}
+                                className={`p-1.5 rounded-lg border text-left cursor-default transition-all h-8 flex items-end shadow-2xs ${isSelected ? "ring-2 ring-teal-500 border-white" : "border-gray-200 hover:opacity-90"
+                                  }`}
                               >
                                 <span className="text-[9px] font-bold text-white bg-black/40 px-1 rounded truncate max-w-full">
                                   {g.name}
@@ -10606,9 +11276,8 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={handleModalUndo}
                     disabled={modalUndoStack.length === 0}
-                    className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center transition-all ${
-                      modalUndoStack.length === 0 ? "opacity-30 cursor-default" : "hover:bg-gray-100 text-gray-700 cursor-default"
-                    }`}
+                    className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center transition-all ${modalUndoStack.length === 0 ? "opacity-30 cursor-default" : "hover:bg-gray-100 text-gray-700 cursor-default"
+                      }`}
                     title="Undo"
                   >
                     <UndoOutlined className="text-xs" />
@@ -10617,9 +11286,8 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={handleModalRedo}
                     disabled={modalRedoStack.length === 0}
-                    className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center transition-all ${
-                      modalRedoStack.length === 0 ? "opacity-30 cursor-default" : "hover:bg-gray-100 text-gray-700 cursor-default"
-                    }`}
+                    className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center transition-all ${modalRedoStack.length === 0 ? "opacity-30 cursor-default" : "hover:bg-gray-100 text-gray-700 cursor-default"
+                      }`}
                     title="Redo"
                   >
                     <RedoOutlined className="text-xs" />
@@ -10632,9 +11300,8 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={handlePrevPageInModal}
                     disabled={currentEditableIndex === 0}
-                    className={`p-1 text-gray-400 hover:text-gray-700 transition-colors ${
-                      currentEditableIndex === 0 ? "opacity-30 cursor-default" : "cursor-default"
-                    }`}
+                    className={`p-1 text-gray-400 hover:text-gray-700 transition-colors ${currentEditableIndex === 0 ? "opacity-30 cursor-default" : "cursor-default"
+                      }`}
                     title="Previous Page"
                   >
                     <LeftOutlined className="text-xs font-bold" />
@@ -10646,9 +11313,8 @@ const PhotoBookEditorPage = () => {
                     type="button"
                     onClick={handleNextPageInModal}
                     disabled={currentEditableIndex >= allEditablePages.length - 1}
-                    className={`w-6 h-6 rounded-full bg-[#00a896] hover:bg-[#008f80] text-white flex items-center justify-center transition-all shadow-xs ${
-                      currentEditableIndex >= allEditablePages.length - 1 ? "opacity-40 cursor-default" : "cursor-default hover:scale-105 active:scale-95"
-                    }`}
+                    className={`w-6 h-6 rounded-full bg-[#00a896] hover:bg-[#008f80] text-white flex items-center justify-center transition-all shadow-xs ${currentEditableIndex >= allEditablePages.length - 1 ? "opacity-40 cursor-default" : "cursor-default hover:scale-105 active:scale-95"
+                      }`}
                     title="Next Page"
                   >
                     <RightOutlined className="text-[10px] font-bold" />
@@ -10728,7 +11394,7 @@ const PhotoBookEditorPage = () => {
                         {/* Tooltip pointer caret */}
                         <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900/95 border-b border-r border-slate-700/80 rotate-45 pointer-events-none" />
 
-                       
+
                         <Tooltip
                           title="Change Image"
                           placement="top"
@@ -10798,384 +11464,513 @@ const PhotoBookEditorPage = () => {
                   })()}
                   {/* Clipped Page Content Area (Hides/crops any content overflowing layout or page boundaries) */}
                   <div className="absolute inset-0 overflow-hidden bg-white modal-canvas-clip-layer">
-                  {/* Page Background Layer (Image, Gradient, Color with Opacity) */}
-                  {(() => {
-                    const bg = editingPageDraft.background || {};
-                    const isImage =
-                      bg.type === "image" ||
-                      (typeof bg.value === "string" &&
-                        (bg.value.startsWith("http://") ||
-                          bg.value.startsWith("https://") ||
-                          bg.value.startsWith("/uploads/") ||
-                          bg.value.startsWith("data:image/") ||
-                          /\.(jpg|jpeg|png|webp|avif|gif|svg)($|\?)/i.test(bg.value)));
+                    {/* Page Background Layer (Image, Gradient, Color with Opacity) */}
+                    {(() => {
+                      const bg = editingPageDraft.background || {};
+                      const isImage =
+                        bg.type === "image" ||
+                        (typeof bg.value === "string" &&
+                          (bg.value.startsWith("http://") ||
+                            bg.value.startsWith("https://") ||
+                            bg.value.startsWith("/uploads/") ||
+                            bg.value.startsWith("data:image/") ||
+                            /\.(jpg|jpeg|png|webp|avif|gif|svg)($|\?)/i.test(bg.value)));
 
-                    const bgLayerStyle = {
-                      position: "absolute",
-                      inset: 0,
-                      pointerEvents: "none",
-                      zIndex: 0,
-                      opacity: bg.opacity ?? 1,
-                    };
+                      const flipH = Boolean(bg.flip_h || bg.flipH);
+                      const flipV = Boolean(bg.flip_v || bg.flipV);
+                      const transform =
+                        flipH && flipV
+                          ? "scale(-1, -1)"
+                          : flipH
+                            ? "scaleX(-1)"
+                            : flipV
+                              ? "scaleY(-1)"
+                              : undefined;
 
-                    if (bg.type === "gradient") {
-                      bgLayerStyle.background = bg.value;
-                    } else if (isImage && bg.value) {
-                      const posX = bg.position_x !== undefined ? `${bg.position_x}%` : "50%";
-                      const posY = bg.position_y !== undefined ? `${bg.position_y}%` : "50%";
-                      const size = bg.scale && bg.scale > 1
-                        ? `${Math.round(bg.scale * 100)}%`
-                        : (bg.fit_mode || "cover");
-                      bgLayerStyle.backgroundImage = `url("${bg.value}")`;
-                      bgLayerStyle.backgroundSize = size;
-                      bgLayerStyle.backgroundPosition = `${posX} ${posY}`;
-                      bgLayerStyle.backgroundRepeat = "no-repeat";
-                      bgLayerStyle.backgroundColor = "#ffffff";
-                    } else if (bg.value) {
-                      bgLayerStyle.backgroundColor = bg.value;
-                    } else {
-                      bgLayerStyle.backgroundColor = "#ffffff";
-                    }
+                      const bgLayerStyle = {
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "none",
+                        zIndex: 0,
+                        opacity: bg.opacity ?? 1,
+                        transform,
+                        transformOrigin: transform ? "center center" : undefined,
+                      };
 
-                    return <div className="modal-bg-canvas-layer" style={bgLayerStyle} />;
-                  })()}
+                      if (bg.type === "gradient") {
+                        bgLayerStyle.background = bg.value;
+                      } else if (isImage && bg.value) {
+                        const posX = bg.position_x !== undefined ? `${bg.position_x}%` : "50%";
+                        const posY = bg.position_y !== undefined ? `${bg.position_y}%` : "50%";
+                        const size = bg.scale && bg.scale > 1
+                          ? `${Math.round(bg.scale * 100)}%`
+                          : (bg.fit_mode || "cover");
+                        bgLayerStyle.backgroundImage = `url("${bg.value}")`;
+                        bgLayerStyle.backgroundSize = size;
+                        bgLayerStyle.backgroundPosition = `${posX} ${posY}`;
+                        bgLayerStyle.backgroundRepeat = "no-repeat";
+                        bgLayerStyle.backgroundColor = "#ffffff";
+                      } else if (bg.value) {
+                        bgLayerStyle.backgroundColor = bg.value;
+                      } else {
+                        bgLayerStyle.backgroundColor = "#ffffff";
+                      }
 
-                  {/* Photo Frames (Exact Template Layout, Coordinates, Paper Borders, and Dimensions) */}
-                  {draftFrames.map((frame, idx) => {
-                    const coords = getElementCoords(frame);
-                    const leftPct = coords.left;
-                    const topPct = coords.top;
-                    const widthPct = coords.width;
-                    const heightPct = coords.height;
+                      return <div className="modal-bg-canvas-layer" style={bgLayerStyle} />;
+                    })()}
 
-                    const displayPhoto =
-                      frame.photo_url ||
-                      frame.photo?.url ||
-                      frame.photo?.preview ||
-                      frame.image_url ||
-                      frame.url ||
-                      frame.src ||
-                      frame.test_image_url ||
-                      frame.sample_image_url ||
-                      "";
-                    const hasPhoto = Boolean(displayPhoto);
-                    const fitMode = frame.fit_mode || "cover";
-                    const borderWidth = frame.border?.width || 0;
-                    const borderColor = frame.border?.color || "#ffffff";
-                    const frameRefDim = Math.max(
-                      50,
-                      Math.min(
-                        Number(frame.width) > 10 ? Number(frame.width) : (coords.width * 10),
-                        Number(frame.height) > 10 ? Number(frame.height) : (coords.height * 10)
-                      ) || 400
-                    );
-                    const normalizedBorderStroke = borderWidth / frameRefDim;
-                    const shadow = frame.shadow || {};
-                    const shadowFilter =
-                      shadow.blur > 0
-                        ? `drop-shadow(${shadow.offsetX || 0}px ${shadow.offsetY || 4}px ${shadow.blur}px ${
-                            shadow.color || "rgba(0,0,0,0.15)"
-                          })`
-                        : "none";
+                    {/* Photo Frames (Exact Template Layout, Coordinates, Paper Borders, and Dimensions) */}
+                    {draftFrames.map((frame, idx) => {
+                      const coords = getElementCoords(frame);
+                      const leftPct = coords.left;
+                      const topPct = coords.top;
+                      const widthPct = coords.width;
+                      const heightPct = coords.height;
 
-                    const shape = frame.shape || frame.mask_shape || "rectangle";
-                    const isCircle = shape === "circle";
-                    const is1to1Shape = ["circle", "heart", "star", "scallop", "hexagon"].includes(shape);
-                    const radiusVal = frame.border?.radius ?? frame.corner_radius ?? (isCircle ? 50 : 0);
-                    const clipDef = getShapeClipPathDefinition(shape, radiusVal);
-                    const clipId = `modal-clip-${editingPageDraft?.page_id || "draft"}-${frame.id || frame.frame_id || idx}`;
+                      const shape = frame.shape || frame.mask_shape || "rectangle";
+                      const isCircle = shape === "circle";
+                      const isHeart = shape === "heart" || frame.mask_shape === "heart";
+                      const is1to1Shape = ["circle", "heart", "star", "scallop", "hexagon"].includes(shape);
+                      const isRect = shape === "rectangle";
 
-                    const cropZoom = frame.crop?.zoom || 1;
-                    const cropOffsetX = frame.crop?.offsetX || 0;
-                    const cropOffsetY = frame.crop?.offsetY || 0;
-                    const cropRotation = frame.crop?.rotation || frame.rotation || 0;
-                    const isCustomerEditable = frame.is_customer_editable !== false;
-                    const isSelected = isCustomerEditable && selectedModalElementId === (frame.id || frame.frame_id);
+                      const displayPhoto =
+                        frame.photo_url ||
+                        frame.photo?.url ||
+                        frame.photo?.preview ||
+                        frame.image_url ||
+                        frame.url ||
+                        frame.src ||
+                        frame.test_image_url ||
+                        frame.sample_image_url ||
+                        "";
+                      const hasPhoto = Boolean(displayPhoto);
+                      const fitMode = frame.fit_mode || "cover";
+                      const bord = parseBorderValues(frame.border);
+                      const pad = parsePaddingValues(frame.padding);
+                      const hasPadding = pad.top > 0 || pad.right > 0 || pad.bottom > 0 || pad.left > 0;
 
-                    return (
-                      <div
-                        key={frame.id || idx}
-                        style={{
-                          position: "absolute",
-                          left: `${leftPct}%`,
-                          top: `${topPct}%`,
-                          width: `${widthPct}%`,
-                          height: is1to1Shape ? undefined : `${heightPct}%`,
-                          aspectRatio: is1to1Shape ? "1 / 1" : undefined,
-                          zIndex: isSelected ? 99 : (frame.z_index || 1),
-                          transform: `rotate(${frame.rotation || 0}deg)`,
-                          transformOrigin: "center center",
-                          filter: shadowFilter,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          lastModalElementClickRef.current = Date.now();
-                          if (isCustomerEditable) {
-                            setSelectedModalElementId(frame.id || frame.frame_id);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          if (isCustomerEditable) {
-                            handleModalElementMouseDown(e, frame);
-                          }
-                        }}
-                        className={`group relative overflow-visible transition-all flex items-center justify-center ${
-                          isCustomerEditable ? "cursor-default" : "cursor-default"
-                        }`}
-                      >
-                        {/* Hidden SVG with objectBoundingBox clipPath */}
-                        <svg width="0" height="0" className="absolute pointer-events-none">
-                          <defs>
-                            <clipPath id={clipId} clipPathUnits="objectBoundingBox">
-                              {renderShapeSvgClip(clipDef, false)}
-                            </clipPath>
-                          </defs>
-                        </svg>
+                      const frameRefDim = Math.max(
+                        50,
+                        Math.min(
+                          Number(frame.width) > 10 ? Number(frame.width) : (coords.width * 10),
+                          Number(frame.height) > 10 ? Number(frame.height) : (coords.height * 10)
+                        ) || 400
+                      );
+                      const normalizedBorderStroke = (bord.top || bord.width) / frameRefDim;
+                      const shadow = frame.shadow || {};
+                      const shadowFilter =
+                        shadow.blur > 0
+                          ? `drop-shadow(${shadow.offsetX || 0}px ${shadow.offsetY || 4}px ${shadow.blur}px ${shadow.color || "rgba(0,0,0,0.15)"})`
+                          : "none";
 
-                        {/* Clipped container: HTML clipping with clipPathUnits="objectBoundingBox" guarantees 100% boundary locking */}
-                        <div
-                          className="w-full h-full relative overflow-hidden"
-                          style={{
-                            clipPath: `url(#${clipId})`,
-                            WebkitClipPath: `url(#${clipId})`,
-                          }}
-                        >
-                          {/* Empty background */}
+                      const maxBorder = Math.max(bord.top, bord.right, bord.bottom, bord.left, bord.width);
+                      const radiusVal = bord.radius ?? frame.corner_radius ?? (isCircle ? 50 : 0);
+                      const innerRadius = Math.max(0, radiusVal - Math.min(bord.top, bord.left));
+                      const clipDef = getShapeClipPathDefinition(shape, radiusVal);
+                      const clipId = `modal-clip-${editingPageDraft?.page_id || "draft"}-${frame.id || frame.frame_id || idx}`;
+
+                      const cropZoom = frame.crop?.zoom || 1;
+                      const cropOffsetX = frame.crop?.offsetX || 0;
+                      const cropOffsetY = frame.crop?.offsetY || 0;
+                      const cropRotation = frame.crop?.rotation || 0;
+                      const isFlipped = Boolean(frame.crop?.flipH || frame.flip_h);
+                      const isCustomerEditable = frame.is_customer_editable !== false;
+                      const isSelected = isCustomerEditable && selectedModalElementId === (frame.id || frame.frame_id);
+
+                      const elWidth = Math.max(1, Number(frame.width) || 100);
+                      const borderSvg = (maxBorder * 100) / elWidth;
+                      const padVal = Math.max(pad.top || 0, pad.right || 0, pad.bottom || 0, pad.left || 0);
+                      const padSvg = (padVal * 100) / elWidth;
+                      const maskStroke = padSvg > 0 || borderSvg > 0 ? (borderSvg + 2 * padSvg) : 0;
+                      const shape100Def = getShape100Definition(shape, radiusVal);
+                      const maskId = `modal-mask-${editingPageDraft?.page_id || "draft"}-${frame.id || frame.frame_id || idx}`;
+                      const elementBg = frame.bg_color || frame.background?.value;
+
+                      if (isRect) {
+                        return (
                           <div
-                            className="absolute inset-0"
-                            style={{ backgroundColor: hasPhoto ? "transparent" : "#f1f5f9" }}
-                          />
-
-                          {/* Photo strictly clipped inside */}
-                          {hasPhoto && (() => {
-                            const isFlipped = Boolean(frame.crop?.flipH || frame.flip_h);
-                            return (
-                              <img
-                                src={displayPhoto}
-                                alt=""
-                                style={{
-                                  position: "absolute",
-                                  left: `${cropOffsetX}%`,
-                                  top: `${cropOffsetY}%`,
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit:
-                                    fitMode === "contain"
-                                      ? "contain"
-                                      : fitMode === "stretch" || fitMode === "fill"
-                                      ? "fill"
-                                      : "cover",
-                                  transformOrigin: "50% 50%",
-                                  transform: `scale(${isFlipped ? -cropZoom : cropZoom}, ${cropZoom}) rotate(${cropRotation}deg)`,
-                                  transition: "transform 0.1s ease",
-                                  maxWidth: "none",
-                                  maxHeight: "none",
-                                  pointerEvents: "none",
-                                  userSelect: "none",
-                                }}
-                              />
-                            );
-                          })()}
-
-                          {/* Empty placeholder if no photo */}
-                          {!hasPhoto && isCustomerEditable && (
+                            key={frame.id || idx}
+                            style={{
+                              position: "absolute",
+                              left: `${leftPct}%`,
+                              top: `${topPct}%`,
+                              width: `${widthPct}%`,
+                              height: is1to1Shape ? undefined : `${heightPct}%`,
+                              aspectRatio: is1to1Shape ? "1 / 1" : undefined,
+                              zIndex: isSelected ? 99 : (frame.z_index || 1),
+                              transform: `rotate(${frame.rotation || 0}deg)`,
+                              transformOrigin: "center center",
+                              filter: shadowFilter,
+                              borderTop: bord.top ? `calc(${bord.top} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                              borderRight: bord.right ? `calc(${bord.right} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                              borderBottom: bord.bottom ? `calc(${bord.bottom} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                              borderLeft: bord.left ? `calc(${bord.left} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                              borderRadius: bord.radius ? `calc(${bord.radius} * (100cqw / 707))` : undefined,
+                              backgroundColor: elementBg || "transparent",
+                              boxSizing: "border-box",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              lastModalElementClickRef.current = Date.now();
+                              if (isCustomerEditable) {
+                                setSelectedModalElementId(frame.id || frame.frame_id);
+                              }
+                            }}
+                            onMouseDown={(e) => {
+                              if (isCustomerEditable) {
+                                handleModalElementMouseDown(e, frame);
+                              }
+                            }}
+                            className={`group relative overflow-visible transition-all flex items-center justify-center cursor-default`}
+                          >
                             <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTargetPhotoIndexForChange(idx);
-                                setIsReplacePhotoModalOpen(true);
+                              className={`absolute overflow-hidden ${!hasPhoto ? `bg-slate-100/90 border border-dashed border-slate-300 rounded` : ""}`}
+                              style={{
+                                top: pad.top ? `calc(${pad.top} * (100cqw / 707))` : 0,
+                                right: pad.right ? `calc(${pad.right} * (100cqw / 707))` : 0,
+                                bottom: pad.bottom ? `calc(${pad.bottom} * (100cqw / 707))` : 0,
+                                left: pad.left ? `calc(${pad.left} * (100cqw / 707))` : 0,
+                                borderRadius: innerRadius ? `calc(${innerRadius} * (100cqw / 707))` : undefined,
+                                backgroundColor: hasPhoto ? "transparent" : (hasPadding ? "#f8fafc" : "#f1f5f9"),
                               }}
-                              className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-slate-400 group-hover:text-amber-600 transition-colors pointer-events-auto cursor-default"
                             >
-                              <PictureOutlined className="text-xl mb-1 text-slate-400 group-hover:text-amber-500" />
-                              <span className="text-[10px] font-semibold text-slate-500 group-hover:text-amber-600">
-                                Add Photo
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                              {hasPhoto && (
+                                <img
+                                  src={displayPhoto}
+                                  alt=""
+                                  style={{
+                                    position: "absolute",
+                                    left: `${cropOffsetX}%`,
+                                    top: `${cropOffsetY}%`,
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: fitMode,
+                                    transformOrigin: "50% 50%",
+                                    transform: `scale(${isFlipped ? -cropZoom : cropZoom}, ${cropZoom}) rotate(${cropRotation}deg)`,
+                                    transition: "transform 0.1s ease",
+                                    maxWidth: "none",
+                                    maxHeight: "none",
+                                    pointerEvents: "none",
+                                    userSelect: "none",
+                                  }}
+                                />
+                              )}
 
-                        {/* Border overlay following the exact clip shape */}
-                        {borderWidth > 0 && (
+                              {!hasPhoto && isCustomerEditable && (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTargetPhotoIndexForChange(idx);
+                                    setIsReplacePhotoModalOpen(true);
+                                  }}
+                                  className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-slate-400 group-hover:text-amber-600 transition-colors pointer-events-auto cursor-default"
+                                >
+                                  <PictureOutlined className="text-xl mb-1 text-slate-400 group-hover:text-amber-500" />
+                                  <span className="text-[10px] font-semibold text-slate-500 group-hover:text-amber-600">
+                                    Add Photo
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {isSelected && (
+                              <div className="absolute inset-0 border-2 border-cyan-400 pointer-events-none shadow-sm z-30" />
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={frame.id || idx}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPct}%`,
+                            top: `${topPct}%`,
+                            width: `${widthPct}%`,
+                            height: is1to1Shape ? undefined : `${heightPct}%`,
+                            aspectRatio: is1to1Shape ? "1 / 1" : undefined,
+                            zIndex: isSelected ? 99 : (frame.z_index || 1),
+                            transform: `rotate(${frame.rotation || 0}deg)`,
+                            transformOrigin: "center center",
+                            filter: shadowFilter,
+                            boxSizing: "border-box",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            lastModalElementClickRef.current = Date.now();
+                            if (isCustomerEditable) {
+                              setSelectedModalElementId(frame.id || frame.frame_id);
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            if (isCustomerEditable) {
+                              handleModalElementMouseDown(e, frame);
+                            }
+                          }}
+                          className={`group relative overflow-visible transition-all flex items-center justify-center cursor-default`}
+                        >
                           <svg
                             viewBox="0 0 100 100"
                             preserveAspectRatio="none"
-                            className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
-                            style={{ zIndex: 10, overflow: "visible" }}
+                            className="w-full h-full absolute inset-0 select-none overflow-visible pointer-events-none"
                           >
-                            <g
-                              transform="scale(100, 100)"
-                              fill="none"
-                              stroke={borderColor}
-                              strokeWidth={borderWidth / frameRefDim}
-                            >
-                              {renderShapeSvgClip(clipDef, false)}
+                            <defs>
+                              <mask id={maskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
+                                <rect x="-15" y="-15" width="130" height="130" fill="black" />
+                                {renderShape100(
+                                  shape100Def,
+                                  "white",
+                                  maskStroke > 0 ? "black" : "none",
+                                  maskStroke
+                                )}
+                              </mask>
+                            </defs>
+
+                            {elementBg && elementBg !== "transparent" && (
+                              renderShape100(shape100Def, elementBg, "none", 0)
+                            )}
+
+                            <g mask={`url(#${maskId})`}>
+                              <foreignObject x="0" y="0" width="100" height="100" className="w-full h-full overflow-hidden" style={{ pointerEvents: "auto" }}>
+                                <div className="w-full h-full relative overflow-hidden" style={{ backgroundColor: hasPhoto ? "transparent" : (hasPadding ? "#f8fafc" : "#f1f5f9") }}>
+                                  {hasPhoto && (
+                                    <img
+                                      src={displayPhoto}
+                                      alt=""
+                                      style={{
+                                        position: "absolute",
+                                        left: `${cropOffsetX}%`,
+                                        top: `${cropOffsetY}%`,
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: fitMode,
+                                        transformOrigin: "50% 50%",
+                                        transform: `scale(${isFlipped ? -cropZoom : cropZoom}, ${cropZoom}) rotate(${cropRotation}deg)`,
+                                        transition: "transform 0.1s ease",
+                                        maxWidth: "none",
+                                        maxHeight: "none",
+                                        pointerEvents: "none",
+                                        userSelect: "none",
+                                      }}
+                                    />
+                                  )}
+
+                                  {!hasPhoto && isCustomerEditable && (
+                                    <div
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTargetPhotoIndexForChange(idx);
+                                        setIsReplacePhotoModalOpen(true);
+                                      }}
+                                      className="w-full h-full flex flex-col items-center justify-center text-center p-2 text-slate-400 group-hover:text-amber-600 transition-colors pointer-events-auto cursor-default"
+                                    >
+                                      <PictureOutlined className="text-xl mb-1 text-slate-400 group-hover:text-amber-500" />
+                                      <span className="text-[10px] font-semibold text-slate-500 group-hover:text-amber-600">
+                                        Add Photo
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </foreignObject>
                             </g>
+
+                            {borderSvg > 0 && (
+                              renderShape100(shape100Def, "none", bord.color, borderSvg)
+                            )}
                           </svg>
-                        )}
 
-                        {/* Active Selection Overlay matching Admin InteractiveElement */}
-                        {isSelected && (
-                          <div className="absolute inset-0 border-2 border-cyan-400 pointer-events-none shadow-sm z-30" />
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Text Elements: Exact Same Font, Weight, Letter-spacing, Alignment, Height */}
-                  {draftTexts.map((txt) => {
-                    const coords = getElementCoords(txt);
-                    const leftPct = coords.left;
-                    const topPct = coords.top;
-                    const widthPct = coords.width;
-                    const heightPct = coords.height;
-
-                    const hasExplicitNewlines = txt.content && String(txt.content).includes("\n");
-                    const isCustomerEditable = Boolean(txt.is_customer_editable || txt.allowCustomerEdit);
-                    const isSelected = isCustomerEditable && selectedModalElementId === txt.id;
-
-                    return (
-                      <div
-                        key={txt.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          lastModalElementClickRef.current = Date.now();
-                          if (isCustomerEditable) {
-                            setSelectedModalElementId(txt.id);
-                          }
-                        }}
-                        style={{
-                          position: "absolute",
-                          left: `${leftPct}%`,
-                          top: `${topPct}%`,
-                          width: `${widthPct}%`,
-                          maxWidth: "100%",
-                          height: txt.height && Number(heightPct) < 80 ? `${heightPct}%` : "auto",
-                          color: txt.color || "#1f2937",
-                          fontFamily: getFontFamilyFallback(txt.font_family || "Playfair Display"),
-                          fontSize: `calc(${Number(txt.font_size || 24)} * (100cqw / 707))`,
-                          fontWeight: txt.font_weight || "normal",
-                          fontStyle: txt.font_style || "normal",
-                          textTransform: txt.text_transform || txt.textTransform || "none",
-                          letterSpacing: txt.letter_spacing ? `calc(${Number(txt.letter_spacing)} * (100cqw / 707))` : "normal",
-                          lineHeight: txt.line_height || 1.2,
-                          textAlign: txt.align || "center",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent:
-                            txt.align === "left"
-                              ? "flex-start"
-                              : txt.align === "right"
-                              ? "flex-end"
-                              : "center",
-                          wordBreak: "break-word",
-                          overflowWrap: "break-word",
-                          whiteSpace: hasExplicitNewlines ? "pre-line" : "normal",
-                          textShadow:
-                            txt.shadow?.blur || txt.shadow?.offsetX || txt.shadow?.offsetY
-                              ? `${txt.shadow.offsetX ?? 2}px ${txt.shadow.offsetY ?? 2}px ${txt.shadow.blur || 0}px ${txt.shadow.color || "rgba(0,0,0,0.5)"}`
-                              : undefined,
-                          background:
-                            txt.background?.type !== "none" && txt.background?.value
-                              ? txt.background.value
-                              : txt.bg_color || undefined,
-                          padding:
-                            txt.background?.value || txt.bg_color
-                              ? `${txt.background?.padding ?? 4}px ${(txt.background?.padding ?? 4) * 1.5}px`
-                              : undefined,
-                          borderRadius:
-                            txt.background?.value || txt.bg_color
-                              ? `${txt.background?.radius ?? 4}px`
-                              : undefined,
-                          transform: `rotate(${txt.rotation || 0}deg)`,
-                          transformOrigin: "center center",
-                          zIndex: isSelected ? 99 : Math.max(100, Number(txt.z_index) || 100),
-                        }}
-                        className={`leading-tight ${isCustomerEditable ? "cursor-default hover:outline hover:outline-1 hover:outline-cyan-400" : "cursor-default"} rounded-none transition-all select-none`}
-                        title={isCustomerEditable ? "Click to select and edit text" : "Fixed Template Text"}
-                      >
-                        <span style={{ width: "100%", maxWidth: "100%", whiteSpace: hasExplicitNewlines ? "pre-line" : "normal", wordBreak: "break-word", overflowWrap: "break-word", textAlign: txt.align || "center", fontFamily: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit", textTransform: txt.text_transform || txt.textTransform || "none" }}>
-                          {txt.content}
-                        </span>
-
-                        {/* Active Selection Overlay for Text */}
-                        {isSelected && (
-                          <>
+                          {isSelected && (
                             <div className="absolute inset-0 border-2 border-cyan-400 pointer-events-none shadow-sm z-30" />
-                            <div
-                              className="absolute -top-18 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-900/95 text-white border border-slate-700/80 px-2.5 py-1 rounded-xl shadow-2xl backdrop-blur-md pointer-events-auto z-[100] text-xs whitespace-nowrap select-none"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                lastModalElementClickRef.current = Date.now();
-                              }}
-                            >
-                              <button
-                                type="button"
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Text Elements (Template & Customer-Editable Text) */}
+                    {draftTexts.map((txt) => {
+                      const coords = getElementCoords(txt);
+                      const leftPct = coords.left;
+                      const topPct = coords.top;
+                      const widthPct = coords.width;
+                      const heightPct = coords.height;
+
+                      const hasExplicitNewlines = txt.content && String(txt.content).includes("\n");
+                      const isCustomerEditable = Boolean(txt.is_customer_editable || txt.allowCustomerEdit);
+                      const isSelected = isCustomerEditable && selectedModalElementId === txt.id;
+
+                      const textBord = parseBorderValues(txt.border);
+                      const textPad = parsePaddingValues(txt.padding);
+
+                      const effectiveFontFamily = txt.font_family || txt.fontFamily || "Inter";
+                      const effectiveFontWeight = txt.font_weight || txt.fontWeight || "normal";
+                      const effectiveFontStyle = txt.font_style || txt.fontStyle || "normal";
+                      const effectiveTextTransform = txt.text_transform || txt.textTransform || "none";
+                      const effectiveLetterSpacing = txt.letter_spacing !== undefined ? txt.letter_spacing : (txt.letterSpacing !== undefined ? txt.letterSpacing : 0);
+                      const effectiveLineHeight = txt.line_height || txt.lineHeight || 1.2;
+                      dynamicallyLoadGoogleFont(effectiveFontFamily);
+
+                      return (
+                        <div
+                          key={txt.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            lastModalElementClickRef.current = Date.now();
+                            if (isCustomerEditable) {
+                              setSelectedModalElementId(txt.id);
+                            }
+                          }}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPct}%`,
+                            top: `${topPct}%`,
+                            width: `${widthPct}%`,
+                            maxWidth: "100%",
+                            height: txt.height && Number(heightPct) < 80 ? `${heightPct}%` : "auto",
+                            color: txt.color || "#1f2937",
+                            fontFamily: getFontFamilyFallback(effectiveFontFamily),
+                            fontSize: `calc(${Number(txt.font_size || 24)} * (100cqw / 707))`,
+                            fontWeight: effectiveFontWeight,
+                            fontStyle: effectiveFontStyle,
+                            textTransform: effectiveTextTransform,
+                            letterSpacing: effectiveLetterSpacing ? `calc(${Number(effectiveLetterSpacing)} * (100cqw / 707))` : "normal",
+                            lineHeight: effectiveLineHeight,
+                            textAlign: txt.align || "center",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent:
+                              txt.align === "left"
+                                ? "flex-start"
+                                : txt.align === "right"
+                                ? "flex-end"
+                                : "center",
+                            background:
+                              txt.background?.type !== "none" && txt.background?.value
+                                ? txt.background.value
+                                : txt.bg_color || undefined,
+                            borderTop: textBord.top ? `calc(${textBord.top} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                            borderRight: textBord.right ? `calc(${textBord.right} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                            borderBottom: textBord.bottom ? `calc(${textBord.bottom} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                            borderLeft: textBord.left ? `calc(${textBord.left} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                            borderRadius: textBord.radius
+                              ? `calc(${textBord.radius} * (100cqw / 707))`
+                              : txt.background?.value || txt.bg_color
+                                ? `calc(${txt.background?.radius ?? 4} * (100cqw / 707))`
+                                : undefined,
+                            paddingTop: textPad.top
+                              ? `calc(${textPad.top} * (100cqw / 707))`
+                              : txt.background?.value || txt.bg_color
+                                ? `calc(${txt.background?.padding ?? 4} * (100cqw / 707))`
+                                : undefined,
+                            paddingRight: textPad.right
+                              ? `calc(${textPad.right} * (100cqw / 707))`
+                              : txt.background?.value || txt.bg_color
+                                ? `calc(${((txt.background?.padding ?? 4) * 1.5)} * (100cqw / 707))`
+                                : undefined,
+                            paddingBottom: textPad.bottom
+                              ? `calc(${textPad.bottom} * (100cqw / 707))`
+                              : txt.background?.value || txt.bg_color
+                                ? `calc(${txt.background?.padding ?? 4} * (100cqw / 707))`
+                                : undefined,
+                            paddingLeft: textPad.left
+                              ? `calc(${textPad.left} * (100cqw / 707))`
+                              : txt.background?.value || txt.bg_color
+                                ? `calc(${((txt.background?.padding ?? 4) * 1.5)} * (100cqw / 707))`
+                                : undefined,
+                            boxSizing: "border-box",
+                            transform: `rotate(${txt.rotation || 0}deg)`,
+                            transformOrigin: "center center",
+                            zIndex: isSelected ? 99 : Math.max(100, Number(txt.z_index) || 100),
+                          }}
+                          className={`leading-tight ${isCustomerEditable ? "cursor-default hover:outline hover:outline-1 hover:outline-cyan-400" : "cursor-default"} rounded-none transition-all select-none`}
+                          title={isCustomerEditable ? "Click to select and edit text" : "Fixed Template Text"}
+                        >
+                          <span style={{ width: "100%", maxWidth: "100%", whiteSpace: hasExplicitNewlines ? "pre-line" : "normal", wordBreak: "break-word", overflowWrap: "break-word", textAlign: txt.align || "center", fontFamily: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit", textTransform: effectiveTextTransform }}>
+                            {txt.content}
+                          </span>
+
+                          {/* Active Selection Overlay for Text with Edit Text Floating Action Button */}
+                          {isSelected && (
+                            <>
+                              <div className="absolute inset-0 border-2 border-cyan-400 pointer-events-none shadow-sm z-30" />
+                              <div
+                                className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-900/95 text-white border border-slate-700/80 px-2.5 py-1 rounded-xl shadow-2xl backdrop-blur-md pointer-events-auto z-[100] text-xs whitespace-nowrap select-none"
+                                style={{
+                                  bottom: "calc(100% + 10px)",
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   lastModalElementClickRef.current = Date.now();
-                                  handleOpenTextEditor(txt);
                                 }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-amber-400 hover:text-amber-300 font-semibold cursor-default text-[11px]"
-                                title="Edit Text"
                               >
-                                <EditOutlined className="text-xs" />
-                                <span>Edit Text</span>
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    lastModalElementClickRef.current = Date.now();
+                                    handleOpenTextEditor(txt);
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-800 text-amber-400 hover:text-amber-300 font-semibold cursor-default text-[11px]"
+                                  title="Edit Text"
+                                >
+                                  <EditOutlined className="text-xs" />
+                                  <span>Edit Text</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                  {/* Decorative Elements & Stickers */}
-                  {draftDecorations.map((rawDec) => {
-                    const dec = resolveDbDecorationData(rawDec, extractDatabaseDecorations(templateData));
-                    const coords = getElementCoords(dec);
-                    const leftPct = coords.left;
-                    const topPct = coords.top;
-                    const widthPct = coords.width;
-                    const heightPct = coords.height;
-                    const decSvg = dec.svg || resolveDecorationSvg(dec);
+                    {/* Decorative Elements & Stickers */}
+                    {draftDecorations.map((rawDec) => {
+                      const dec = resolveDbDecorationData(rawDec, extractDatabaseDecorations(templateData));
+                      const coords = getElementCoords(dec);
+                      const leftPct = coords.left;
+                      const topPct = coords.top;
+                      const widthPct = coords.width;
+                      const heightPct = coords.height;
+                      const decSvg = dec.svg || resolveDecorationSvg(dec);
 
-                    return (
-                      <div
-                        key={dec.id}
-                        style={{
-                          position: "absolute",
-                          left: `${leftPct}%`,
-                          top: `${topPct}%`,
-                          width: `${widthPct}%`,
-                          height: `${heightPct}%`,
-                          transform: `rotate(${dec.rotation || 0}deg)`,
-                          opacity: dec.opacity ?? 1,
-                          pointerEvents: "none",
-                          zIndex: 15,
-                        }}
-                        className="flex items-center justify-center overflow-hidden"
-                      >
-                        {decSvg ? (
-                          <div
-                            dangerouslySetInnerHTML={{ __html: decSvg }}
-                            className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
-                            style={{ color: dec.tint || undefined }}
-                          />
-                        ) : dec.asset_url ? (
-                          <img
-                            src={dec.asset_url}
-                            alt={dec.name || "Decoration"}
-                            style={{
-                              objectFit: dec.fit_mode || "contain",
-                            }}
-                            className="w-full h-full pointer-events-none"
-                          />
-                        ) : null}
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div
+                          key={dec.id}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPct}%`,
+                            top: `${topPct}%`,
+                            width: `${widthPct}%`,
+                            height: `${heightPct}%`,
+                            transform: `rotate(${dec.rotation || 0}deg)`,
+                            opacity: dec.opacity ?? 1,
+                            pointerEvents: "none",
+                            zIndex: 15,
+                          }}
+                          className="flex items-center justify-center overflow-hidden"
+                        >
+                          {decSvg ? (
+                            <div
+                              dangerouslySetInnerHTML={{ __html: decSvg }}
+                              className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                              style={{ color: dec.tint || undefined }}
+                            />
+                          ) : dec.asset_url ? (
+                            <img
+                              src={dec.asset_url}
+                              alt={dec.name || "Decoration"}
+                              style={{
+                                objectFit: dec.fit_mode || "contain",
+                              }}
+                              className="w-full h-full pointer-events-none"
+                            />
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+
 
                 {/* Subtitle Hint */}
                 <p className="text-[11px] text-gray-400 mt-2 text-center select-none font-medium">

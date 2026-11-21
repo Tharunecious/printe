@@ -38,7 +38,7 @@ import {
   checkCustomerSavedPhotoBookDesign,
 } from "../../helper/api_helper";
 import Swal from "sweetalert2";
-import { formatBookSizeInches } from "../../helper/photobookSizeHelper";
+import { formatBookSizeInches, getEditionPricingDetailsForSize } from "../../helper/photobookSizeHelper";
 import { ADD_TO_CART } from "../../redux/slices/cart.slice";
 import {
   DISCOUNT_HELPER,
@@ -697,8 +697,15 @@ const ProductDetailVarient = ({
   // ── Photo Book config resolution ──────────────────────────────────────────
   const isPhotoBook = useMemo(() => {
     if (!data) return false;
+    if (data.product_type === "photo_book") return true;
     if (data.is_photobook === true || data.is_photobook === "true") return true;
-    if (data.photobook_config && (data.photobook_config.templates?.length > 0 || data.photobook_config.sizes?.length > 0)) return true;
+    if (
+      data.photobook_config &&
+      (data.photobook_config.templates?.length > 0 ||
+        data.photobook_config.sizes?.length > 0 ||
+        data.photobook_config.editions?.length > 0)
+    )
+      return true;
 
     const subCat = data.sub_category_details;
     const subId = typeof subCat === "object" ? subCat?._id : subCat;
@@ -706,10 +713,17 @@ const ProductDetailVarient = ({
     const subCategoryName = (
       (typeof subCat === "object" ? (subCat?.sub_category_name || subCat?.name || subCat?.slug) : "") || ""
     ).toLowerCase();
-    return (
+    if (
       subCategoryName.includes("photo book") ||
       subCategoryName.includes("photobook")
-    );
+    )
+      return true;
+
+    const prodName = String(data.name || "").toLowerCase();
+    if (prodName.includes("photo book") || prodName.includes("photobook")) {
+      return true;
+    }
+    return false;
   }, [data]);
 
   const photobookConfig = useMemo(() => data?.photobook_config || {}, [data]);
@@ -1039,13 +1053,6 @@ const ProductDetailVarient = ({
       // For Photo Book: check if edition or template has specific size pricing
       if (isPhotoBook) {
         const sizeVal = variants.sizes || variants.size || variants.Sizes;
-        const sizeObj = (photobookConfig.sizes || []).find(
-          (s) =>
-            (s.name && String(s.name).toLowerCase() === String(sizeVal).toLowerCase()) ||
-            (s._id && String(s._id) === String(sizeVal)),
-        );
-        const sId = sizeObj?._id || sizeVal;
-
         const curTplName = String(variants["Template"] || "").trim().toLowerCase();
         const curTpl =
           (photobookConfig.templates || []).find(
@@ -1061,77 +1068,95 @@ const ProductDetailVarient = ({
             (e) => (e.edition_name || "").trim().toLowerCase() === curEdName
           ) || curTpl?.editions?.[0];
 
-        // Search edition pricing_by_size or size_pricing
-        let matchedPricing = null;
-        if (curEd?.pricing_by_size) {
-          matchedPricing =
-            (sId && curEd.pricing_by_size[sId]) ||
-            (sizeObj?.name && curEd.pricing_by_size[sizeObj.name]) ||
-            (sizeVal && curEd.pricing_by_size[sizeVal]);
-        }
-        if (!matchedPricing && curEd?.size_pricing) {
-          matchedPricing =
-            (sId && curEd.size_pricing[sId]) ||
-            (sizeObj?.name && curEd.size_pricing[sizeObj.name]) ||
-            (sizeVal && curEd.size_pricing[sizeVal]);
-        }
-        // Fallback to template pricing
-        if (!matchedPricing && curTpl?.pricing_by_size) {
-          matchedPricing =
-            (sId && curTpl.pricing_by_size[sId]) ||
-            (sizeObj?.name && curTpl.pricing_by_size[sizeObj.name]) ||
-            (sizeVal && curTpl.pricing_by_size[sizeVal]);
-        }
-        if (!matchedPricing && curTpl?.size_pricing) {
-          matchedPricing =
-            (sId && curTpl.size_pricing[sId]) ||
-            (sizeObj?.name && curTpl.size_pricing[sizeObj.name]) ||
-            (sizeVal && curTpl.size_pricing[sizeVal]);
-        }
+        const sizeObj = (photobookConfig.sizes || []).find(
+          (s) =>
+            (s.name && String(s.name).toLowerCase() === String(sizeVal).toLowerCase()) ||
+            (s._id && String(s._id) === String(sizeVal)),
+        );
+        const sId = sizeObj?._id || sizeVal;
 
-        if (matchedPricing) {
-          const custPrice = Number(
-            matchedPricing.customer_price ??
-            matchedPricing.customer_product_price ??
-            matchedPricing.price ??
-            data.customer_product_price ??
+        // 1. Resolve via getEditionPricingDetailsForSize (handles ObjectIds, names, string keys)
+        const edPricing = curEd
+          ? getEditionPricingDetailsForSize(curEd, sizeVal || sId, photobookConfig.sizes || [])
+          : null;
+
+        // 2. Direct map check
+        const lookupInPricingMap = (pricingMap) => {
+          if (!pricingMap || typeof pricingMap !== "object") return null;
+          if (sId && pricingMap[sId]) return pricingMap[sId];
+          if (sId && pricingMap[String(sId)]) return pricingMap[String(sId)];
+          if (sizeObj?._id && pricingMap[String(sizeObj._id)]) return pricingMap[String(sizeObj._id)];
+          if (sizeObj?.name && pricingMap[sizeObj.name]) return pricingMap[sizeObj.name];
+          if (sizeVal && pricingMap[sizeVal]) return pricingMap[sizeVal];
+          for (const k of Object.keys(pricingMap)) {
+            const kLower = String(k).trim().toLowerCase();
+            if (
+              (sId && kLower === String(sId).trim().toLowerCase()) ||
+              (sizeObj?._id && kLower === String(sizeObj._id).trim().toLowerCase()) ||
+              (sizeObj?.name && kLower === String(sizeObj.name).trim().toLowerCase()) ||
+              (sizeVal && kLower === String(sizeVal).trim().toLowerCase())
+            ) {
+              return pricingMap[k];
+            }
+          }
+          return null;
+        };
+
+        let matchedPricing =
+          lookupInPricingMap(curEd?.pricing_by_size) ||
+          lookupInPricingMap(curEd?.size_pricing) ||
+          lookupInPricingMap(curTpl?.pricing_by_size) ||
+          lookupInPricingMap(curTpl?.size_pricing);
+
+        const custPrice = Number(
+          edPricing?.customerPrice ??
+          matchedPricing?.customer_price ??
+          matchedPricing?.customer_product_price ??
+          matchedPricing?.price ??
+          data.customer_product_price ??
+          data.price ??
+          0,
+        );
+        const delerPrice = Number(
+          matchedPricing?.dealer_price ??
+          matchedPricing?.Deler_product_price ??
+          matchedPricing?.Dealer_product_price ??
+          custPrice,
+        );
+        const corpPrice = Number(
+          matchedPricing?.corporate_price ??
+          matchedPricing?.corporate_product_price ??
+          custPrice,
+        );
+        const mrpPrice = Number(
+          edPricing?.mrp ??
+          matchedPricing?.mrp ??
+          matchedPricing?.MRP_price ??
+          matchedPricing?.mrp_price ??
+          matchedPricing?.cost ??
+          data.MRP_price ??
+          custPrice,
+        );
+
+        return {
+          ...(matchedPricing || {}),
+          sizes: sizeVal,
+          customer_product_price: custPrice,
+          customer_price: custPrice,
+          price: custPrice,
+          Deler_product_price: delerPrice,
+          Dealer_product_price: delerPrice,
+          corporate_product_price: corpPrice,
+          MRP_price: mrpPrice,
+          mrp: mrpPrice,
+          extra_page_price:
+            edPricing?.extraPagePrice ??
+            matchedPricing?.extra_page_price ??
+            curEd?.price_per_extra_page ??
+            photobookConfig.price_per_extra_page ??
             0,
-          );
-          const delerPrice = Number(
-            matchedPricing.dealer_price ??
-            matchedPricing.Deler_product_price ??
-            matchedPricing.Dealer_product_price ??
-            custPrice,
-          );
-          const corpPrice = Number(
-            matchedPricing.corporate_price ??
-            matchedPricing.corporate_product_price ??
-            custPrice,
-          );
-          const mrpPrice = Number(
-            matchedPricing.mrp ??
-            matchedPricing.MRP_price ??
-            data.MRP_price ??
-            custPrice,
-          );
-
-          return {
-            ...matchedPricing,
-            sizes: sizeVal,
-            customer_product_price: custPrice,
-            customer_price: custPrice,
-            price: custPrice,
-            Deler_product_price: delerPrice,
-            Dealer_product_price: delerPrice,
-            corporate_product_price: corpPrice,
-            MRP_price: mrpPrice,
-            extra_page_price:
-              curEd?.price_per_extra_page ??
-              matchedPricing.extra_page_price ??
-              photobookConfig.price_per_extra_page,
-            product_code: matchedPricing.product_code || data.product_code || "",
-          };
-        }
+          product_code: matchedPricing?.product_code || data.product_code || "",
+        };
       }
 
       if (!data.variants_price || data.variants_price.length === 0) return null;
@@ -1496,38 +1521,70 @@ const ProductDetailVarient = ({
 
   const getUnitPrice = useMemo(() => {
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
+    if (isPhotoBook) {
+      // PhotoBook Customer Price is entered in admin as the exact customer price (Inclusive of GST)
+      return basePrice + extraPagesCost;
+    }
     const unit = calculateUnitPrice(basePrice, discountPercentage.percentage, user?.role, gst);
     return unit + (isPhotoBook ? extraPagesCost : 0);
   }, [checkOutState.product_price, discountPercentage.percentage, user?.role, gst, isPhotoBook, extraPagesCost]);
 
   const getMRPUnitPrice = useMemo(() => {
+    if (isPhotoBook) {
+      const mrp = Number(
+        _.get(currentPriceSplitup, "mrp",
+          _.get(currentPriceSplitup, "MRP_price",
+            _.get(data, "MRP_price", 0)
+          )
+        )
+      );
+      return mrp + extraPagesCost;
+    }
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
     const mrp = calculateMRPUnitPrice(basePrice, user?.role, gst);
     return mrp + (isPhotoBook ? extraPagesCost : 0);
-  }, [checkOutState.product_price, user?.role, gst, isPhotoBook, extraPagesCost]);
+  }, [currentPriceSplitup, checkOutState.product_price, data, user?.role, gst, isPhotoBook, extraPagesCost]);
 
   const getOriginalUnitPrice = useMemo(() => {
+    if (isPhotoBook) {
+      return getMRPUnitPrice;
+    }
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
     let orig = 0;
     if (user?.role === "Corporate" || user?.role === "Dealer" || user?.role === "bni_user")
       orig = basePrice;
     else
       orig = basePrice * (1 + gst / 100);
-    return orig + (isPhotoBook ? extraPagesCost : 0);
-  }, [checkOutState.product_price, user?.role, gst, isPhotoBook, extraPagesCost]);
+    return orig;
+  }, [checkOutState.product_price, user?.role, gst, isPhotoBook, getMRPUnitPrice]);
 
   const getUnitPricewithoutGst = () => {
+    if (isPhotoBook) {
+      const withGst = getUnitPrice;
+      return Math.round(withGst / (1 + (gst || 18) / 100));
+    }
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
-    return Math.round(calculateUnitPriceWithoutGst(basePrice, discountPercentage.percentage)) + (isPhotoBook ? extraPagesCost : 0);
+    return Math.round(calculateUnitPriceWithoutGst(basePrice, discountPercentage.percentage));
   };
 
   const calculateTotalPrice = useCallback(() => (!quantity ? 0 : (getUnitPrice * quantity).toFixed(2)), [getUnitPrice, quantity]);
   const calculateTotalPricewithoutGst = () => (!quantity ? 0 : (getUnitPricewithoutGst() * quantity).toFixed(2));
   const calculateGstPrice = useCallback(() => (!quantity ? 0 : Number(getUnitPrice).toFixed(2)), [getUnitPrice, quantity]);
-  const calculateMRPTotalPrice = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)) + (isPhotoBook ? extraPagesCost : 0); return (mrp * quantity).toFixed(2); }, [currentPriceSplitup, quantity, isPhotoBook, extraPagesCost]);
-  const calculateOriginalTotalPrice = useCallback(() => (!quantity ? 0 : (getOriginalUnitPrice * quantity).toFixed(2)), [getOriginalUnitPrice, quantity]);
-  const calculateMRPSavings = useCallback(() => { if (!quantity) return 0; const mrp = Number(_.get(currentPriceSplitup, "MRP_price", 0)); return ((mrp - getMRPUnitPrice) * quantity).toFixed(2); }, [currentPriceSplitup, getMRPUnitPrice, quantity]);
-  const calculateDiscountSavings = useCallback(() => (!quantity ? 0 : ((getOriginalUnitPrice - getUnitPrice) * quantity).toFixed(2)), [getOriginalUnitPrice, getUnitPrice, quantity]);
+  const calculateMRPTotalPrice = useCallback(() => {
+    if (!quantity) return 0;
+    const mrp = isPhotoBook
+      ? getMRPUnitPrice
+      : Number(_.get(currentPriceSplitup, "MRP_price", 0)) + (isPhotoBook ? extraPagesCost : 0);
+    return (mrp * quantity).toFixed(2);
+  }, [currentPriceSplitup, quantity, isPhotoBook, extraPagesCost, getMRPUnitPrice]);
+  const calculateOriginalTotalPrice = useCallback(() => (!quantity ? 0 : ((isPhotoBook ? getMRPUnitPrice : getOriginalUnitPrice) * quantity).toFixed(2)), [getOriginalUnitPrice, getMRPUnitPrice, isPhotoBook, quantity]);
+  const calculateMRPSavings = useCallback(() => {
+    if (!quantity) return 0;
+    const mrp = isPhotoBook ? getMRPUnitPrice : Number(_.get(currentPriceSplitup, "MRP_price", 0));
+    const currentPrice = getUnitPrice;
+    return Math.max(0, (mrp - currentPrice) * quantity).toFixed(2);
+  }, [currentPriceSplitup, getMRPUnitPrice, getUnitPrice, isPhotoBook, quantity]);
+  const calculateDiscountSavings = useCallback(() => (!quantity ? 0 : Math.max(0, (getMRPUnitPrice - getUnitPrice) * quantity).toFixed(2)), [getMRPUnitPrice, getUnitPrice, quantity]);
   const calculateTotalSavings = useCallback(() => (parseFloat(calculateMRPSavings()) + parseFloat(calculateDiscountSavings())).toFixed(2), [calculateMRPSavings, calculateDiscountSavings]);
   const calculateDealPercentageDiscount = useCallback(() => {
     if (!quantity) return 0;
@@ -2348,13 +2405,15 @@ const ProductDetailVarient = ({
               >
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-                      {formatPrice(Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))))}
-                    </span>
+                    {Number(isPhotoBook ? getMRPUnitPrice : _.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))) > Number(getUnitPrice) && (
+                      <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap font-medium">
+                        {formatPrice(isPhotoBook ? getMRPUnitPrice : Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))))}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col items-end">
                     <h3 className="text-white text-base font-semibold leading-tight">
-                      {quantity ? formatPrice(getUnitPrice) : formatPrice(getUnitPrice)}
+                      {formatPrice(getUnitPrice)}
                     </h3>
                     <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
                       Inclusive of GST
@@ -2371,13 +2430,15 @@ const ProductDetailVarient = ({
               >
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-                      {formatPrice(Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))))}
-                    </span>
+                    {Number(isPhotoBook ? getMRPUnitPrice : _.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))) > Number(getUnitPrice) && (
+                      <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap font-medium">
+                        {formatPrice(isPhotoBook ? getMRPUnitPrice : Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "MRP_price", 0))))}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col items-end">
                     <h3 className="text-white text-base font-semibold leading-tight">
-                      {quantity ? formatPrice(getUnitPrice) : formatPrice(getUnitPrice)}
+                      {formatPrice(getUnitPrice)}
                     </h3>
                     <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
                       Inclusive of GST

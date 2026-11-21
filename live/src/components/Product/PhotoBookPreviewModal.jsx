@@ -8,13 +8,42 @@ import {
   getElementCoords,
   getShapeClipPathDefinition,
   renderShapeSvgClip,
+  renderShapeSvgBorder,
   resolveDecorationSvg,
   getFontFamilyFallback,
+  dynamicallyLoadGoogleFont,
+  parseBorderValues,
+  parsePaddingValues,
 } from "../../pages/Product/PhotoBookEditorPage";
 
 // ── Pure Page Canvas Renderer (100% Identical Visual Fidelity to Editor) ─────
 const PhotobookPageCanvas = ({ page }) => {
   if (!page) return null;
+
+  if (page.no_design || page.has_design === false) {
+    return (
+      <div
+        className="page-canvas-container relative w-full h-full overflow-hidden select-none bg-[#0b101d] flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-slate-700/60 text-slate-300"
+        style={{ containerType: "inline-size" }}
+      >
+        <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mb-2.5 shadow-sm border border-slate-700 text-slate-400">
+          <PictureOutlined className="text-xl" />
+        </div>
+        <p className="text-xs sm:text-sm font-bold text-slate-200 tracking-wide mb-1">
+          No design created for this page
+        </p>
+        <p className="text-[11px] text-slate-400 max-w-[210px] leading-relaxed mb-2.5">
+          The administrator has not configured a layout for {page.display_label || (page.page_number ? `Page ${page.page_number}` : "this page")}.
+        </p>
+        {page.page_number && (
+          <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full border bg-slate-800/80 border-slate-700 text-slate-400">
+            Page {page.page_number}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   const elements = page.elements || [];
   const bg = page.background || {};
 
@@ -27,12 +56,25 @@ const PhotobookPageCanvas = ({ page }) => {
         bg.value.startsWith("data:image/") ||
         /\.(jpg|jpeg|png|webp|avif|gif|svg)($|\?)/i.test(bg.value)));
 
+  const flipH = Boolean(bg.flip_h || bg.flipH);
+  const flipV = Boolean(bg.flip_v || bg.flipV);
+  const transform =
+    flipH && flipV
+      ? "scale(-1, -1)"
+      : flipH
+        ? "scaleX(-1)"
+        : flipV
+          ? "scaleY(-1)"
+          : undefined;
+
   const bgLayerStyle = {
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
     zIndex: 0,
     opacity: bg.opacity ?? 1,
+    transform,
+    transformOrigin: transform ? "center center" : undefined,
   };
 
   if (bg.type === "gradient") {
@@ -45,12 +87,12 @@ const PhotobookPageCanvas = ({ page }) => {
       fitMode === "stretch" || fitMode === "100% 100%"
         ? "100% 100%"
         : fitMode === "contain"
-        ? bg.scale && bg.scale > 1
-          ? `${Math.round(bg.scale * 100)}%`
-          : "contain"
-        : bg.scale && bg.scale > 1
-        ? `${Math.round(bg.scale * 100)}%`
-        : "cover";
+          ? bg.scale && bg.scale > 1
+            ? `${Math.round(bg.scale * 100)}%`
+            : "contain"
+          : bg.scale && bg.scale > 1
+            ? `${Math.round(bg.scale * 100)}%`
+            : "cover";
     bgLayerStyle.backgroundImage = `url("${bg.value}")`;
     bgLayerStyle.backgroundSize = size;
     bgLayerStyle.backgroundPosition = `${posX} ${posY}`;
@@ -111,8 +153,10 @@ const PhotobookPageCanvas = ({ page }) => {
             "";
           const hasPhoto = Boolean(displayPhoto);
           const fitMode = el.fit_mode || "cover";
-          const borderWidth = el.border?.width || 0;
-          const borderColor = el.border?.color || "#ffffff";
+          const bord = parseBorderValues(el.border);
+          const pad = parsePaddingValues(el.padding);
+          const isRect = shape === "rectangle";
+          const isHeart = shape === "heart" || el.mask_shape === "heart";
           const elRefDim = Math.max(
             50,
             Math.min(
@@ -120,17 +164,18 @@ const PhotobookPageCanvas = ({ page }) => {
               Number(el.height) > 10 ? Number(el.height) : coords.height * 10
             ) || 400
           );
-          const normalizedBorderStroke = borderWidth / elRefDim;
+          const normalizedBorderStroke = (bord.top || bord.width) / elRefDim;
           const shadow = el.shadow || {};
           const shadowFilter =
             shadow.blur > 0
-              ? `drop-shadow(${shadow.offsetX || 0}px ${shadow.offsetY || 4}px ${shadow.blur}px ${
-                  shadow.color || "rgba(0,0,0,0.15)"
-                })`
+              ? `drop-shadow(${shadow.offsetX || 0}px ${shadow.offsetY || 4}px ${shadow.blur}px ${shadow.color || "rgba(0,0,0,0.15)"
+              })`
               : "none";
 
           const radiusVal =
-            el.border?.radius ?? el.corner_radius ?? (isCircle ? 50 : 0);
+            bord.radius ?? el.corner_radius ?? (isCircle ? 50 : 0);
+          const maxBorder = Math.max(bord.top, bord.right, bord.bottom, bord.left, bord.width);
+          const innerRadius = Math.max(0, bord.radius - Math.min(bord.top, bord.left));
           const clipDef = getShapeClipPathDefinition(shape, radiusVal);
           const clipId = `cart-preview-clip-${page.page_id || page.page_number || "pg"}-${elKey}`;
 
@@ -139,6 +184,11 @@ const PhotobookPageCanvas = ({ page }) => {
           const cropOffsetY = el.crop?.offsetY || 0;
           const cropRotation = el.crop?.rotation || 0;
           const isFlipped = Boolean(el.crop?.flipH || el.flip_h);
+          const hasPadding = pad.top > 0 || pad.right > 0 || pad.bottom > 0 || pad.left > 0;
+          const totalPadTop = (bord.top !== undefined ? bord.top : bord.width) + (pad.top || 0);
+          const totalPadRight = (bord.right !== undefined ? bord.right : bord.width) + (pad.right || 0);
+          const totalPadBottom = (bord.bottom !== undefined ? bord.bottom : bord.width) + (pad.bottom || 0);
+          const totalPadLeft = (bord.left !== undefined ? bord.left : bord.width) + (pad.left || 0);
 
           return (
             <div
@@ -146,25 +196,60 @@ const PhotobookPageCanvas = ({ page }) => {
               style={{
                 ...baseStyle,
                 filter: shadowFilter,
+                borderTop: (isRect || isCircle) && bord.top ? `calc(${bord.top} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                borderRight: (isRect || isCircle) && bord.right ? `calc(${bord.right} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                borderBottom: (isRect || isCircle) && bord.bottom ? `calc(${bord.bottom} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                borderLeft: (isRect || isCircle) && bord.left ? `calc(${bord.left} * (100cqw / 707)) solid ${bord.color}` : undefined,
+                borderRadius: isCircle ? "50%" : (isRect && bord.radius ? `calc(${bord.radius} * (100cqw / 707))` : undefined),
+                backgroundColor: el.bg_color || el.background?.value || "transparent",
+                boxSizing: "border-box",
               }}
               className="group relative overflow-visible flex items-center justify-center pointer-events-none"
             >
               {/* SVG Defs for objectBoundingBox clip */}
-              <svg width="0" height="0" className="absolute pointer-events-none">
-                <defs>
-                  <clipPath id={clipId} clipPathUnits="objectBoundingBox">
-                    {renderShapeSvgClip(clipDef, false)}
-                  </clipPath>
-                </defs>
-              </svg>
+              {!isRect && !isCircle && (
+                <svg width="0" height="0" className="absolute pointer-events-none">
+                  <defs>
+                    <clipPath id={clipId} clipPathUnits="objectBoundingBox">
+                      {renderShapeSvgClip(clipDef, false)}
+                    </clipPath>
+                  </defs>
+                </svg>
+              )}
 
-              {/* Clipped container: HTML clipping with clipPathUnits="objectBoundingBox" guarantees 100% boundary locking */}
+              {/* Outer Shape Border SVG for custom non-rectangular/non-circular shapes */}
+              {!isRect && !isCircle && maxBorder > 0 && (
+                <svg
+                  viewBox="0 0 1 1"
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
+                  style={{ zIndex: 10, overflow: "visible" }}
+                >
+                  {renderShapeSvgBorder(clipDef, bord.color, maxBorder)}
+                </svg>
+              )}
+
+              {/* Clipped container: Symmetrically centered for shapes to guarantee 100% even gap on all sides */}
               <div
-                className="w-full h-full relative overflow-hidden"
-                style={{
-                  clipPath: `url(#${clipId})`,
-                  WebkitClipPath: `url(#${clipId})`,
-                }}
+                className={`absolute overflow-hidden ${!hasPhoto ? `bg-slate-100/90 ${isRect ? "border border-dashed border-slate-300 rounded" : ""}` : ""}`}
+                style={
+                  (isRect || isCircle)
+                    ? {
+                        top: pad.top ? `calc(${pad.top} * (100cqw / 707))` : 0,
+                        right: pad.right ? `calc(${pad.right} * (100cqw / 707))` : 0,
+                        bottom: pad.bottom ? `calc(${pad.bottom} * (100cqw / 707))` : 0,
+                        left: pad.left ? `calc(${pad.left} * (100cqw / 707))` : 0,
+                        borderRadius: isCircle ? "50%" : (isRect && innerRadius ? `${innerRadius}px` : undefined),
+                      }
+                    : {
+                        top: totalPadTop ? `calc(${totalPadTop} * (100cqw / 707))` : 0,
+                        right: totalPadRight ? `calc(${totalPadRight} * (100cqw / 707))` : 0,
+                        bottom: totalPadBottom ? `calc(${totalPadBottom} * (100cqw / 707))` : 0,
+                        left: totalPadLeft ? `calc(${totalPadLeft} * (100cqw / 707))` : 0,
+                        clipPath: `url(#${clipId})`,
+                        WebkitClipPath: `url(#${clipId})`,
+                      }
+                }
               >
                 <div
                   className="absolute inset-0"
@@ -185,8 +270,8 @@ const PhotobookPageCanvas = ({ page }) => {
                         fitMode === "contain"
                           ? "contain"
                           : fitMode === "stretch" || fitMode === "fill"
-                          ? "fill"
-                          : "cover",
+                            ? "fill"
+                            : "cover",
                       transformOrigin: "50% 50%",
                       transform: `scale(${isFlipped ? -cropZoom : cropZoom}, ${cropZoom}) rotate(${cropRotation}deg)`,
                       transition: "transform 0.1s ease",
@@ -210,8 +295,8 @@ const PhotobookPageCanvas = ({ page }) => {
                 )}
               </div>
 
-              {/* Border overlay following the exact clip shape */}
-              {borderWidth > 0 && (
+              {/* Border overlay for non-rectangular clip shapes */}
+              {!isRect && bord.top > 0 && (
                 <svg
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
@@ -221,7 +306,7 @@ const PhotobookPageCanvas = ({ page }) => {
                   <g
                     transform="scale(100, 100)"
                     fill="none"
-                    stroke={borderColor}
+                    stroke={bord.color}
                     strokeWidth={normalizedBorderStroke}
                     vectorEffect="non-scaling-stroke"
                   >
@@ -237,6 +322,16 @@ const PhotobookPageCanvas = ({ page }) => {
         if (el.type === "text") {
           const hasExplicitNewlines =
             el.content && String(el.content).includes("\n");
+          const textBord = parseBorderValues(el.border);
+          const textPad = parsePaddingValues(el.padding);
+          const effectiveFontFamily = el.font_family || el.fontFamily || "Inter";
+          const effectiveFontWeight = el.font_weight || el.fontWeight || "normal";
+          const effectiveFontStyle = el.font_style || el.fontStyle || "normal";
+          const effectiveTextTransform = el.text_transform || el.textTransform || "none";
+          const effectiveLetterSpacing = el.letter_spacing !== undefined ? el.letter_spacing : (el.letterSpacing !== undefined ? el.letterSpacing : 0);
+          const effectiveLineHeight = el.line_height || el.lineHeight || 1.2;
+          dynamicallyLoadGoogleFont(effectiveFontFamily);
+
           return (
             <div
               key={elKey}
@@ -244,16 +339,14 @@ const PhotobookPageCanvas = ({ page }) => {
                 ...baseStyle,
                 width: `${widthPct}%`,
                 maxWidth: "100%",
-                fontFamily: getFontFamilyFallback(
-                  el.font_family || "Playfair Display"
-                ),
+                fontFamily: getFontFamilyFallback(effectiveFontFamily),
                 fontSize: `calc(${Number(el.font_size || 24)} * (100cqw / 707))`,
-                fontWeight: el.font_weight || "normal",
-                fontStyle: el.font_style || "normal",
-                letterSpacing: el.letter_spacing
-                  ? `calc(${Number(el.letter_spacing)} * (100cqw / 707))`
+                fontWeight: effectiveFontWeight,
+                fontStyle: effectiveFontStyle,
+                letterSpacing: effectiveLetterSpacing
+                  ? `calc(${Number(effectiveLetterSpacing)} * (100cqw / 707))`
                   : "normal",
-                lineHeight: el.line_height || 1.2,
+                lineHeight: effectiveLineHeight,
                 color: el.color || "#1f2937",
                 textAlign: el.align || "center",
                 display: "flex",
@@ -262,11 +355,46 @@ const PhotobookPageCanvas = ({ page }) => {
                   el.align === "left"
                     ? "flex-start"
                     : el.align === "right"
-                    ? "flex-end"
-                    : "center",
+                      ? "flex-end"
+                      : "center",
                 wordBreak: "break-word",
                 overflowWrap: "break-word",
                 whiteSpace: hasExplicitNewlines ? "pre-line" : "normal",
+                textTransform: el.text_transform || el.textTransform || "none",
+                background:
+                  el.background?.type !== "none" && el.background?.value
+                    ? el.background.value
+                    : el.bg_color || undefined,
+                borderTop: textBord.top ? `calc(${textBord.top} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                borderRight: textBord.right ? `calc(${textBord.right} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                borderBottom: textBord.bottom ? `calc(${textBord.bottom} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                borderLeft: textBord.left ? `calc(${textBord.left} * (100cqw / 707)) solid ${textBord.color}` : undefined,
+                borderRadius: textBord.radius
+                  ? `calc(${textBord.radius} * (100cqw / 707))`
+                  : el.background?.value || el.bg_color
+                    ? `calc(${el.background?.radius ?? 4} * (100cqw / 707))`
+                    : undefined,
+                paddingTop: textPad.top
+                  ? `calc(${textPad.top} * (100cqw / 707))`
+                  : el.background?.value || el.bg_color
+                    ? `calc(${el.background?.padding ?? 4} * (100cqw / 707))`
+                    : undefined,
+                paddingRight: textPad.right
+                  ? `calc(${textPad.right} * (100cqw / 707))`
+                  : el.background?.value || el.bg_color
+                    ? `calc(${((el.background?.padding ?? 4) * 1.5)} * (100cqw / 707))`
+                    : undefined,
+                paddingBottom: textPad.bottom
+                  ? `calc(${textPad.bottom} * (100cqw / 707))`
+                  : el.background?.value || el.bg_color
+                    ? `calc(${el.background?.padding ?? 4} * (100cqw / 707))`
+                    : undefined,
+                paddingLeft: textPad.left
+                  ? `calc(${textPad.left} * (100cqw / 707))`
+                  : el.background?.value || el.bg_color
+                    ? `calc(${((el.background?.padding ?? 4) * 1.5)} * (100cqw / 707))`
+                    : undefined,
+                boxSizing: "border-box",
                 zIndex: Math.max(100, Number(el.z_index) || 100),
                 pointerEvents: "none",
               }}
@@ -284,6 +412,7 @@ const PhotobookPageCanvas = ({ page }) => {
                   fontWeight: "inherit",
                   fontStyle: "inherit",
                   letterSpacing: "inherit",
+                  textTransform: el.text_transform || el.textTransform || "none",
                 }}
               >
                 {el.content}
@@ -411,7 +540,7 @@ const resolveSizeInfo = (sizeInput, optionalSizes = []) => {
         }
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // 3. Check standard sizes
   const lower = rawStr.toLowerCase();
@@ -634,10 +763,10 @@ const PhotoBookPreviewModal = ({ open, onClose, cartItem }) => {
     if (hasBlankPage) {
       const blankInsideFront = pages.find((p) => p.page_id === "blank-inside-front") || {
         page_id: "blank-inside-front",
-        name: "Blank Page",
-        display_label: "Blank Page",
+        name: "Inside Front Cover",
+        display_label: "Inside Front Cover",
         page_type: "blank",
-        page_number: "Blank",
+        page_number: "Inside Cover",
         is_blank: true,
         background: { type: "color", value: "#ffffff" },
         elements: [],
@@ -645,10 +774,10 @@ const PhotoBookPreviewModal = ({ open, onClose, cartItem }) => {
 
       const blankInsideBack = pages.find((p) => p.page_id === "blank-inside-back") || {
         page_id: "blank-inside-back",
-        name: "Blank Page",
-        display_label: "Blank Page",
+        name: "Inside Back Cover",
+        display_label: "Inside Back Cover",
         page_type: "blank",
-        page_number: "Blank",
+        page_number: "Inside Cover",
         is_blank: true,
         background: { type: "color", value: "#ffffff" },
         elements: [],
@@ -686,6 +815,7 @@ const PhotoBookPreviewModal = ({ open, onClose, cartItem }) => {
         stepCount++;
       }
     } else {
+      // Blank page OFF: No inside front cover, Page 1 on left, Page 2 on right
       stepCount = 1;
       for (let i = 0; i < interiorPages.length; i += 2) {
         const leftP = interiorPages[i];

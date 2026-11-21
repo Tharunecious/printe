@@ -82,6 +82,8 @@ const targetingRuleSchema = new mongoose.Schema(
     rule_type: {
       type: String,
       enum: [
+        "front_cover",
+        "back_cover",
         "exact_page",
         "odd_interior",
         "even_interior",
@@ -92,7 +94,7 @@ const targetingRuleSchema = new mongoose.Schema(
     },
     page_number: { type: Number, default: 1 },
   },
-  { _id: false }
+  { _id: false, strict: false }
 );
 
 const backgroundSchema = new mongoose.Schema(

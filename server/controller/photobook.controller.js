@@ -12,7 +12,7 @@ const createInitialPages = () => [
     page_id: uuidv4(),
     name: "Front Cover",
     page_type: "front_cover",
-    targeting_rule: { rule_type: "exact_page", page_number: 1 },
+    targeting_rule: { rule_type: "front_cover" },
     background: { type: "color", value: "#1e1e2d", opacity: 1 },
     elements: [
       {
@@ -74,9 +74,9 @@ const createInitialPages = () => [
   },
   {
     page_id: uuidv4(),
-    name: "Interior - All Pages Default",
+    name: "Page 1",
     page_type: "interior",
-    targeting_rule: { rule_type: "all_interior", page_number: 2 },
+    targeting_rule: { rule_type: "exact_page", page_number: 1 },
     background: { type: "color", value: "#f8fafc", opacity: 1 },
     elements: [
       {
@@ -119,9 +119,9 @@ const createInitialPages = () => [
   },
   {
     page_id: uuidv4(),
-    name: "Interior - 2 Photo Collage",
+    name: "Page 2",
     page_type: "interior",
-    targeting_rule: { rule_type: "odd_interior", page_number: 3 },
+    targeting_rule: { rule_type: "exact_page", page_number: 2 },
     background: { type: "color", value: "#ffffff", opacity: 1 },
     elements: [
       {
@@ -183,7 +183,7 @@ const createInitialPages = () => [
     page_id: uuidv4(),
     name: "Back Cover",
     page_type: "back_cover",
-    targeting_rule: { rule_type: "exact_page", page_number: 20 },
+    targeting_rule: { rule_type: "back_cover" },
     background: { type: "color", value: "#1e1e2d", opacity: 1 },
     elements: [
       {
@@ -1546,10 +1546,10 @@ const saveCustomerDesign = async (req, res) => {
 
     const sanitizedPages = Array.isArray(pages)
       ? pages.map((pg, idx) => ({
-          ...pg,
-          page_number: typeof pg.page_number === "number" ? pg.page_number : (idx === 0 ? 0 : idx),
-          display_label: pg.display_label || (typeof pg.page_number === "string" ? pg.page_number : `Page ${idx}`),
-        }))
+        ...pg,
+        page_number: typeof pg.page_number === "number" ? pg.page_number : (idx === 0 ? 0 : idx),
+        display_label: pg.display_label || (typeof pg.page_number === "string" ? pg.page_number : `Page ${idx}`),
+      }))
       : pages;
 
     let design;

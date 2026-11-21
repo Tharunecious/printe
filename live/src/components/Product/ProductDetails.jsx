@@ -1858,17 +1858,46 @@ const ProductDetails = ({
       maximumFractionDigits: 2,
     })}`;
 
+  const isPhotoBook = useMemo(() => {
+    if (!data) return false;
+    if (data.product_type === "photo_book") return true;
+    if (data.is_photobook === true || data.is_photobook === "true") return true;
+    if (
+      data.photobook_config &&
+      (data.photobook_config.templates?.length > 0 ||
+        data.photobook_config.sizes?.length > 0 ||
+        data.photobook_config.editions?.length > 0)
+    )
+      return true;
+    const subCat = data.sub_category_details;
+    const subCategoryName = (
+      (typeof subCat === "object" ? (subCat?.sub_category_name || subCat?.name || subCat?.slug) : "") || ""
+    ).toLowerCase();
+    if (subCategoryName.includes("photo book") || subCategoryName.includes("photobook")) return true;
+    const prodName = String(data.name || "").toLowerCase();
+    return prodName.includes("photo book") || prodName.includes("photobook");
+  }, [data]);
+
   const getUnitPrice = () => {
     const p = Number(_.get(checkOutState, "product_price", 0));
+    if (isPhotoBook) {
+      return p;
+    }
     return Math.round(calculateUnitPrice(p, discountPercentage.percentage, user.role, Gst));
   };
 
   const getUnitPricewithoutGst = () => {
     const p = Number(_.get(checkOutState, "product_price", 0));
+    if (isPhotoBook) {
+      return Math.round(p / (1 + (Gst || 18) / 100));
+    }
     return Math.round(calculateUnitPriceWithoutGst(p, discountPercentage.percentage));
   };
 
   const getMRPUnitPrice = () => {
+    if (isPhotoBook) {
+      return Number(_.get(data, "MRP_price", 0)) || Number(_.get(checkOutState, "product_price", 0));
+    }
     const p = Number(_.get(checkOutState, "product_price", 0));
     return calculateMRPUnitPrice(p, user.role, Gst);
   };
@@ -2405,10 +2434,12 @@ const ProductDetails = ({
     <div className="flex items-center gap-3">
       {/* Left: stacked strikethrough prices */}
       <div className="flex flex-col gap-0.5">
-        <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-          {formatPrice(Number(_.get(data, "MRP_price", 0)))}
-        </span>
-        {Number(_.get(data, "offer_MRP_price", 0)) > 0 && (
+        {Number(_.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && (
+          <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+            {formatPrice(Number(_.get(data, "MRP_price", 0)))}
+          </span>
+        )}
+        {Number(_.get(data, "offer_MRP_price", 0)) > Number(getUnitPrice()) && (
           <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
             {formatPrice(Number(_.get(data, "offer_MRP_price", 0)))}
           </span>
@@ -2442,10 +2473,12 @@ const ProductDetails = ({
     <div className="flex items-center gap-3">
       {/* Left: stacked strikethrough prices */}
       <div className="flex flex-col gap-0.5">
-        <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-          {formatPrice(Number(_.get(data, "MRP_price", 0)))}
-        </span>
-        {Number(_.get(data, "offer_MRP_price", 0)) > 0 && (
+        {Number(_.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && (
+          <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+            {formatPrice(Number(_.get(data, "MRP_price", 0)))}
+          </span>
+        )}
+        {Number(_.get(data, "offer_MRP_price", 0)) > Number(getUnitPrice()) && (
           <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
             {formatPrice(Number(_.get(data, "offer_MRP_price", 0)))}
           </span>
