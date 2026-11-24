@@ -137,6 +137,20 @@ const isTamilNaduState = (state) => {
   return n === 'tamilnadu' || n === 'tn';
 };
 
+const isInsideTamilNadu = (state, pincode) => {
+  const pin = String(pincode || '').trim();
+  if (pin.length >= 3) {
+    const prefix = parseInt(pin.substring(0, 3), 10);
+    // Tamil Nadu & Puducherry PIN codes start with 600 through 649
+    if (prefix >= 600 && prefix <= 649) return true;
+  }
+  if (state) {
+    const n = String(state).trim().toLowerCase().replace(/\s+/g, '');
+    if (n === 'tamilnadu' || n === 'tn') return true;
+  }
+  return false;
+};
+
 const getItemDeliveryCharge = (item, isTamilNadu) => {
   if (item.FreeDelivery) return 0;
   if (isPhotoFrame(item)) {
@@ -144,8 +158,10 @@ const getItemDeliveryCharge = (item, isTamilNadu) => {
     if (!getDeliveryToHome(item)) return 0;
   }
   if (!isTamilNadu) {
-    const out = Number(item.out_of_tn_charge);
-    return out > 0 ? out : 100;
+    const out = Number(item.out_of_tn_charge || item.delivery_charges_outer_tn || item.delivery_charges_customer_outer_tn || 0);
+    if (out > 0) return out;
+    const std = Number(item.DeliveryCharges || 0);
+    return std > 0 ? std + 40 : 100;
   }
   return Number(item.DeliveryCharges) || 0;
 };
@@ -239,9 +255,18 @@ const iStyle = (hasIcon = true, overrides = {}) => ({
 
 // ─── Pricing helpers ──────────────────────────────────────────────────────────
 // Subtotal already includes GST, so no additional predefined 18% GST is added.
-const calcPrices = (cartData, appliedCoupon, paymentOption, isTamilNaduDelivery) => {
-  const subtotal    = _.sum(cartData.map((i) => Number(i.final_total) || Number(i.final_total_withoutGst) || 0));
-  const rawDelivery = getTotalDeliveryCharge(cartData, isTamilNaduDelivery);
+const calcPrices = (cartData, appliedCoupon, paymentOption, isTamilNaduDelivery, hasValidPincode) => {
+  const subtotal = _.sum(cartData.map((i) => Number(i.final_total) || Number(i.final_total_withoutGst) || 0));
+
+  const isAllFreeDelivery = cartData.length > 0 && cartData.every((i) =>
+    i.FreeDelivery || (isPhotoFrame(i) && (getPickupFromOffice(i) || !getDeliveryToHome(i)))
+  );
+
+  // If all items have free delivery, rawDelivery is 0.
+  // Otherwise, shipping is only calculated when a valid 6-digit pincode is entered; otherwise null.
+  const rawDelivery = isAllFreeDelivery
+    ? 0
+    : (hasValidPincode ? getTotalDeliveryCharge(cartData, isTamilNaduDelivery) : null);
 
   const isShippingCoupon = appliedCoupon?.discountType === 'shipping';
 
@@ -251,17 +276,18 @@ const calcPrices = (cartData, appliedCoupon, paymentOption, isTamilNaduDelivery)
   const discountedSubtotal = Math.max(0, subtotal - discount);
   const tax                = 0; // Subtotal already includes GST
 
-  const delivery         = isShippingCoupon ? 0 : rawDelivery;
-  const deliveryDiscount = isShippingCoupon ? rawDelivery : 0; // amount saved on delivery
+  const delivery         = isShippingCoupon ? 0 : (rawDelivery !== null ? rawDelivery : 0);
+  const deliveryDiscount = isShippingCoupon ? (rawDelivery ?? 0) : 0; // amount saved on delivery
 
-  const total               = discountedSubtotal + delivery;
-  const totalBeforeDiscount = subtotal + rawDelivery;
+  const total               = discountedSubtotal + (rawDelivery !== null ? delivery : 0);
+  const totalBeforeDiscount = subtotal + (rawDelivery !== null ? (rawDelivery ?? 0) : 0);
   const payable             = paymentOption === 'half' ? Math.ceil(total * 0.5) : total;
 
   return {
     subtotal, discount, discountedSubtotal, tax,
     delivery, rawDelivery, deliveryDiscount, isShippingCoupon,
     total, totalBeforeDiscount, payable,
+    hasValidPincode, isAllFreeDelivery,
   };
 };
 
@@ -295,8 +321,9 @@ const NewCheckout = () => {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const addresses          = _.get(user, 'addresses', []);
-  const isTN               = isTamilNaduState(formData.state);
-  const calc               = calcPrices(cartData, appliedCoupon, paymentOption, isTN);
+  const hasValidPincode    = /^\d{6}$/.test(String(formData.pincode || '').trim());
+  const isTN               = hasValidPincode ? isInsideTamilNadu(formData.state, formData.pincode) : false;
+  const calc               = calcPrices(cartData, appliedCoupon, paymentOption, isTN, hasValidPincode);
   const pincodeTimer       = useRef(null);
 
   // Guards
@@ -638,7 +665,11 @@ const NewCheckout = () => {
   // Build the price-breakdown rows for the order summary.
   // Note: subtotal already includes GST, so predefined 18% GST row is removed.
   const summaryRows = [
-    { label: `Subtotal (${cartData.length} item${cartData.length !== 1 ? 's' : ''})`, val: `₹${calc.subtotal.toFixed(2)}` },
+    {
+      label: `Subtotal (${cartData.length} item${cartData.length !== 1 ? 's' : ''})`,
+      subLabel: 'Inclusive of GST',
+      val: `₹${calc.subtotal.toFixed(2)}`,
+    },
   ];
   if (appliedCoupon && calc.discount > 0) {
     summaryRows.push({ label: `Coupon — ${appliedCoupon.code}`, val: `−₹${calc.discount.toFixed(2)}`, highlight: true });
@@ -651,14 +682,25 @@ const NewCheckout = () => {
       highlight: true,
     });
     summaryRows.push({
-      label: `Delivery${formData.state ? ` (${isTN ? 'Tamil Nadu' : 'Outstation'})` : ''}`,
+      label: `Delivery${hasValidPincode ? ` (${isTN ? 'Tamil Nadu' : 'Outstation'})` : ''}`,
       val: 'FREE',
-      strikeVal: calc.rawDelivery > 0 ? `₹${calc.rawDelivery.toFixed(2)}` : null,
+      strikeVal: (calc.rawDelivery !== null && calc.rawDelivery > 0) ? `₹${calc.rawDelivery.toFixed(2)}` : null,
       free: true,
+    });
+  } else if (calc.isAllFreeDelivery) {
+    summaryRows.push({
+      label: 'Delivery',
+      val: 'FREE',
+      free: true,
+    });
+  } else if (!hasValidPincode) {
+    summaryRows.push({
+      label: 'Delivery',
+      val: '—',
     });
   } else {
     summaryRows.push({
-      label: `Delivery${formData.state ? ` (${isTN ? 'Tamil Nadu' : 'Outstation'})` : ''}`,
+      label: `Delivery (${isTN ? 'Tamil Nadu' : 'Outstation'})`,
       val: `₹${calc.delivery.toFixed(2)}`,
     });
   }
@@ -793,7 +835,7 @@ const NewCheckout = () => {
                   </Row2>
 
                   {/* TN / outstation notice */}
-                  {formData.state && (
+                  {hasValidPincode && (
                     <div style={{
                       fontSize: 12, fontWeight: 600, padding: '10px 14px',
                       borderRadius: 'var(--radius)', borderLeft: '3px solid',
@@ -802,8 +844,8 @@ const NewCheckout = () => {
                         : { background: '#FFF7ED', color: '#9A3412', borderLeftColor: '#EA580C' }),
                     }}>
                       {isTN
-                        ? '✓ Delivering within Tamil Nadu — standard rates apply'
-                        : '⚠ Outstation delivery — per-item charges apply'}
+                        ? '✓ Delivering within Tamil Nadu — standard shipping rates applied'
+                        : '⚠ Outstation delivery (Outside Tamil Nadu) — outstation shipping rates applied'}
                     </div>
                   )}
                 </div>
@@ -913,10 +955,11 @@ const NewCheckout = () => {
                 {/* Items list */}
                 <div>
                   {cartData.map((item, i) => {
-                    const charge  = getItemDeliveryCharge(item, isTN);
                     const isFrame = isPhotoFrame(item);
                     const pickup  = getPickupFromOffice(item);
                     const toHome  = getDeliveryToHome(item);
+                    const isItemFree = item.FreeDelivery || (isFrame && (pickup || !toHome));
+                    const charge  = hasValidPincode ? getItemDeliveryCharge(item, isTN) : null;
                     return (
                       <div key={item._id} style={{
                         display: 'flex', gap: 12, paddingTop: 12, paddingBottom: 12,
@@ -945,17 +988,20 @@ const NewCheckout = () => {
                               🎁 Giveaway: {item.giveaway_coupon} (100% Free)
                             </p>
                           )} */}
-                          {isFrame && pickup && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Pickup — no delivery fee</p>}
-                          {isFrame && !pickup && !toHome && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ No delivery fee</p>}
-                          {charge > 0 && calc.isShippingCoupon && (
-                            <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Free delivery (coupon)</p>
-                          )}
-                          {charge > 0 && !calc.isShippingCoupon && (
+                          {isItemFree && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Free delivery</p>}
+                          {!isItemFree && !hasValidPincode && (
                             <p style={{ margin: 0, fontSize: 11, color: 'var(--muted-fg)', fontWeight: 500 }}>
-                              📦 +₹{charge.toFixed(2)}{!isTN ? ' (outstation)' : ''}
+                              📦 Delivery: —
                             </p>
                           )}
-                          {item.FreeDelivery && <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Free delivery</p>}
+                          {!isItemFree && hasValidPincode && charge > 0 && calc.isShippingCoupon && (
+                            <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓ Free delivery (coupon)</p>
+                          )}
+                          {!isItemFree && hasValidPincode && charge > 0 && !calc.isShippingCoupon && (
+                            <p style={{ margin: 0, fontSize: 11, color: 'var(--muted-fg)', fontWeight: 500 }}>
+                              📦 +₹{charge.toFixed(2)} ({isTN ? 'Tamil Nadu' : 'outstation'})
+                            </p>
+                          )}
                         </div>
                         <p style={{ margin: 0, fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 13, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>
                           ₹{Number(item.final_total || item.final_total_withoutGst).toFixed(2)}
@@ -968,9 +1014,14 @@ const NewCheckout = () => {
                 <HR />
 
                 {/* Price breakdown */}
-                {summaryRows.map(({ label, val, highlight, small, strikeVal, free }) => (
+                {summaryRows.map(({ label, subLabel, val, highlight, small, strikeVal, free }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: small ? 11 : 13, color: 'var(--muted-fg)', fontFamily: 'var(--font-body)' }}>{label}</span>
+                    <div>
+                      <span style={{ fontSize: small ? 11 : 13, color: 'var(--muted-fg)', fontFamily: 'var(--font-body)' }}>{label}</span>
+                      {subLabel && (
+                        <span style={{ display: 'block', fontSize: 10, color: '#16a34a', fontWeight: 600, marginTop: 1 }}>{subLabel}</span>
+                      )}
+                    </div>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {strikeVal && (
                         <span style={{ fontSize: 11, color: 'var(--muted-fg)', textDecoration: 'line-through' }}>{strikeVal}</span>
@@ -988,7 +1039,10 @@ const NewCheckout = () => {
 
                 {/* Total row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Total</span>
+                  <div>
+                    <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Total</span>
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--muted-fg)', fontWeight: 500 }}>Inclusive of GST</span>
+                  </div>
                   <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 22, color: 'var(--on-primary)', background: 'var(--primary)', padding: '2px 10px', borderRadius: 'var(--radius)' }}>
                     ₹{calc.total.toFixed(2)}
                   </span>
@@ -1026,7 +1080,7 @@ const NewCheckout = () => {
                       <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>Full Payment</span>
                       <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 14, color: 'var(--foreground)' }}>₹{calc.total.toFixed(2)}</span>
                     </div>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--muted-fg)', fontFamily: 'var(--font-body)' }}>Pay the complete amount now</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--muted-fg)', fontFamily: 'var(--font-body)' }}>Pay the complete amount now • Inclusive of GST</p>
                   </div>
                 </label>
 
