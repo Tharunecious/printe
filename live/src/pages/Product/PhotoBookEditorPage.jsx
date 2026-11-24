@@ -80,6 +80,8 @@ import {
   formatBookSizeInches,
   resolveEditionPriceForSize,
   getEditionPricingDetailsForSize,
+  resolveTemplatePagesForActiveSize,
+  getFixedPageCountForTemplate,
 } from "../../helper/photobookSizeHelper";
 import YourBookStep, { getPhotoBoundsForDensity } from "../../components/Product/PhotoBookSteps/YourBookStep";
 import UploadPhotosStep from "../../components/Product/PhotoBookSteps/UploadPhotosStep";
@@ -948,7 +950,7 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
   const frameWidth = frame.width || 400;
   const frameHeight = frame.height || 300;
   const shape = frame.shape || "rectangle";
-  const is1to1Shape = ["circle", "heart", "star", "scallop", "hexagon"].includes(shape);
+  const isAspect1to1 = is1to1Shape(shape);
   const radiusVal = frame.border?.radius ?? frame.corner_radius ?? (shape === "circle" ? 50 : 0);
   const clipDef = getShapeClipPathDefinition(shape, radiusVal);
 
@@ -1040,10 +1042,10 @@ const CropPhotoModal = ({ frame, onClose, onApply }) => {
 
           <div
             style={{
-              aspectRatio: is1to1Shape ? "1 / 1" : `${frameWidth} / ${frameHeight}`,
+              aspectRatio: isAspect1to1 ? "1 / 1" : `${frameWidth} / ${frameHeight}`,
               maxHeight: "320px",
               maxWidth: "90%",
-              width: is1to1Shape ? "320px" : undefined,
+              width: isAspect1to1 ? "320px" : undefined,
             }}
             className="relative h-full overflow-hidden border-2 border-teal-500/80 shadow-2xl bg-black cursor-default active:cursor-default flex items-center justify-center"
             onMouseDown={handleMouseDown}
@@ -2350,21 +2352,118 @@ export const PRESET_STUDIO_SIZES = [
   { id: "Square", name: "Square", orientation: "SQUARE", width: 8.51, height: 8.51, unit: "in", dimensions: "8.51 × 8.51 in", popular: false },
 ];
 export const FRAME_SHAPES = [
-  { id: "rectangle", name: "Rectangle", icon: "square", isDefault: true },
-  { id: "circle", name: "Circle / Oval", icon: "circle" },
-  { id: "heart", name: "Heart", icon: "heart" },
-  { id: "star", name: "Star", icon: "star" },
-  { id: "hexagon", name: "Hexagon", icon: "hexagon" },
-  { id: "arch", name: "Arched Window", icon: "arch" },
-  { id: "scallop", name: "Scalloped Flower", icon: "flower" },
+  // Basic & Clean
+  { id: "rectangle", name: "Rectangle", category: "Basic", isDefault: true },
+  { id: "rounded", name: "Rounded Rectangle", category: "Basic" },
+  { id: "circle", name: "Circle", category: "Basic" },
+  { id: "oval", name: "Oval / Ellipse", category: "Basic" },
+  { id: "capsule", name: "Capsule / Pill", category: "Basic" },
+  { id: "arch", name: "Arched Window", category: "Basic" },
+
+  // Geometric Polygons
+  { id: "diamond", name: "Diamond", category: "Geometric" },
+  { id: "triangle", name: "Triangle", category: "Geometric" },
+  { id: "pentagon", name: "Pentagon", category: "Geometric" },
+  { id: "hexagon", name: "Hexagon", category: "Geometric" },
+  { id: "octagon", name: "Octagon", category: "Geometric" },
+
+  // Romantic & Organic
+  { id: "heart", name: "Heart", category: "Romantic" },
+  { id: "star", name: "5-Point Star", category: "Creative" },
+  { id: "star8", name: "8-Point Star", category: "Creative" },
+  { id: "clover", name: "4-Leaf Clover", category: "Decorative" },
+  { id: "flower", name: "Blooming Flower", category: "Decorative" },
+  { id: "scallop", name: "Scalloped Flower", category: "Decorative" },
+  { id: "leaf", name: "Botanical Leaf", category: "Nature" },
+  { id: "cloud", name: "Puffy Cloud", category: "Creative" },
+
+  // Vintage, Badges & Tags
+  { id: "shield", name: "Crest / Shield", category: "Badges" },
+  { id: "badge", name: "Rosette Badge", category: "Badges" },
+  { id: "stamp", name: "Postage Stamp", category: "Vintage" },
+  { id: "ticket", name: "Vintage Ticket", category: "Vintage" },
+  { id: "tag", name: "Gift Tag", category: "Vintage" },
 ];
 
+export const IS_1TO1_SHAPE_LIST = [
+  "circle",
+  "round",
+  "heart",
+  "star",
+  "star8",
+  "flower",
+  "clover",
+  "scallop",
+  "diamond",
+  "hexagon",
+  "pentagon",
+  "octagon",
+  "badge",
+  "stamp",
+];
+
+export const is1to1Shape = (shape) =>
+  IS_1TO1_SHAPE_LIST.includes(String(shape || "").toLowerCase());
+
+/**
+ * 0..1 Coordinate Space definitions for SVG clipPathUnits="objectBoundingBox"
+ */
 export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
-  switch (shape) {
+  const normShape = String(shape || "rectangle").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+
+  switch (normShape) {
     case "circle":
+    case "round":
       return {
         type: "ellipse",
         attrs: { cx: "0.5", cy: "0.5", rx: "0.5", ry: "0.5" },
+      };
+
+    case "oval":
+    case "ellipse":
+      return {
+        type: "ellipse",
+        attrs: { cx: "0.5", cy: "0.5", rx: "0.5", ry: "0.38" },
+      };
+
+    case "capsule":
+    case "pill":
+      return {
+        type: "rect",
+        attrs: { x: "0", y: "0", width: "1", height: "1", rx: "0.5", ry: "0.5" },
+      };
+
+    case "diamond":
+    case "rhombus":
+      return {
+        type: "polygon",
+        attrs: { points: "0.5,0 1,0.5 0.5,1 0,0.5" },
+      };
+
+    case "triangle":
+      return {
+        type: "polygon",
+        attrs: { points: "0.5,0 1,1 0,1" },
+      };
+
+    case "pentagon":
+      return {
+        type: "polygon",
+        attrs: { points: "0.5,0 1,0.38 0.81,1 0.19,1 0,0.38" },
+      };
+
+    case "hexagon":
+      return {
+        type: "polygon",
+        attrs: { points: "0.5,0 1,0.25 1,0.75 0.5,1 0,0.75 0,0.25" },
+      };
+
+    case "octagon":
+      return {
+        type: "polygon",
+        attrs: {
+          points: "0.29,0 0.71,0 1,0.29 1,0.71 0.71,1 0.29,1 0,0.71 0,0.29",
+        },
       };
 
     case "heart":
@@ -2384,11 +2483,13 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
         },
       };
 
-    case "hexagon":
+    case "star8":
+    case "sparkle":
       return {
         type: "polygon",
         attrs: {
-          points: "0.5,0 1,0.25 1,0.75 0.5,1 0,0.75 0,0.25",
+          points:
+            "0.5,0 0.62,0.32 0.85,0.15 0.68,0.38 1,0.5 0.68,0.62 0.85,0.85 0.62,0.68 0.5,1 0.38,0.68 0.15,0.85 0.32,0.62 0,0.5 0.32,0.38 0.15,0.15 0.38,0.32",
         },
       };
 
@@ -2400,6 +2501,23 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
         },
       };
 
+    case "shield":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0,0 L 1,0 L 1,0.55 C 1,0.82 0.5,1 0.5,1 C 0.5,1 0,0.82 0,0.55 Z",
+        },
+      };
+
+    case "clover":
+    case "quatrefoil":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0.5,0.15 C 0.38,0 0.12,0 0.12,0.25 C 0.12,0.38 0,0.38 0,0.5 C 0,0.62 0.12,0.62 0.12,0.75 C 0.12,1 0.38,1 0.5,0.85 C 0.62,1 0.88,1 0.88,0.75 C 0.88,0.62 1,0.62 1,0.5 C 1,0.38 0.88,0.38 0.88,0.25 C 0.88,0 0.62,0 0.5,0.15 Z",
+        },
+      };
+
     case "scallop":
       return {
         type: "path",
@@ -2407,6 +2525,77 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
           d: "M 0.5,0.05 C 0.58,0 0.68,0.03 0.72,0.1 C 0.77,0.08 0.86,0.12 0.88,0.18 C 0.94,0.21 0.98,0.3 0.97,0.37 C 1.01,0.43 1,0.52 0.96,0.57 C 1,0.63 0.98,0.72 0.92,0.77 C 0.92,0.84 0.86,0.91 0.79,0.92 C 0.76,0.98 0.68,1 0.61,0.98 C 0.56,1.02 0.46,1.02 0.41,0.98 C 0.34,1 0.26,0.98 0.23,0.92 C 0.16,0.91 0.1,0.84 0.1,0.77 C 0.04,0.72 0.02,0.63 0.06,0.57 C 0.02,0.52 0.01,0.43 0.05,0.37 C 0.04,0.3 0.08,0.21 0.14,0.18 C 0.16,0.12 0.25,0.08 0.3,0.1 C 0.34,0.03 0.44,0 0.5,0.05 Z",
         },
       };
+
+    case "flower":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0.5,0.2 C 0.55,0.05 0.65,0.05 0.7,0.2 C 0.85,0.15 0.95,0.25 0.9,0.4 C 1.05,0.45 1.05,0.55 0.9,0.6 C 0.95,0.75 0.85,0.85 0.7,0.8 C 0.65,0.95 0.55,0.95 0.5,0.8 C 0.35,0.85 0.25,0.75 0.3,0.6 C 0.15,0.55 0.15,0.45 0.3,0.4 C 0.25,0.25 0.35,0.15 0.5,0.2 Z",
+        },
+      };
+
+    case "leaf":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0.05,0.05 C 0.45,0.05 0.95,0.45 0.95,0.95 C 0.55,0.95 0.05,0.55 0.05,0.05 Z",
+        },
+      };
+
+    case "cloud":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0.2,0.85 C 0.08,0.85 0,0.74 0,0.61 C 0,0.49 0.07,0.39 0.18,0.36 C 0.2,0.17 0.35,0.05 0.52,0.05 C 0.68,0.05 0.81,0.16 0.85,0.31 C 0.94,0.33 1,0.42 1,0.53 C 1,0.65 0.92,0.75 0.81,0.77 C 0.8,0.83 0.74,0.85 0.68,0.85 Z",
+        },
+      };
+
+    case "ticket":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0,0.15 C 0.1,0.15 0.15,0.1 0.15,0 L 0.85,0 C 0.85,0.1 0.9,0.15 1,0.15 L 1,0.85 C 0.9,0.85 0.85,0.9 0.85,1 L 0.15,1 C 0.15,0.9 0.1,0.85 0,0.85 Z",
+        },
+      };
+
+    case "stamp":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0.06,0.06 Q 0.16,-0.02 0.26,0.06 Q 0.38,-0.02 0.50,0.06 Q 0.62,-0.02 0.74,0.06 Q 0.84,-0.02 0.94,0.06 Q 1.02,0.16 0.94,0.26 Q 1.02,0.38 0.94,0.50 Q 1.02,0.62 0.94,0.74 Q 1.02,0.84 0.94,0.94 Q 0.84,1.02 0.74,0.94 Q 0.62,1.02 0.50,0.94 Q 0.38,1.02 0.26,0.94 Q 0.16,1.02 0.06,0.94 Q -0.02,0.84 0.06,0.74 Q -0.02,0.62 0.06,0.50 Q -0.02,0.38 0.06,0.26 Q -0.02,0.16 0.06,0.06 Z",
+        },
+      };
+
+    case "tag":
+      return {
+        type: "polygon",
+        attrs: { points: "0.25,0 0.75,0 1,0.25 1,1 0,1 0,0.25" },
+      };
+
+    case "badge":
+      return {
+        type: "polygon",
+        attrs: {
+          points:
+            "0.5,0 0.61,0.08 0.75,0.07 0.82,0.18 0.93,0.25 0.93,0.39 1,0.5 0.93,0.61 0.93,0.75 0.82,0.82 0.75,0.93 0.61,0.93 0.5,1 0.39,0.93 0.25,0.93 0.18,0.82 0.07,0.75 0.07,0.61 0,0.5 0.07,0.39 0.07,0.25 0.18,0.18 0.25,0.07 0.39,0.08",
+        },
+      };
+
+    case "rounded":
+    case "rounded_rectangle": {
+      const rxVal = cornerRadiusPercent > 0 ? (Number(cornerRadiusPercent) / 100).toFixed(3) : "0.18";
+      return {
+        type: "rect",
+        attrs: {
+          x: "0",
+          y: "0",
+          width: "1",
+          height: "1",
+          rx: rxVal,
+          ry: rxVal,
+        },
+      };
+    }
 
     case "rectangle":
     default: {
@@ -2427,12 +2616,61 @@ export const getShapeClipPathDefinition = (shape, cornerRadiusPercent = 0) => {
 };
 
 export const getShape100Definition = (shape, cornerRadiusPercent = 0) => {
-  switch (shape) {
+  const normShape = String(shape || "rectangle").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+
+  switch (normShape) {
     case "circle":
     case "round":
       return {
         type: "ellipse",
         attrs: { cx: "50", cy: "50", rx: "50", ry: "50" },
+      };
+
+    case "oval":
+    case "ellipse":
+      return {
+        type: "ellipse",
+        attrs: { cx: "50", cy: "50", rx: "50", ry: "38" },
+      };
+
+    case "capsule":
+    case "pill":
+      return {
+        type: "rect",
+        attrs: { x: "0", y: "0", width: "100", height: "100", rx: "50", ry: "50" },
+      };
+
+    case "diamond":
+    case "rhombus":
+      return {
+        type: "polygon",
+        attrs: { points: "50,0 100,50 50,100 0,50" },
+      };
+
+    case "triangle":
+      return {
+        type: "polygon",
+        attrs: { points: "50,0 100,100 0,100" },
+      };
+
+    case "pentagon":
+      return {
+        type: "polygon",
+        attrs: { points: "50,0 100,38 81,100 19,100 0,38" },
+      };
+
+    case "hexagon":
+      return {
+        type: "polygon",
+        attrs: { points: "50,0 100,25 100,75 50,100 0,75 0,25" },
+      };
+
+    case "octagon":
+      return {
+        type: "polygon",
+        attrs: {
+          points: "29,0 71,0 100,29 100,71 71,100 29,100 0,71 0,29",
+        },
       };
 
     case "heart":
@@ -2451,11 +2689,13 @@ export const getShape100Definition = (shape, cornerRadiusPercent = 0) => {
         },
       };
 
-    case "hexagon":
+    case "star8":
+    case "sparkle":
       return {
         type: "polygon",
         attrs: {
-          points: "50,0 100,25 100,75 50,100 0,75 0,25",
+          points:
+            "50,0 62,32 85,15 68,38 100,50 68,62 85,85 62,68 50,100 38,68 15,85 32,62 0,50 32,38 15,15 38,32",
         },
       };
 
@@ -2467,6 +2707,23 @@ export const getShape100Definition = (shape, cornerRadiusPercent = 0) => {
         },
       };
 
+    case "shield":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0,0 L 100,0 L 100,55 C 100,82 50,100 50,100 C 50,100 0,82 0,55 Z",
+        },
+      };
+
+    case "clover":
+    case "quatrefoil":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 50,15 C 38,0 12,0 12,25 C 12,38 0,38 0,50 C 0,62 12,62 12,75 C 12,100 38,100 50,85 C 62,100 88,100 88,75 C 88,62 100,62 100,50 C 100,38 88,38 88,25 C 88,0 62,0 50,15 Z",
+        },
+      };
+
     case "scallop":
       return {
         type: "path",
@@ -2474,6 +2731,77 @@ export const getShape100Definition = (shape, cornerRadiusPercent = 0) => {
           d: "M 50,5 C 58,0 68,3 72,10 C 77,8 86,12 88,18 C 94,21 98,30 97,37 C 101,43 100,52 96,57 C 100,63 98,72 92,77 C 92,84 86,91 79,92 C 76,98 68,100 61,98 C 56,102 46,102 41,98 C 34,100 26,98 23,92 C 16,91 10,84 10,77 C 4,72 2,63 6,57 C 2,52 1,43 5,37 C 4,30 8,21 14,18 C 16,12 25,8 30,10 C 34,3 44,0 50,5 Z",
         },
       };
+
+    case "flower":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 50,20 C 55,5 65,5 70,20 C 85,15 95,25 90,40 C 105,45 105,55 90,60 C 95,75 85,85 70,80 C 65,95 55,95 50,80 C 35,85 25,75 30,60 C 15,55 15,45 30,40 C 25,25 35,15 50,20 Z",
+        },
+      };
+
+    case "leaf":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 5,5 C 45,5 95,45 95,95 C 55,95 5,55 5,5 Z",
+        },
+      };
+
+    case "cloud":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 20,85 C 8,85 0,74 0,61 C 0,49 7,39 18,36 C 20,17 35,5 52,5 C 68,5 81,16 85,31 C 94,33 100,42 100,53 C 100,65 92,75 81,77 C 80,83 74,85 68,85 Z",
+        },
+      };
+
+    case "ticket":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 0,15 C 10,15 15,10 15,0 L 85,0 C 85,10 90,15 100,15 L 100,85 C 90,85 85,90 85,100 L 15,100 C 15,90 10,85 0,85 Z",
+        },
+      };
+
+    case "stamp":
+      return {
+        type: "path",
+        attrs: {
+          d: "M 6,6 Q 16,-2 26,6 Q 38,-2 50,6 Q 62,-2 74,6 Q 84,-2 94,6 Q 102,16 94,26 Q 102,38 94,50 Q 102,62 94,74 Q 102,84 94,94 Q 84,102 74,94 Q 62,102 50,94 Q 38,102 26,94 Q 16,102 6,94 Q -2,84 6,74 Q -2,62 6,50 Q -2,38 6,26 Q -2,16 6,6 Z",
+        },
+      };
+
+    case "tag":
+      return {
+        type: "polygon",
+        attrs: { points: "25,0 75,0 100,25 100,100 0,100 0,25" },
+      };
+
+    case "badge":
+      return {
+        type: "polygon",
+        attrs: {
+          points:
+            "50,0 61,8 75,7 82,18 93,25 93,39 100,50 93,61 93,75 82,82 75,93 61,93 50,100 39,93 25,93 18,82 7,75 7,61 0,50 7,39 7,25 18,18 25,7 39,8",
+        },
+      };
+
+    case "rounded":
+    case "rounded_rectangle": {
+      const rx = cornerRadiusPercent > 0 ? cornerRadiusPercent : 18;
+      return {
+        type: "rect",
+        attrs: {
+          x: "0",
+          y: "0",
+          width: "100",
+          height: "100",
+          rx,
+          ry: rx,
+        },
+      };
+    }
 
     case "rectangle":
     default:
@@ -2642,6 +2970,7 @@ export const calculateDynamicTextDimensions = ({
   canvasHeight = 1000,
   padding = null,
   border = null,
+  bold_px = 0,
 }) => {
   const text = String(content ?? "");
   const numFontSize = Number(fontSize) || 24;
@@ -2649,21 +2978,26 @@ export const calculateDynamicTextDimensions = ({
   const numCanvasH = Number(canvasHeight) || 1000;
   const numLetterSpacing = Number(letterSpacing) || 0;
   const numLineHeight = Number(lineHeight) || 1.2;
+  const numBoldPx = Number(bold_px || 0);
 
   // Font size rendered on canvas is proportional to 707 standard container width
   const effectiveFontSizePx = (numFontSize * numCanvasW) / 707;
   const effectiveLetterSpacingPx = numLetterSpacing ? (numLetterSpacing * numCanvasW) / 707 : 0;
+  const extraBoldPx = numBoldPx ? (numBoldPx * numCanvasW) / 707 : 0;
+
+  // Normalize all newline formats (\r\n, \r, \n)
+  const cleanText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
   // Parse element borders and paddings to expand the bounding box accurately
   const pad = parsePaddingValues(padding);
   const bord = parseBorderValues(border);
-  const extraWPx = (pad.left + pad.right) + (bord.left + bord.right);
-  const extraHPx = (pad.top + pad.bottom) + (bord.top + bord.bottom);
+  const extraWPx = (pad.left + pad.right) + (bord.left + bord.right) + (extraBoldPx * 2);
+  const extraHPx = (pad.top + pad.bottom) + (bord.top + bord.bottom) + (extraBoldPx * 2);
 
   // 1. If there is no letter (empty or whitespace only), width is low (1%)
-  if (!text || text.trim().length === 0) {
+  if (!cleanText || cleanText.trim().length === 0) {
     const minWidthPct = Number((((10 + extraWPx) / numCanvasW) * 100).toFixed(2));
-    const minHeightPx = Math.max(16, Math.round(effectiveFontSizePx * 1.2)) + extraHPx;
+    const minHeightPx = Math.max(16, Math.round(effectiveFontSizePx * 1.35)) + extraHPx;
     const minHeightPct = Number(((minHeightPx / numCanvasH) * 100).toFixed(2));
     return {
       width_pct: Math.max(1.0, minWidthPct),
@@ -2672,7 +3006,7 @@ export const calculateDynamicTextDimensions = ({
   }
 
   // 2. Measure characters typed using offscreen canvas context
-  const lines = text.split("\n");
+  const lines = cleanText.split("\n");
   let maxLineWidthPx = 0;
 
   try {
@@ -2703,14 +3037,16 @@ export const calculateDynamicTextDimensions = ({
   }
 
   // Generous breathing room for flourishes, cursive swashes, and custom font metrics
-  const paddingPx = Math.max(12, Math.round(effectiveFontSizePx * 0.35));
-  const totalWidthPx = maxLineWidthPx + paddingPx + extraWPx;
+  const paddingWPx = Math.max(20, Math.round(effectiveFontSizePx * 0.45));
+  const totalWidthPx = maxLineWidthPx + paddingWPx + extraWPx;
   const calcWidthPct = Number(((totalWidthPx / numCanvasW) * 100).toFixed(2));
   const finalWidthPct = Math.min(100, Math.max(1.0, calcWidthPct));
 
+  const paddingHPx = Math.max(18, Math.round(effectiveFontSizePx * 0.45));
+  const effectiveLineHeight = Math.max(1.3, numLineHeight);
   const totalHeightPx = Math.max(
-    Math.round(lines.length * (effectiveFontSizePx * numLineHeight) + 4) + extraHPx,
-    Math.round(effectiveFontSizePx * 1.2) + extraHPx
+    Math.round(lines.length * (effectiveFontSizePx * effectiveLineHeight) + paddingHPx) + extraHPx,
+    Math.round(effectiveFontSizePx * 1.4 + paddingHPx) + extraHPx
   );
   const calcHeightPct = Number(((totalHeightPx / numCanvasH) * 100).toFixed(2));
   const finalHeightPct = Math.min(100, Math.max(1.0, calcHeightPct));
@@ -2820,6 +3156,9 @@ export const getElementCoords = (el) => {
       lineHeight: el.line_height,
       canvasWidth: 707,
       canvasHeight: 1000,
+      padding: el.padding,
+      border: el.border,
+      bold_px: el.bold_px ?? el.stroke_width ?? 0,
     });
 
     width = dynamicDims.width_pct;
@@ -3698,9 +4037,8 @@ const PhotoBookEditorPage = () => {
       const targetEl = (editingPageDraft?.elements || []).find(
         (el) => el.id === elementId || el.frame_id === elementId
       );
-      const is1to1Shape =
-        targetEl?.type === "photo_frame" &&
-        ["circle", "heart", "star", "scallop", "hexagon"].includes(targetEl?.shape);
+      const isAspect1to1 =
+        targetEl?.type === "photo_frame" && is1to1Shape(targetEl?.shape);
 
       if (type === "move") {
         const nextLeftPct = +(Math.max(-100, Math.min(200, baseLeft + deltaXPct))).toFixed(3);
@@ -3776,8 +4114,8 @@ const PhotoBookEditorPage = () => {
           newHPct = +(possibleH).toFixed(3);
         }
 
-        if (is1to1Shape) {
-          // Keep width and height uniform for circle, heart, star, scallop frames
+        if (isAspect1to1) {
+          // Keep width and height uniform for symmetrical 1:1 frames
           const uniformPct = Math.max(newWPct, newHPct);
           newWPct = uniformPct;
           newHPct = uniformPct;
@@ -4051,24 +4389,24 @@ const PhotoBookEditorPage = () => {
       };
     }
 
-    // 8. Extra pages (only charged above base default pages)
-    const extraPages = Math.max(0, photoBookPages - basePages);
-    const extraPagesCost = extraPages * extraPricePerUnit;
+    // 8. Fixed Pages pricing: no extra pages charges
+    const extraPages = 0;
+    const extraPagesCost = 0;
     // Customer price configured in admin is already inclusive of GST
-    const finalTotal = Number((basePrice + extraPagesCost).toFixed(2));
+    const finalTotal = Number(basePrice.toFixed(2));
     const gstRate = parseFloat(productData?.GST || productData?.gst || 18) || 18;
     const taxableTotal = Number((finalTotal / (1 + gstRate / 100)).toFixed(2));
     const taxAmount = Number((finalTotal - taxableTotal).toFixed(2));
     const mrpBase = Number(edPricingDetails?.mrp || productData?.MRP_price || basePrice);
-    const mrpTotal = Number((mrpBase + extraPagesCost).toFixed(2));
+    const mrpTotal = Number(mrpBase.toFixed(2));
 
     return {
-      basePages,
-      minPages,
-      maxPages,
-      extraPages,
-      extraPricePerUnit,
-      extraPagesCost,
+      basePages: photoBookPages,
+      minPages: photoBookPages,
+      maxPages: photoBookPages,
+      extraPages: 0,
+      extraPricePerUnit: 0,
+      extraPagesCost: 0,
       basePrice,
       mrpBase,
       mrpTotal,
@@ -4081,16 +4419,6 @@ const PhotoBookEditorPage = () => {
       matchedTemplateName: matchedTemplate?.template_name || selectedTemplateName,
     };
   }, [productData, photoBookPages, selectedSize, selectedVariant, selectedTemplateName, selectedTemplateId, designData, templateData]);
-
-  // Enforce page bounds: strictly clamp photoBookPages within minPages and maxPages
-  useEffect(() => {
-    if (isLoading) return;
-    if (priceDetails.maxPages && photoBookPages > priceDetails.maxPages) {
-      setPhotoBookPages(priceDetails.maxPages);
-    } else if (priceDetails.minPages && photoBookPages < priceDetails.minPages) {
-      setPhotoBookPages(priceDetails.minPages);
-    }
-  }, [priceDetails.maxPages, priceDetails.minPages, photoBookPages, isLoading]);
 
   // ── Helper: Resolve Template Pages for Active Size ───────────────────────
   const resolveTemplatePagesForActiveSize = useCallback(
@@ -4415,32 +4743,15 @@ const PhotoBookEditorPage = () => {
         });
       }
 
-      // 3. Interior Pages (totalPages includes Front & Back Cover)
-      // Exactly matches Admin Photobook Sequence page-for-page
-      const interiorPagesCount = Math.max(2, totalPages - 2);
+      // 3. Interior Pages
+      // Exactly matches Admin Photobook Sequence card-for-card
       const interiorTPages = tPages.filter(
-        (p) => p.page_type !== "front_cover" && p.page_type !== "back_cover"
+        (p) => p.page_type !== "front_cover" && p.page_type !== "back_cover" && !p.is_blank && p.page_type !== "blank"
       );
-      const masterTplPage = interiorTPages[0] || tPages[0];
 
-      for (let pNum = 1; pNum <= interiorPagesCount; pNum++) {
-        const curTplPage = resolveTemplatePage(pNum, totalPages, template, sizeKey);
-
-        if (!curTplPage) {
-          // If no design was created by admin for this page, show "No design created for this page"
-          builtPages.push({
-            page_number: pNum,
-            display_label: `Page ${pNum}`,
-            page_id: `page-${pNum}`,
-            name: `Page ${pNum}`,
-            page_type: "interior",
-            no_design: true,
-            has_design: false,
-            background: { type: "color", value: "#ffffff", opacity: 1 },
-            elements: [],
-          });
-          continue;
-        }
+      for (let idx = 0; idx < interiorTPages.length; idx++) {
+        const curTplPage = interiorTPages[idx];
+        const pNum = idx + 1;
 
         const curElementsList = curTplPage.elements || [];
 
@@ -5031,19 +5342,23 @@ const PhotoBookEditorPage = () => {
           setSelectedSize(activeBookSize);
           localStorage.setItem("photobook_selected_size", activeBookSize);
         }
+
+        const fixedPagesCount = getFixedPageCountForTemplate(activeTpl, activeBookSize, templateSizes);
+        setPhotoBookPages(fixedPagesCount);
+
         if (!isExplicitNew && design?.pages && design.pages.length > 0 && design.pages.some((pg) => pg.elements?.length > 0)) {
-          const enriched = design.pages.map((pg) => {
-            const tPages = resolveTemplatePagesForActiveSize(activeTpl, activeBookSize);
+          const tPages = resolveTemplatePagesForActiveSize(activeTpl, activeBookSize);
+          const rawEnriched = design.pages.map((pg) => {
             let tplPg = null;
             if (pg.page_type === "front_cover" || pg.page_id === "front-cover") {
               tplPg = tPages.find((p) => p.page_type === "front_cover");
             } else if (pg.page_type === "back_cover" || pg.page_id === "back-cover") {
               tplPg = tPages.find((p) => p.page_type === "back_cover");
             } else {
-              tplPg = resolveTemplatePage(pg.page_number, pageCnt, activeTpl, activeBookSize);
+              tplPg = resolveTemplatePage(pg.page_number, fixedPagesCount, activeTpl, activeBookSize);
             }
 
-            // If this is an interior page and admin created no design for it (e.g. admin created 1-5, but book has 20 pages):
+            // If this is an interior page and admin created no design for it:
             if (pg.page_type === "interior" && !tplPg) {
               return {
                 ...pg,
@@ -5183,8 +5498,16 @@ const PhotoBookEditorPage = () => {
             };
           });
 
-          // Preserve exact saved pages and layout sequence
-          setPagesData(enriched);
+          // Filter out phantom/dummy empty pages from old designs
+          const enriched = rawEnriched.filter((pg) => !pg.no_design && pg.has_design !== false);
+
+          if (enriched.length !== fixedPagesCount) {
+            const buildFn = buildPagesFromTemplateRef.current || buildPagesFromTemplate;
+            const initialPages = buildFn(fixedPagesCount, activeTpl, loadedPhotos, activeBookSize);
+            setPagesData(initialPages);
+          } else {
+            setPagesData(enriched);
+          }
 
           // Step resolution:
           // Simplified 3-step workflow (1: Upload Photos, 2: Edit Your Book, 3: Review & Cart)
@@ -5205,7 +5528,7 @@ const PhotoBookEditorPage = () => {
           }
         } else {
           const buildFn = buildPagesFromTemplateRef.current || buildPagesFromTemplate;
-          const initialPages = buildFn(pageCnt, activeTpl, loadedPhotos, activeBookSize);
+          const initialPages = buildFn(fixedPagesCount, activeTpl, loadedPhotos, activeBookSize);
           setPagesData(initialPages);
 
           const reqFrames = initialPages.reduce((tot, pg) => {
@@ -6619,6 +6942,9 @@ const PhotoBookEditorPage = () => {
             lineHeight: el.line_height,
             canvasWidth: 707,
             canvasHeight: 1000,
+            padding: el.padding,
+            border: el.border,
+            bold_px: el.bold_px ?? el.stroke_width ?? 0,
           });
           const width_pct = dims.width_pct;
           const height_pct = dims.height_pct;
@@ -7105,7 +7431,7 @@ const PhotoBookEditorPage = () => {
     const coords = getElementCoords(frame);
     const startWPct = coords.width;
     const startHPct = coords.height;
-    const is1to1Shape = ["circle", "heart", "star", "scallop", "hexagon"].includes(frame.shape);
+    const isAspect1to1 = is1to1Shape(frame.shape);
 
     const onMouseMove = (moveEvent) => {
       const deltaXPct = ((moveEvent.clientX - startX) / rect.width) * 100;
@@ -7117,8 +7443,8 @@ const PhotoBookEditorPage = () => {
       let newWPct = +(Math.max(10, Math.min(maxWPct, startWPct + deltaXPct))).toFixed(2);
       let newHPct = +(Math.max(10, Math.min(maxHPct, startHPct + deltaYPct))).toFixed(2);
 
-      if (is1to1Shape) {
-        // Uniform 1:1 scale for circle, heart, star, scallop frames
+      if (isAspect1to1) {
+        // Uniform 1:1 scale for symmetrical 1:1 frames
         const uniformSizePct = +(Math.max(10, Math.min(maxWPct, maxHPct, startWPct + deltaXPct))).toFixed(2);
         newWPct = uniformSizePct;
         newHPct = uniformSizePct;
@@ -7732,6 +8058,9 @@ const PhotoBookEditorPage = () => {
           lineHeight: el.line_height,
           canvasWidth: 707,
           canvasHeight: 1000,
+          padding: el.padding,
+          border: el.border,
+          bold_px: el.bold_px ?? el.stroke_width ?? 0,
         });
 
         const oldW = el.width_pct !== undefined ? el.width_pct : 80;
@@ -8123,17 +8452,15 @@ const PhotoBookEditorPage = () => {
 
           const shape = el.shape || el.mask_shape || "rectangle";
           const isCircle = shape === "circle";
-          const is1to1Shape =
-            el.type === "photo_frame" &&
-            ["circle", "heart", "star", "scallop", "hexagon"].includes(shape);
+          const isAspect1to1 = el.type === "photo_frame" && is1to1Shape(shape);
 
           const baseStyle = {
             position: "absolute",
             left: `${leftPct}%`,
             top: `${topPct}%`,
             width: `${widthPct}%`,
-            height: is1to1Shape ? undefined : `${heightPct}%`,
-            aspectRatio: is1to1Shape ? "1 / 1" : undefined,
+            height: isAspect1to1 ? undefined : `${heightPct}%`,
+            aspectRatio: isAspect1to1 ? "1 / 1" : undefined,
             zIndex: isSelected ? 50 : el.z_index || 1,
             transform: `rotate(${el.rotation || 0}deg)`,
             transformOrigin: "center center",
@@ -8189,7 +8516,7 @@ const PhotoBookEditorPage = () => {
             const borderSvg = (maxBorder * 100) / elWidth;
             const padVal = Math.max(pad.top || 0, pad.right || 0, pad.bottom || 0, pad.left || 0);
             const padSvg = (padVal * 100) / elWidth;
-            const maskStroke = padSvg > 0 || borderSvg > 0 ? (borderSvg + 2 * padSvg) : 0;
+            const maskStroke = padSvg > 0 ? (borderSvg + 2 * padSvg) : 0;
             const shape100Def = getShape100Definition(shape, radiusVal);
             const maskId = `cust-mask-${page.page_id || page.page_number || "pg"}-${elKey}`;
             const elementBg = el.bg_color || el.background?.value;
@@ -8380,10 +8707,10 @@ const PhotoBookEditorPage = () => {
               );
             }
 
-            const totalPadTop = (bord.top !== undefined ? bord.top : bord.width) + (pad.top || 0);
-            const totalPadRight = (bord.right !== undefined ? bord.right : bord.width) + (pad.right || 0);
-            const totalPadBottom = (bord.bottom !== undefined ? bord.bottom : bord.width) + (pad.bottom || 0);
-            const totalPadLeft = (bord.left !== undefined ? bord.left : bord.width) + (pad.left || 0);
+            const totalPadTop = pad.top || 0;
+            const totalPadRight = pad.right || 0;
+            const totalPadBottom = pad.bottom || 0;
+            const totalPadLeft = pad.left || 0;
 
             return (
               <div
@@ -8534,8 +8861,10 @@ const PhotoBookEditorPage = () => {
                   maxWidth: "100%",
                   fontFamily: getFontFamilyFallback(effectiveFontFamily),
                   fontSize: `calc(${Number(el.font_size || 24)} * (100cqw / 707))`,
-                  fontWeight: effectiveFontWeight,
+                  fontWeight: (el.bold_px || el.stroke_width) ? "normal" : effectiveFontWeight,
                   fontStyle: effectiveFontStyle,
+                  WebkitTextStroke: (el.bold_px || el.stroke_width) ? `calc(${Number(el.bold_px || el.stroke_width)} * (100cqw / 707)) ${el.color || "#1f2937"}` : undefined,
+                  paintOrder: (el.bold_px || el.stroke_width) ? "stroke fill" : undefined,
                   textTransform: effectiveTextTransform,
                   letterSpacing: effectiveLetterSpacing ? `calc(${Number(effectiveLetterSpacing)} * (100cqw / 707))` : "normal",
                   lineHeight: effectiveLineHeight,
@@ -10125,162 +10454,16 @@ const PhotoBookEditorPage = () => {
                     15
                   );
 
-                  // Quick select page chips strictly bounded by real min and max
-                  const standardSteps = [10, 16, 20, 26, 32, 40, 50, 60];
-                  const quickPageList = Array.from(
-                    new Set([minPages, ...standardSteps.filter((n) => n >= minPages && n <= maxPages), maxPages])
-                  ).sort((a, b) => a - b);
+                  // Book page count is fixed to the cards created in the template
 
-                  const handleUpdatePageCount = (newPageCount) => {
-                    const clamped = Math.max(minPages, Math.min(maxPages, newPageCount));
-                    if (clamped === photoBookPages) return;
-                    setPhotoBookPages(clamped);
-
-                    // Identify covers, blanks, and existing interior pages
-                    const frontCover = pagesData.find(
-                      (p) => p.page_type === "front_cover" || p.page_id === "front-cover"
-                    ) || pagesData[0];
-                    const blankInsideFront = pagesData.find((p) => p.page_id === "blank-inside-front");
-                    const blankInsideBack = pagesData.find((p) => p.page_id === "blank-inside-back");
-                    const backCover = pagesData.find(
-                      (p) => p.page_type === "back_cover" || p.page_id === "back-cover"
-                    ) || pagesData[pagesData.length - 1];
-
-                    const existingInterior = pagesData.filter((p) => {
-                      if (p.page_type === "front_cover" || p.page_id === "front-cover") return false;
-                      if (p.page_type === "back_cover" || p.page_id === "back-cover") return false;
-                      if (p.page_id === "blank-inside-front" || p.page_id === "blank-inside-back") return false;
-                      if (p.is_blank) return false;
-                      return true;
-                    });
-
-                    const targetInteriorCount = Math.max(2, clamped - 2);
-                    const currentInteriorCount = existingInterior.length;
-
-                    let nextInterior = [...existingInterior];
-
-                    if (targetInteriorCount > currentInteriorCount) {
-                      // Only ADD the newly required pages; PRESERVE all existing edited interior pages
-                      const usedUrls = new Set();
-                      pagesData.forEach((pg) => {
-                        (pg.elements || []).forEach((el) => {
-                          if (el.type === "photo_frame" && el.photo_url) {
-                            usedUrls.add(el.photo_url);
-                          }
-                        });
-                      });
-                      const unusedPhotos = uploadedPhotos.filter((p) => !usedUrls.has(p.url));
-                      let unusedIdx = 0;
-                      const getNextPhoto = () => {
-                        if (unusedIdx < unusedPhotos.length) {
-                          return unusedPhotos[unusedIdx++];
-                        }
-                        return null;
-                      };
-
-                      const activeTpl = templateData || DEFAULT_VINTAGE_TEMPLATE;
-                      const dbDecDefs = extractDatabaseDecorations(activeTpl);
-
-                      for (let pNum = currentInteriorCount + 1; pNum <= targetInteriorCount; pNum++) {
-                        const tplPage = resolveTemplatePage(pNum, targetInteriorCount, activeTpl);
-
-                        if (!tplPage) {
-                          // If no design was created by admin for this page, show "No design created for this page"
-                          nextInterior.push({
-                            page_number: pNum,
-                            display_label: `Page ${pNum}`,
-                            page_id: `page-${pNum}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                            name: `Page ${pNum}`,
-                            page_type: "interior",
-                            no_design: true,
-                            has_design: false,
-                            background: { type: "color", value: "#ffffff", opacity: 1 },
-                            elements: [],
-                          });
-                          continue;
-                        }
-
-                        const clonedElements = (tplPage?.elements || []).map((el) => {
-                          if (el.type === "photo_frame") {
-                            const assignedPhoto = getNextPhoto();
-                            return {
-                              ...el,
-                              shape: el.shape || el.mask_shape || "rectangle",
-                              mask_shape: el.mask_shape || el.shape || "rectangle",
-                              photo_url: assignedPhoto ? assignedPhoto.url : (el.photo_url || ""),
-                              photo_id: assignedPhoto ? assignedPhoto.id : (el.photo_id || ""),
-                              test_image_url: el.test_image_url || el.sample_image_url || "",
-                              crop: el.crop || { zoom: 1, offsetX: 0, offsetY: 0 },
-                              rotation: el.rotation || 0,
-                            };
-                          }
-                          if (el.type === "decoration") {
-                            return resolveDbDecorationData(el, dbDecDefs);
-                          }
-                          if (el.type === "text") {
-                            const fontFamily = el.font_family || el.fontFamily || "Inter";
-                            dynamicallyLoadGoogleFont(fontFamily);
-                            return {
-                              ...el,
-                              content: el.content !== undefined && el.content !== null ? el.content : "",
-                              font_family: fontFamily,
-                              font_size: el.font_size || el.fontSize || 24,
-                              font_weight: el.font_weight || el.fontWeight || "normal",
-                              font_style: el.font_style || el.fontStyle || "normal",
-                              color: el.color || "#1f2937",
-                              align: el.align || "center",
-                              is_customer_editable: Boolean(el.is_customer_editable || el.allowCustomerEdit),
-                            };
-                          }
-                          return { ...el };
-                        });
-
-                        nextInterior.push({
-                          page_number: pNum,
-                          display_label: `Page ${pNum}`,
-                          page_id: `page-${pNum}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                          name: `Page ${pNum}`,
-                          page_type: "interior",
-                          no_design: false,
-                          has_design: true,
-                          background: tplPage?.background || { type: "color", value: "#ffffff", opacity: 1 },
-                          elements: clonedElements.map(normalizeElementToPaperCoords),
-                        });
-                      }
-                    } else if (targetInteriorCount < currentInteriorCount) {
-                      // Only remove trailing interior pages; PRESERVE all existing edited pages up to the target
-                      nextInterior = nextInterior.slice(0, targetInteriorCount);
-                    }
-
-                    // Renumber display labels cleanly
-                    const renumberedInterior = nextInterior.map((pg, idx) => ({
-                      ...pg,
-                      page_number: idx + 1,
-                      display_label: `Page ${idx + 1}`,
-                      name: `Page ${idx + 1}`,
-                    }));
-
-                    const finalPages = [
-                      frontCover,
-                      ...(blankInsideFront ? [blankInsideFront] : []),
-                      ...renumberedInterior,
-                      ...(blankInsideBack ? [blankInsideBack] : []),
-                      backCover,
-                    ].filter(Boolean);
-
-                    setPagesData(finalPages);
-                    setHasUnsavedChanges(true);
-                    message.success(`Updated book to ${clamped} pages`);
-                  };
-
-                  const extraPages = priceDetails.extraPages ?? Math.max(0, photoBookPages - basePages);
-                  const extraPagesCost = priceDetails.extraPagesCost ?? (extraPages * pricePerExtraPage);
+                  const extraPages = 0;
+                  const extraPagesCost = 0;
                   const editionSurcharge =
                     availableEditions.find((e) => (e.edition_name || e.name) === selectedVariant)?.surcharge || 0;
 
                   const liveTotal =
                     priceDetails.finalTotal ||
-                    ((Number(priceDetails.basePrice) || 1499) + extraPagesCost + editionSurcharge);
+                    ((Number(priceDetails.basePrice) || 1499) + editionSurcharge);
 
                   return (
                     <div className="flex flex-col h-full select-none overflow-hidden">
@@ -10408,6 +10591,16 @@ const PhotoBookEditorPage = () => {
                           </div>
                         )}
 
+                        {/* Fixed Pages Info */}
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold block">Photobook Pages</span>
+                            <span className="text-xs font-bold text-gray-800">{photoBookPages} Pages</span>
+                          </div>
+                          <span className="text-xs font-semibold text-[#00a896] bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-md">
+                            Template Sequence
+                          </span>
+                        </div>
                       </div>
 
                       {/* 3. Bottom Sticky Pricing Details */}
@@ -11530,7 +11723,7 @@ const PhotoBookEditorPage = () => {
                       const shape = frame.shape || frame.mask_shape || "rectangle";
                       const isCircle = shape === "circle";
                       const isHeart = shape === "heart" || frame.mask_shape === "heart";
-                      const is1to1Shape = ["circle", "heart", "star", "scallop", "hexagon"].includes(shape);
+                      const isAspect1to1 = is1to1Shape(shape);
                       const isRect = shape === "rectangle";
 
                       const displayPhoto =
@@ -11581,7 +11774,7 @@ const PhotoBookEditorPage = () => {
                       const borderSvg = (maxBorder * 100) / elWidth;
                       const padVal = Math.max(pad.top || 0, pad.right || 0, pad.bottom || 0, pad.left || 0);
                       const padSvg = (padVal * 100) / elWidth;
-                      const maskStroke = padSvg > 0 || borderSvg > 0 ? (borderSvg + 2 * padSvg) : 0;
+                      const maskStroke = padSvg > 0 ? (borderSvg + 2 * padSvg) : 0;
                       const shape100Def = getShape100Definition(shape, radiusVal);
                       const maskId = `modal-mask-${editingPageDraft?.page_id || "draft"}-${frame.id || frame.frame_id || idx}`;
                       const elementBg = frame.bg_color || frame.background?.value;
@@ -11595,8 +11788,8 @@ const PhotoBookEditorPage = () => {
                               left: `${leftPct}%`,
                               top: `${topPct}%`,
                               width: `${widthPct}%`,
-                              height: is1to1Shape ? undefined : `${heightPct}%`,
-                              aspectRatio: is1to1Shape ? "1 / 1" : undefined,
+                              height: isAspect1to1 ? undefined : `${heightPct}%`,
+                              aspectRatio: isAspect1to1 ? "1 / 1" : undefined,
                               zIndex: isSelected ? 99 : (frame.z_index || 1),
                               transform: `rotate(${frame.rotation || 0}deg)`,
                               transformOrigin: "center center",
@@ -11688,8 +11881,8 @@ const PhotoBookEditorPage = () => {
                             left: `${leftPct}%`,
                             top: `${topPct}%`,
                             width: `${widthPct}%`,
-                            height: is1to1Shape ? undefined : `${heightPct}%`,
-                            aspectRatio: is1to1Shape ? "1 / 1" : undefined,
+                            height: isAspect1to1 ? undefined : `${heightPct}%`,
+                            aspectRatio: isAspect1to1 ? "1 / 1" : undefined,
                             zIndex: isSelected ? 99 : (frame.z_index || 1),
                             transform: `rotate(${frame.rotation || 0}deg)`,
                             transformOrigin: "center center",

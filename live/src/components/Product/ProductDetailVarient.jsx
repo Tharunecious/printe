@@ -38,7 +38,7 @@ import {
   checkCustomerSavedPhotoBookDesign,
 } from "../../helper/api_helper";
 import Swal from "sweetalert2";
-import { formatBookSizeInches, getEditionPricingDetailsForSize } from "../../helper/photobookSizeHelper";
+import { formatBookSizeInches, getEditionPricingDetailsForSize, getFixedPageCountForTemplate } from "../../helper/photobookSizeHelper";
 import { ADD_TO_CART } from "../../redux/slices/cart.slice";
 import {
   DISCOUNT_HELPER,
@@ -773,56 +773,6 @@ const ProductDetailVarient = ({
     );
   }, [activeTemplate, selectedVariants]);
 
-  const userManuallyChangedPages = useRef(false);
-  const defaultPages = Number(
-    activeEdition?.default_pages ||
-    activeTemplate?.default_pages ||
-    activeTemplate?.page_config?.default_pages ||
-    photobookConfig.default_pages ||
-    20
-  );
-  const minPages = Number(
-    activeEdition?.min_pages ||
-    activeTemplate?.min_pages ||
-    activeTemplate?.page_config?.min_pages ||
-    photobookConfig.min_pages ||
-    10
-  );
-  const maxPages = Number(
-    activeEdition?.max_pages ||
-    activeTemplate?.max_pages ||
-    activeTemplate?.page_config?.max_pages ||
-    photobookConfig.max_pages ||
-    60
-  );
-  const pageIncrement = Number(photobookConfig.page_increment || 2);
-
-  const [photoBookPages, setPhotoBookPages] = useState(defaultPages);
-  useEffect(() => {
-    if (isPhotoBook) {
-      if (isGiveaway) {
-        const exact = Number(activeTemplate?.exact_pages || activeTemplate?.default_pages || defaultPages || 20);
-        setPhotoBookPages(exact);
-        return;
-      }
-      if (!userManuallyChangedPages.current) {
-        setPhotoBookPages(Math.min(maxPages, Math.max(minPages, defaultPages)));
-      } else {
-        if (photoBookPages > maxPages) setPhotoBookPages(maxPages);
-        if (photoBookPages < minPages) setPhotoBookPages(minPages);
-      }
-    }
-  }, [isPhotoBook, isGiveaway, activeTemplate?.exact_pages, defaultPages, maxPages, minPages]);
-
-  const photoBookPageOptions = useMemo(() => {
-    if (!isPhotoBook) return [];
-    const list = [];
-    for (let p = minPages; p <= maxPages; p += pageIncrement) {
-      list.push(p);
-    }
-    return list;
-  }, [isPhotoBook, minPages, maxPages, pageIncrement]);
-
   const currentSizeName = selectedVariants.sizes || selectedVariants.size;
   const currentSizeObj = useMemo(() => {
     return (photobookConfig.sizes || []).find(
@@ -833,44 +783,24 @@ const ProductDetailVarient = ({
   }, [photobookConfig.sizes, currentSizeName]);
   const currentSizeId = currentSizeObj?._id || currentSizeName;
 
+  // The number of pages is fixed to whatever the admin created and stored in the template for this size
+  const photoBookPages = useMemo(() => {
+    if (!isPhotoBook) return 0;
+    return getFixedPageCountForTemplate(activeTemplate, currentSizeName, photobookConfig.sizes || []);
+  }, [isPhotoBook, activeTemplate, currentSizeName, photobookConfig.sizes]);
+
+  useEffect(() => {
+    if (isPhotoBook && onPagesChange) {
+      onPagesChange(photoBookPages);
+    }
+  }, [isPhotoBook, photoBookPages, onPagesChange]);
+
   const [currentPriceSplitup, setCurrentPriceSplitup] = useState({});
 
-  // Dynamically calculate pricePerExtraPage for current size and active edition/template
-  // Priority: Size-specific surcharge in edition -> Edition surcharge -> Size-specific in template -> Size obj -> Config
-  const pricePerExtraPage = useMemo(() => {
-    if (!isPhotoBook) return 0;
-    // 1. From size-specific pricing inside active edition
-    const edPricing = currentSizeId && (activeEdition?.size_pricing?.[currentSizeId] || activeEdition?.pricing_by_size?.[currentSizeId]);
-    if (edPricing?.extra_page_price !== undefined && edPricing.extra_page_price !== null && edPricing.extra_page_price !== "") {
-      const ep = Number(edPricing.extra_page_price);
-      if (!isNaN(ep) && ep > 0) return ep;
-    }
-    // 2. From active edition level default
-    if (activeEdition?.price_per_extra_page !== undefined && activeEdition.price_per_extra_page !== null && activeEdition.price_per_extra_page !== "") {
-      const ep = Number(activeEdition.price_per_extra_page);
-      if (!isNaN(ep) && ep > 0) return ep;
-    }
-    // 3. From active template size pricing
-    const tplPricing = currentSizeId && (activeTemplate?.size_pricing?.[currentSizeId] || activeTemplate?.pricing_by_size?.[currentSizeId]);
-    if (tplPricing?.extra_page_price !== undefined && tplPricing.extra_page_price !== null && tplPricing.extra_page_price !== "") {
-      const ep = Number(tplPricing.extra_page_price);
-      if (!isNaN(ep) && ep > 0) return ep;
-    }
-    // 4. From current size obj
-    if (currentSizeObj?.extra_page_price !== undefined && currentSizeObj?.extra_page_price !== null && currentSizeObj?.extra_page_price !== "") {
-      const ep = Number(currentSizeObj.extra_page_price);
-      if (!isNaN(ep) && ep > 0) return ep;
-    }
-    // 5. From currentPriceSplitup
-    if (currentPriceSplitup?.extra_page_price !== undefined && currentPriceSplitup.extra_page_price !== null) {
-      const ep = Number(currentPriceSplitup.extra_page_price);
-      if (!isNaN(ep) && ep > 0) return ep;
-    }
-    return Number(photobookConfig.price_per_extra_page || 15);
-  }, [isPhotoBook, currentSizeId, activeEdition, activeTemplate, currentSizeObj, currentPriceSplitup, photobookConfig]);
-
-  const extraPages = (isPhotoBook && !isGiveaway) ? Math.max(0, photoBookPages - defaultPages) : 0;
-  const extraPagesCost = (isPhotoBook && !isGiveaway) ? extraPages * pricePerExtraPage : 0;
+  // No extra pages or extra page surcharge on customer side - strictly fixed
+  const pricePerExtraPage = 0;
+  const extraPages = 0;
+  const extraPagesCost = 0;
 
   // Merge Photo Book configured templates, editions, sizes and custom variants into availableVariants
   const availableVariants = useMemo(() => {
@@ -1359,7 +1289,6 @@ const ProductDetailVarient = ({
         }
 
         // For Photo Book: if Template changed, automatically switch Edition to the first edition of that template
-        // AND immediately reset photoBookPages to that template's default pages!
         if (isPhotoBook && variantName === "Template") {
           const cleanVal = String(selectedValue || "").trim().toLowerCase();
           const newTpl = (photobookConfig.templates || []).find(
@@ -1370,32 +1299,6 @@ const ProductDetailVarient = ({
           );
           if (newTpl?.editions?.length > 0) {
             updatedVariants["Edition"] = newTpl.editions[0].edition_name;
-          }
-          userManuallyChangedPages.current = false;
-          const newTplDefaultPages = Number(
-            newTpl?.editions?.[0]?.default_pages ||
-            newTpl?.default_pages ||
-            newTpl?.page_config?.default_pages ||
-            photobookConfig.default_pages ||
-            20
-          );
-          setPhotoBookPages(newTplDefaultPages);
-        }
-
-        // For Photo Book: if Edition changed, use edition's default pages if user hasn't manually adjusted
-        if (isPhotoBook && variantName === "Edition") {
-          const cleanEd = String(selectedValue || "").trim().toLowerCase();
-          const edObj = (activeTemplate?.editions || []).find(
-            (e) => (e.edition_name || "").trim().toLowerCase() === cleanEd
-          );
-          if (edObj && !userManuallyChangedPages.current) {
-            const edDefaultPages = Number(
-              edObj.default_pages ||
-              activeTemplate?.default_pages ||
-              photobookConfig.default_pages ||
-              20
-            );
-            setPhotoBookPages(edDefaultPages);
           }
         }
 
@@ -1523,11 +1426,11 @@ const ProductDetailVarient = ({
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
     if (isPhotoBook) {
       // PhotoBook Customer Price is entered in admin as the exact customer price (Inclusive of GST)
-      return basePrice + extraPagesCost;
+      return basePrice;
     }
     const unit = calculateUnitPrice(basePrice, discountPercentage.percentage, user?.role, gst);
-    return unit + (isPhotoBook ? extraPagesCost : 0);
-  }, [checkOutState.product_price, discountPercentage.percentage, user?.role, gst, isPhotoBook, extraPagesCost]);
+    return unit;
+  }, [checkOutState.product_price, discountPercentage.percentage, user?.role, gst, isPhotoBook]);
 
   const getMRPUnitPrice = useMemo(() => {
     if (isPhotoBook) {
@@ -1538,12 +1441,12 @@ const ProductDetailVarient = ({
           )
         )
       );
-      return mrp + extraPagesCost;
+      return mrp;
     }
     const basePrice = Number(_.get(checkOutState, "product_price", 0));
     const mrp = calculateMRPUnitPrice(basePrice, user?.role, gst);
-    return mrp + (isPhotoBook ? extraPagesCost : 0);
-  }, [currentPriceSplitup, checkOutState.product_price, data, user?.role, gst, isPhotoBook, extraPagesCost]);
+    return mrp;
+  }, [currentPriceSplitup, checkOutState.product_price, data, user?.role, gst, isPhotoBook]);
 
   const getOriginalUnitPrice = useMemo(() => {
     if (isPhotoBook) {
@@ -2515,68 +2418,7 @@ const ProductDetailVarient = ({
               <div key={index}>{renderVariantSelector(variant)}</div>
             ))}
 
-          {/* Photo Book Pages: Increase / Decrease control + minimal info */}
-          {isPhotoBook && (
-            isGiveaway ? (
-              <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-                <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">Pages:</Text>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-3.5 py-1.5 rounded-lg shadow-2xs">
-                    {photoBookPages} Pages Included (Giveaway)
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col md:flex-row md:items-center gap-2 space-y-2 md:space-y-0">
-                <Text strong className="block mb-2 md:mb-0 md:w-24 capitalize">Pages:</Text>
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Stepper counter */}
-                  <div className="inline-flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden shadow-sm">
-                    <button
-                      type="button"
-                      disabled={photoBookPages <= minPages}
-                      onClick={() => {
-                        userManuallyChangedPages.current = true;
-                        const next = Math.max(minPages, photoBookPages - pageIncrement);
-                        setPhotoBookPages(next);
-                        if (onPagesChange) onPagesChange(next);
-                      }}
-                      className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-24 text-center text-sm font-bold text-gray-900 select-none">
-                      {photoBookPages} Pages
-                    </span>
-                    <button
-                      type="button"
-                      disabled={photoBookPages >= maxPages}
-                      onClick={() => {
-                        userManuallyChangedPages.current = true;
-                        const next = Math.min(maxPages, photoBookPages + pageIncrement);
-                        setPhotoBookPages(next);
-                        if (onPagesChange) onPagesChange(next);
-                      }}
-                      className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-yellow-50 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
 
-                  {/* Minimal info for customer */}
-                  {extraPages > 0 ? (
-                    <span className="text-xs text-amber-800 font-medium bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
-                      +{extraPages} extra pages (+₹{extraPagesCost}) • ₹{pricePerExtraPage}/extra page
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-500 font-medium bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
-                      ({defaultPages} pages included)
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          )}
         </div>
 
         {/* ── Pricing card ───────────────────────────────────────────────── */}
@@ -2993,8 +2835,7 @@ const ProductDetailVarient = ({
                     {savedDesignData.template_name || activeTemplate?.template_name || "Custom Photo Book"}
                   </h4>
                   <p className="text-xs text-gray-600">
-                    Size: <span className="font-semibold text-gray-800">{formatBookSizeInches(savedDesignData.size, photobookConfig.sizes) || "Standard"}</span> • Pages:{" "}
-                    <span className="font-semibold text-gray-800">{savedDesignData.page_count || 20}</span>
+                    Size: <span className="font-semibold text-gray-800">{formatBookSizeInches(savedDesignData.size, photobookConfig.sizes) || "Standard"}</span>
                   </p>
                   <p className="text-xs text-teal-700 font-medium">
                     {savedDesignData.uploaded_images?.length || 0} photos uploaded

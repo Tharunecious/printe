@@ -1365,10 +1365,9 @@ const validateDesignInternal = (design, productConfig) => {
     (productConfig?.templates || []).some((t) => (t.slug === design.template_id || t.template_id === design.template_id) && t.is_giveaway)
   );
 
-  const minPages = isGiveaway ? (productConfig?.exact_pages || 10) : (productConfig?.min_pages || 10);
-  const maxPages = isGiveaway ? (productConfig?.exact_pages || 100) : (productConfig?.max_pages || 60);
-  if (!isGiveaway && (design.page_count < minPages || design.page_count > maxPages)) {
-    errors.push(`Page count must be between ${minPages} and ${maxPages} pages.`);
+  // Page count is fixed to the cards created in the template (minimum 2 for covers)
+  if (design.page_count !== undefined && design.page_count !== null && Number(design.page_count) < 2) {
+    errors.push("Page count must be at least 2 pages.");
   }
 
   // Helper to extract photo frames from page
@@ -1524,23 +1523,21 @@ const saveCustomerDesign = async (req, res) => {
     const isComplete = validation.isValid;
     const status = isComplete ? "ready_for_cart" : "editing";
 
-    // Pricing calculation strictly on backend
-    const basePages = isGiveaway
-      ? (product.photobook_config?.exact_pages || page_count || 20)
-      : (product.photobook_config?.default_pages || 20);
-    const extraPages = isGiveaway ? 0 : Math.max(0, (page_count || basePages) - basePages);
-    const extraPagePrice = isGiveaway ? 0 : Number(product.photobook_config?.price_per_extra_page || 15);
-    const extraPagesCost = isGiveaway ? 0 : extraPages * extraPagePrice;
+    // Pricing calculation strictly on backend: fixed pages, zero extra page surcharge
+    const basePages = Number(page_count || 6);
+    const extraPages = 0;
+    const extraPagePrice = 0;
+    const extraPagesCost = 0;
     const basePrice = isGiveaway ? 0 : Number(product.customer_product_price || product.price || 0);
-    const calculatedTotal = basePrice + extraPagesCost;
+    const calculatedTotal = basePrice;
 
     const pricingSnapshot = {
       is_giveaway: isGiveaway,
       base_pages: basePages,
       base_price: basePrice,
-      extra_pages: extraPages,
-      price_per_extra_page: extraPagePrice,
-      extra_pages_cost: extraPagesCost,
+      extra_pages: 0,
+      price_per_extra_page: 0,
+      extra_pages_cost: 0,
       calculated_total: calculatedTotal,
     };
 

@@ -346,4 +346,155 @@ export const getEditionPricingDetailsForSize = (edition, sizeIdentifier, allSize
   };
 };
 
+/**
+ * Resolves the array of template cards/pages for a given active book size.
+ * Checks template.size_designs against size ID, name, dimensions, or orientation,
+ * falling back to template.pages or template.published_snapshot.pages.
+ */
+export const resolveTemplatePagesForActiveSize = (template, sizeIdentifier, allSizesList = []) => {
+  if (!template) return [];
+
+  const rawTarget = sizeIdentifier || "";
+  const targetSize = String(
+    typeof rawTarget === "object" && rawTarget !== null
+      ? rawTarget.id || rawTarget._id || rawTarget.name || ""
+      : rawTarget
+  ).trim().toLowerCase();
+
+  const sizeDesigns =
+    template?.size_designs ||
+    template?.published_snapshot?.size_designs ||
+    {};
+
+  const entries = Object.entries(sizeDesigns);
+  if (entries.length === 0) {
+    return (
+      (template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
+        ? template.published_snapshot.pages
+        : template?.pages && template.pages.length > 0
+          ? template.pages
+          : [])
+    );
+  }
+
+  // 1. Resolve size metadata from allSizesList
+  const matchedSizeObj = (allSizesList || []).find(
+    (s) =>
+      s &&
+      (String(s.id || s._id).toLowerCase() === targetSize ||
+        String(s.name || "").toLowerCase() === targetSize ||
+        (s.dimensions && String(s.dimensions).toLowerCase().includes(targetSize)))
+  );
+
+  const targetId = matchedSizeObj?.id || matchedSizeObj?._id ? String(matchedSizeObj.id || matchedSizeObj._id).toLowerCase() : targetSize;
+  const targetName = matchedSizeObj?.name ? String(matchedSizeObj.name).toLowerCase() : targetSize;
+  const targetCleanName = targetName.replace(/\s*\([^)]*\).*/g, "").trim().toLowerCase();
+
+  const targetOrient = matchedSizeObj?.orientation ? String(matchedSizeObj.orientation).toLowerCase() : "";
+  const isLandscape =
+    targetOrient === "horizontal" ||
+    targetOrient === "landscape" ||
+    targetCleanName === "landscape" ||
+    targetName.includes("landscape") ||
+    (matchedSizeObj && Number(matchedSizeObj.width_in) > Number(matchedSizeObj.height_in));
+  const isPortrait =
+    targetOrient === "vertical" ||
+    targetOrient === "portrait" ||
+    targetCleanName === "portrait" ||
+    (targetName.includes("portrait") && !targetName.includes("landscape")) ||
+    (matchedSizeObj && Number(matchedSizeObj.width_in) < Number(matchedSizeObj.height_in));
+
+  // 2. Exact match check
+  for (const [key, design] of entries) {
+    if (!design || !Array.isArray(design.pages) || design.pages.length === 0) continue;
+    const keyLower = key.toLowerCase().trim();
+    const designIdLower = String(design.size_id || "").toLowerCase().trim();
+    const designNameLower = String(design.size_name || "").toLowerCase().trim();
+    const designClean = designNameLower.replace(/\s*\([^)]*\).*/g, "").trim();
+
+    if (
+      keyLower === targetId ||
+      keyLower === targetName ||
+      keyLower === targetCleanName ||
+      (designIdLower && designIdLower === targetId) ||
+      (designNameLower && (designNameLower === targetName || designNameLower === targetCleanName)) ||
+      (designClean && designClean === targetCleanName)
+    ) {
+      return design.pages;
+    }
+  }
+
+  // 3. Orientation fallback match
+  for (const [key, design] of entries) {
+    if (!design || !Array.isArray(design.pages) || design.pages.length === 0) continue;
+    const keyLower = key.toLowerCase().trim();
+    const designNameLower = String(design.size_name || "").toLowerCase().trim();
+
+    if (isLandscape && (keyLower.includes("landscape") || keyLower.includes("horizontal") || designNameLower.includes("landscape"))) {
+      return design.pages;
+    }
+    if (isPortrait && (keyLower.includes("portrait") || keyLower.includes("vertical") || designNameLower.includes("portrait"))) {
+      return design.pages;
+    }
+  }
+
+  // 4. Default to first non-empty design or template.pages
+  for (const [, design] of entries) {
+    if (design && Array.isArray(design.pages) && design.pages.length > 0) {
+      return design.pages;
+    }
+  }
+
+  return (
+    (template?.published_snapshot?.pages && template.published_snapshot.pages.length > 0
+      ? template.published_snapshot.pages
+      : template?.pages && template.pages.length > 0
+        ? template.pages
+        : [])
+  );
+};
+
+/**
+ * Calculates the exact fixed number of pages for a photobook template and size.
+ * Strictly reflects the admin's saved template cards without user page count modification.
+ */
+export const getFixedPageCountForTemplate = (template, sizeIdentifier, allSizesList = []) => {
+  if (!template) return 6;
+
+  const tPages = resolveTemplatePagesForActiveSize(template, sizeIdentifier, allSizesList);
+
+  if (!tPages || tPages.length === 0) {
+    return Number(
+      template.exact_pages ||
+      template.page_config?.default_pages ||
+      template.default_pages ||
+      6
+    );
+  }
+
+  const shouldIncludeBlankPage = Boolean(
+    template.include_blank_page ||
+    template.page_config?.include_blank_page ||
+    template.published_snapshot?.include_blank_page ||
+    template.published_snapshot?.page_config?.include_blank_page
+  );
+
+  const hasExplicitBlank = tPages.some((p) => p.is_blank || p.page_type === "blank");
+
+  const hasFrontCover = tPages.some((p) => p.page_type === "front_cover" || p.page_id === "front-cover");
+  const hasBackCover = tPages.some((p) => p.page_type === "back_cover" || p.page_id === "back-cover");
+  const interiorPages = tPages.filter(
+    (p) => p.page_type !== "front_cover" && p.page_type !== "back_cover" && !p.is_blank && p.page_type !== "blank"
+  );
+
+  let count = (hasFrontCover ? 1 : 0) + interiorPages.length + (hasBackCover ? 1 : 0);
+  if (shouldIncludeBlankPage && !hasExplicitBlank) {
+    count += 2; // Inside Front Cover & Inside Back Cover
+  }
+
+  // Return the resolved card count (minimum 2 for front/back cover)
+  return Math.max(2, count);
+};
+
+
 

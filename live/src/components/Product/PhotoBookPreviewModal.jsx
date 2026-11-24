@@ -341,8 +341,10 @@ const PhotobookPageCanvas = ({ page }) => {
                 maxWidth: "100%",
                 fontFamily: getFontFamilyFallback(effectiveFontFamily),
                 fontSize: `calc(${Number(el.font_size || 24)} * (100cqw / 707))`,
-                fontWeight: effectiveFontWeight,
+                fontWeight: (el.bold_px || el.stroke_width) ? "normal" : effectiveFontWeight,
                 fontStyle: effectiveFontStyle,
+                WebkitTextStroke: (el.bold_px || el.stroke_width) ? `calc(${Number(el.bold_px || el.stroke_width)} * (100cqw / 707)) ${el.color || "#1f2937"}` : undefined,
+                paintOrder: (el.bold_px || el.stroke_width) ? "stroke fill" : undefined,
                 letterSpacing: effectiveLetterSpacing
                   ? `calc(${Number(effectiveLetterSpacing)} * (100cqw / 707))`
                   : "normal",

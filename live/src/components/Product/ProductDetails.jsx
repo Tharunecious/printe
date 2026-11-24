@@ -26,7 +26,7 @@ import {
   Upload,
   
 } from "antd";
-import React, { useCallback, useEffect, useState, useRef, useId } from "react";
+import React, { useCallback, useEffect, useState, useRef, useId, useMemo } from "react";
 import { createPortal } from "react-dom";
 import _ from "lodash";
 import { useDispatch, useSelector } from "react-redux";
@@ -2434,9 +2434,9 @@ const ProductDetails = ({
     <div className="flex items-center gap-3">
       {/* Left: stacked strikethrough prices */}
       <div className="flex flex-col gap-0.5">
-        {Number(_.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && (
+        {Number(isPhotoBook ? getMRPUnitPrice() : _.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && (
           <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-            {formatPrice(Number(_.get(data, "MRP_price", 0)))}
+            {formatPrice(Number(isPhotoBook ? getMRPUnitPrice() : _.get(data, "MRP_price", 0)))}
           </span>
         )}
         {Number(_.get(data, "offer_MRP_price", 0)) > Number(getUnitPrice()) && (
@@ -2473,9 +2473,9 @@ const ProductDetails = ({
     <div className="flex items-center gap-3">
       {/* Left: stacked strikethrough prices */}
       <div className="flex flex-col gap-0.5">
-        {Number(_.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && (
+        {Number(isPhotoBook ? getMRPUnitPrice() : _.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && (
           <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-            {formatPrice(Number(_.get(data, "MRP_price", 0)))}
+            {formatPrice(Number(isPhotoBook ? getMRPUnitPrice() : _.get(data, "MRP_price", 0)))}
           </span>
         )}
         {Number(_.get(data, "offer_MRP_price", 0)) > Number(getUnitPrice()) && (
