@@ -161,6 +161,18 @@ module.exports = mongoose.model(
         type: Boolean,
         default: false,
       },
+      is_customization_enabled: {
+        type: Boolean,
+        default: false,
+      },
+      is_customization_mandatory: {
+        type: Boolean,
+        default: false,
+      },
+      is_proceed_with_design: {
+        type: Boolean,
+        default: true,
+      },
       customization_name_price: {
         type: Number,
         default: 10,

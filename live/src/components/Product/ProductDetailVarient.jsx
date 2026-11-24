@@ -715,6 +715,7 @@ const ProductDetailVarient = ({
     return false;
   })();
 
+  const [customizedName, setCustomizedName] = useState("");
   const [phoneStandName, setPhoneStandName] = useState("");
   const [phoneStandCoupon, setPhoneStandCoupon] = useState("");
   const [appliedGiveawayCoupon, setAppliedGiveawayCoupon] = useState(null);
@@ -883,7 +884,7 @@ const ProductDetailVarient = ({
 
   // ── Initialization ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (productType === "Variable Product" && data.variants_price?.length > 0) {
+    if ((productType === "Variable Product" || productType === "Variant Product" || availableVariants.length > 0) && data.variants_price?.length > 0) {
       const initialSelectedVariants = {};
       availableVariants.forEach((variant) => {
         if (variant.options?.length > 0)
@@ -1328,16 +1329,26 @@ const ProductDetailVarient = ({
           return;
         }
       } else {
+        if (Boolean(data?.is_customization_enabled) && Boolean(data?.is_customization_mandatory) && !customizedName.trim()) {
+          const errMsg = "Please enter name to be customized";
+          message.error(errMsg);
+          toast.error(errMsg);
+          setLoading(false);
+          return;
+        }
         if (!quantity) {
           toast.error("Please select quantity first");
           return;
         }
-        if (needDesignUpload && !checkOutState.product_design_file) {
+        const hasProceedWithDesign = (data?.is_proceed_with_design !== false && data?.proceed_with_design !== false);
+        if (hasProceedWithDesign && needDesignUpload && !checkOutState.product_design_file) {
           toast.error("Please upload your design file first");
+          setLoading(false);
           return;
         }
-        if (needDesignUpload && !checked) {
+        if (hasProceedWithDesign && needDesignUpload && !checked) {
           toast.error("Please Confirm Your Designs");
+          setLoading(false);
           return;
         }
       }
@@ -1372,10 +1383,12 @@ const ProductDetailVarient = ({
         DeliveryCharges: deliveryCharges,    // inside Tamil Nadu
         out_of_tn_charge: outOfTNCharge,      // outside Tamil Nadu
         // ──────────────────────────────────────────────────────────────────
-        noCustomtation: noDesignUpload,
+        noCustomtation: (data?.is_proceed_with_design === false || data?.proceed_with_design === false) || noDesignUpload,
         final_total: isGiveawayApplied ? 0 : Number(calculateTotalPrice()),
         final_total_withoutGst: isGiveawayApplied ? 0 : Number(calculateTotalPricewithoutGst()),
-        customized_name: isPhoneStandProduct ? phoneStandName.trim() : "",
+        customized_name: isPhoneStandProduct
+          ? phoneStandName.trim()
+          : (Boolean(data?.is_customization_enabled) ? customizedName.trim() : ""),
         customization_name_price: isPhoneStandProduct && hasPhoneStandCustomization ? customizationPricePerUnit : 0,
         customization_charge: phoneStandCustomizationCharge,
         giveaway_coupon: isGiveawayApplied ? appliedGiveawayCoupon.code : "",
@@ -1548,15 +1561,29 @@ const ProductDetailVarient = ({
               <motion.div
                 animate={{ scale: [1, 1.15, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
-                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md text-right"
+                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md"
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="text-white/70 text-xs line-through">
-                    {formatPrice(_.get(currentPriceSplitup, "MRP_price", 0))}
-                  </span>
-                  <h3 className="text-white text-base font-semibold">
-                    {quantity ? formatPrice(getUnitPrice) : "Select Qty"}
-                  </h3>
+                <div className="flex items-center gap-3">
+                  {/* Left: stacked strikethrough prices */}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+                      {formatPrice(Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "variants_price[0].MRP_price", _.get(data, "MRP_price", 0)))))}
+                    </span>
+                    {Number(_.get(currentPriceSplitup, "offer_MRP_price", _.get(data, "offer_MRP_price", 0))) > 0 && (
+                      <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+                        {formatPrice(Number(_.get(currentPriceSplitup, "offer_MRP_price", _.get(data, "offer_MRP_price", 0))))}
+                      </span>
+                    )}
+                  </div>
+                  {/* Right: current price */}
+                  <div className="flex flex-col items-end">
+                    <h3 className="text-white text-base font-semibold leading-tight">
+                      {quantity ? formatPrice(getUnitPrice) : "Select Qty"}
+                    </h3>
+                    <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
+                      Inclusive of GST
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -1564,13 +1591,29 @@ const ProductDetailVarient = ({
               <motion.div
                 animate={{ scale: [1, 1.15, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
-                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md text-right"
+                className="bg-gradient-to-br from-green-500 to-green-600 rounded-md px-4 py-2 shadow-md"
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="text-white/70 text-xs line-through">
-                    {formatPrice(_.get(currentPriceSplitup, "MRP_price", 0))}
-                  </span>
-                  <h3 className="text-white text-base font-semibold">{formatPrice(getUnitPrice)}</h3>
+                <div className="flex items-center gap-3">
+                  {/* Left: stacked strikethrough prices */}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+                      {formatPrice(Number(_.get(currentPriceSplitup, "MRP_price", _.get(data, "variants_price[0].MRP_price", _.get(data, "MRP_price", 0)))))}
+                    </span>
+                    {Number(_.get(currentPriceSplitup, "offer_MRP_price", _.get(data, "offer_MRP_price", 0))) > 0 && (
+                      <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
+                        {formatPrice(Number(_.get(currentPriceSplitup, "offer_MRP_price", _.get(data, "offer_MRP_price", 0))))}
+                      </span>
+                    )}
+                  </div>
+                  {/* Right: current price */}
+                  <div className="flex flex-col items-end">
+                    <h3 className="text-white text-base font-semibold leading-tight">
+                      {formatPrice(getUnitPrice)}
+                    </h3>
+                    <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
+                      Inclusive of GST
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -1728,6 +1771,46 @@ const ProductDetailVarient = ({
                   <span className="font-bold text-sm text-green-700">₹0.00</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Product Customization Name Section (Generic products) ────────── */}
+        {!isPhoneStandProduct && Boolean(data?.is_customization_enabled) && !isOutOfStock && (
+          <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-xl space-y-3 shadow-sm mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">✍️</span>
+              <div>
+                <h4 className="font-bold text-gray-800 text-sm">Customization Name</h4>
+                <p className="text-xs text-gray-600">
+                  {data?.is_customization_mandatory
+                    ? "Please enter the name to be customized on this product."
+                    : "Enter the name to be customized on this product (optional)."}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                  <span>Name to be customized</span>
+                  {data?.is_customization_mandatory ? (
+                    <span className="text-red-500 font-bold">* (Required)</span>
+                  ) : (
+                    <span className="text-gray-400 font-normal text-[11px]">(Optional)</span>
+                  )}
+                </label>
+              </div>
+              <Input
+                placeholder="Enter name to be customized"
+                value={customizedName}
+                onKeyDown={(e) => e.stopPropagation()}
+                onChange={(e) => setCustomizedName(e.target.value)}
+                onBlur={() => setCustomizedName((prev) => prev.trim())}
+                className="!rounded-lg"
+                size="large"
+                maxLength={100}
+              />
             </div>
           </div>
         )}
@@ -1915,73 +1998,71 @@ const ProductDetailVarient = ({
         </Card>
 
         {/* ── File upload ────────────────────────────────────────────────── */}
-        <div className="space-y-3">
-          {!isPhoneStandProduct && (
-            <>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
-                  Proceed without Design
-                </Checkbox>
-                {!noDesignUpload && (
-                  <div className="flex items-center gap-2">
-                    <Text>Already have a Design</Text>
-                    <Switch
-                      checked={needDesignUpload}
-                      onChange={(checked) => {
-                        setNeedDesignUpload(checked);
-                        if (!checked) {
-                          setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
-                          setChecked(false);
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-
+        {!isPhoneStandProduct && (data?.is_proceed_with_design !== false && data?.proceed_with_design !== false) && (
+          <div className="space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>
+                Proceed without Design
+              </Checkbox>
               {!noDesignUpload && (
-                <div>
-                  {needDesignUpload ? (
-                    <>
-                      <UploadFileButton
-                        handleUploadImage={handleUploadImage}
-                        buttonText="Drag & Drop Files Here or Browse Files"
-                        className="w-full border-dotted rounded-lg flex flex-col items-center justify-center transition-colors"
-                      />
-                      {checkOutState.product_design_file && (
-                        <div className="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                          <div className="md:order-1">
-                            <Button
-                              type="link"
-                              icon={<EyeOutlined />}
-                              onClick={() => setDesignPreviewVisible(true)}
-                            >
-                              View Design
-                            </Button>
-                            <Button type="link" onClick={handleDesignRemove}>Remove</Button>
-                          </div>
-                          <Checkbox
-                            checked={checked}
-                            onChange={(e) => setChecked(e.target.checked)}
-                            className="md:order-2"
-                          >
-                            I confirm this design
-                          </Checkbox>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <Alert
-                      message="Our Designing Team will contact you within 24 Hours After Booking"
-                      type="info"
-                      showIcon
-                    />
-                  )}
+                <div className="flex items-center gap-2">
+                  <Text>Already have a Design</Text>
+                  <Switch
+                    checked={needDesignUpload}
+                    onChange={(checked) => {
+                      setNeedDesignUpload(checked);
+                      if (!checked) {
+                        setCheckOutState((prev) => ({ ...prev, product_design_file: "" }));
+                        setChecked(false);
+                      }
+                    }}
+                  />
                 </div>
               )}
+            </div>
 
-            </>
-          )}
+            {!noDesignUpload && (
+              <div>
+                {needDesignUpload ? (
+                  <>
+                    <UploadFileButton
+                      handleUploadImage={handleUploadImage}
+                      buttonText="Drag & Drop Files Here or Browse Files"
+                      className="w-full border-dotted rounded-lg flex flex-col items-center justify-center transition-colors"
+                    />
+                    {checkOutState.product_design_file && (
+                      <div className="mt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <div className="md:order-1">
+                          <Button
+                            type="link"
+                            icon={<EyeOutlined />}
+                            onClick={() => setDesignPreviewVisible(true)}
+                          >
+                            View Design
+                          </Button>
+                          <Button type="link" onClick={handleDesignRemove}>Remove</Button>
+                        </div>
+                        <Checkbox
+                          checked={checked}
+                          onChange={(e) => setChecked(e.target.checked)}
+                          className="md:order-2"
+                        >
+                          I confirm this design
+                        </Checkbox>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Alert
+                    message="Our Designing Team will contact you within 24 Hours After Booking"
+                    type="info"
+                    showIcon
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
           {/* Instructions */}
           <div>
             <div className="flex gap-3 mb-2">
@@ -2157,7 +2238,7 @@ const ProductDetailVarient = ({
           </Form>
         </CustomModal>
 
-      </div>
+      {/* </div> */}
     </Spin>
   );
 };

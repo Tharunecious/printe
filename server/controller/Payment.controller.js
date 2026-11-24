@@ -789,136 +789,455 @@ const qrRedirectToGateway = async (req, res) => {
 
 // ==================== CALLBACK HANDLER ====================
 
+
 const handleCCAvenueCallback = async (req, res) => {
+  const FRONTEND_BASE_URL = getEnv(
+    'FRONTEND_BASE_URL',
+    'http://localhost:5173'
+  ).replace(/\/+$/, '');
+
   try {
     console.log('='.repeat(60));
-    console.log('CCAvenue callback:', { method: req.method, timestamp: new Date().toISOString() });
+    console.log('[CCAvenue] Callback received:', {
+      method: req.method,
+      timestamp: new Date().toISOString(),
+    });
 
-    const encResp           = req.body.encResp || req.query.encResp;
-    const FRONTEND_BASE_URL = getEnv('FRONTEND_BASE_URL', 'http://localhost:5173');
+    // --------------------------------------------------
+    // 1. Get encrypted response
+    // --------------------------------------------------
+
+    const encResp = req.body?.encResp || req.query?.encResp;
 
     if (!encResp) {
-      return res.redirect(`${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent('No response from payment gateway')}`);
+      console.error('[CCAvenue] Missing encrypted response');
+
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent(
+          'No response from payment gateway'
+        )}`
+      );
     }
+
+    // --------------------------------------------------
+    // 2. Validate CCAvenue credentials
+    // --------------------------------------------------
 
     const credentialCheck = validateCCAvenueCredentials();
+
     if (!credentialCheck.valid) {
-      return res.redirect(`${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent('Gateway configuration error')}`);
+      console.error('[CCAvenue] Invalid gateway credentials');
+
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent(
+          'Gateway configuration error'
+        )}`
+      );
     }
+
+    // --------------------------------------------------
+    // 3. Decrypt CCAvenue response
+    // --------------------------------------------------
 
     let decryptedData;
+
     try {
-      decryptedData = new CCAvenue(credentialCheck.credentials.workingKey).decryptData(encResp);
-      console.log('✓ Response decrypted');
+      decryptedData = new CCAvenue(
+        credentialCheck.credentials.workingKey
+      ).decryptData(encResp);
+
+      console.log('[CCAvenue] Response decrypted successfully');
+
     } catch (err) {
-      console.error('✗ Decryption error:', err);
-      return res.redirect(`${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent('Invalid response from payment gateway')}`);
+      console.error('[CCAvenue] Decryption error:', err);
+
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent(
+          'Invalid response from payment gateway'
+        )}`
+      );
     }
+
+    // --------------------------------------------------
+    // 4. Extract payment details
+    // --------------------------------------------------
 
     const {
-      order_id, tracking_id, bank_ref_no, order_status,
-      failure_message, status_message, amount, payment_mode, card_name,
+      order_id,
+      tracking_id,
+      bank_ref_no,
+      order_status,
+      failure_message,
+      status_message,
+      amount,
+      payment_mode,
+      card_name,
     } = decryptedData;
 
-    console.log('Payment details:', { order_id, tracking_id, order_status, amount });
+    const invoiceNumber = String(order_id || '').trim();
+    const paymentStatus = String(order_status || '')
+      .trim()
+      .toLowerCase();
 
-    if (!order_id) {
-      return res.redirect(`${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent('Invalid payment response')}`);
+    console.log('[CCAvenue] Payment details:', {
+      order_id: invoiceNumber,
+      tracking_id,
+      order_status,
+      amount,
+      merchant_param2: decryptedData.merchant_param2,
+    });
+
+    if (!invoiceNumber) {
+      console.error('[CCAvenue] Missing order_id');
+
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent(
+          'Invalid payment response'
+        )}`
+      );
     }
 
-    let order = await OrderDetailsSchema.findOne({ invoice_no: order_id });
+    // --------------------------------------------------
+    // 5. Find the corresponding MongoDB order
+    // --------------------------------------------------
+
+    let order = await OrderDetailsSchema.findOne({
+      invoice_no: invoiceNumber,
+    });
+
+    // Fallback 1: Case-insensitive invoice number lookup
+    if (!order) {
+      const escapedInvoice = invoiceNumber.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      );
+
+      order = await OrderDetailsSchema.findOne({
+        invoice_no: {
+          $regex: `^${escapedInvoice}$`,
+          $options: 'i',
+        },
+      });
+
+      if (order) {
+        console.log('[CCAvenue] Order found using case-insensitive lookup');
+      }
+    }
+
+    // Fallback 2: MongoDB order ID from merchant_param2
     if (!order && decryptedData.merchant_param2) {
-      order = await OrderDetailsSchema.findById(decryptedData.merchant_param2);
+      try {
+        const mongoOrderId = String(
+          decryptedData.merchant_param2
+        ).trim();
+
+        order = await OrderDetailsSchema.findById(mongoOrderId);
+
+        if (order) {
+          console.log('[CCAvenue] Order found using merchant_param2');
+        }
+
+      } catch (err) {
+        console.error(
+          '[CCAvenue] Invalid merchant_param2:',
+          err.message
+        );
+      }
     }
+
+    // Stop processing if order is not found
+    if (!order) {
+      console.error('[CCAvenue] ORDER NOT FOUND:', {
+        invoice_no: invoiceNumber,
+        merchant_param2: decryptedData.merchant_param2,
+        order_status,
+      });
+
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent(
+          'Unable to locate your order. Please contact support.'
+        )}`
+      );
+    }
+
+    console.log('[CCAvenue] Order found:', {
+      mongoId: order._id,
+      invoice_no: order.invoice_no,
+      previous_payment_status: order.payment_status,
+    });
+
+    // --------------------------------------------------
+    // 6. Prepare payment update
+    // --------------------------------------------------
 
     const updateData = {
       payment_date: new Date(),
       payment_mode: payment_mode || 'Online',
-      card_name:    card_name    || '',
+      card_name: card_name || '',
     };
 
     let frontendUrl;
     const params = new URLSearchParams();
 
-    if (order_status === 'Success') {
+    params.append('order_id', invoiceNumber);
+
+    if (tracking_id) {
+      params.append('tracking_id', tracking_id);
+    }
+
+    if (amount !== undefined && amount !== null) {
+      params.append('amount', String(amount));
+    }
+
+    // --------------------------------------------------
+    // 7. Handle successful payment
+    // --------------------------------------------------
+
+    if (paymentStatus === 'success') {
+
+      // Do not downgrade an already completed order
+      const alreadyCompleted =
+        String(order.payment_status || '').toLowerCase() === 'completed';
+
       updateData.payment_status = 'completed';
-      updateData.order_status   = 'accounting team';
-      if (tracking_id) updateData.transaction_id = tracking_id;
-      if (bank_ref_no) updateData.payment_id     = bank_ref_no;
-      frontendUrl = `${FRONTEND_BASE_URL}/payment/success`;
-      params.append('order_id', order_id);
-      if (tracking_id) params.append('tracking_id', tracking_id);
-      params.append('amount', amount);
-      console.log('✓ Payment successful');
 
-      // Mark coupon as used and expire it atomically upon successful payment
-      const couponCodeToMark =
-        order?.coupon?.code ||
-        order?.phone_stand_details?.coupon_code ||
-        order?.giveaway_coupon ||
-        (order?.cart_items || []).find(i => i.giveaway_coupon)?.giveaway_coupon ||
-        (order?.cart_items || []).find(i => i.phone_stand_details?.coupon_code)?.phone_stand_details?.coupon_code;
+      updateData.order_status =
+        alreadyCompleted
+          ? order.order_status
+          : 'accounting team';
 
-      if (couponCodeToMark) {
-        try {
-          const { markCouponAsUsedAtomic } = require('./coupen.controller');
-          await markCouponAsUsedAtomic(couponCodeToMark, order.user_id);
-          console.log(`✓ Marked coupon ${couponCodeToMark} as used/expired after successful payment`);
-        } catch (cErr) {
-          console.error('Error marking coupon as used:', cErr.message);
-        }
+      if (tracking_id) {
+        updateData.transaction_id = tracking_id;
       }
 
-      // Clear cart items for this order from DB
-      await clearCartAfterOrder({
-        userId:         order?.user_id,
-        guestId:        order?.guest_id,
-        cartItemIds:    order?.cart_item_ids || [],
-        giveawayCoupon: couponCodeToMark,
+      if (bank_ref_no) {
+        updateData.payment_id = bank_ref_no;
+      }
+
+      frontendUrl = `${FRONTEND_BASE_URL}/payment/success`;
+
+      console.log('[CCAvenue] Payment successful');
+
+      // --------------------------------------------------
+      // 8. Update MongoDB order
+      // --------------------------------------------------
+
+      const updatedOrder = await OrderDetailsSchema.findByIdAndUpdate(
+        order._id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
+
+      if (!updatedOrder) {
+        throw new Error(
+          `Failed to update order: ${invoiceNumber}`
+        );
+      }
+
+      console.log('[CCAvenue] Order updated successfully:', {
+        invoice_no: updatedOrder.invoice_no,
+        payment_status: updatedOrder.payment_status,
+        order_status: updatedOrder.order_status,
       });
 
-    } else if (order_status === 'Aborted') {
-      updateData.payment_status         = 'cancelled';
-      updateData.order_status           = 'cancelled';
+      // --------------------------------------------------
+      // 9. Coupon and cart processing
+      // --------------------------------------------------
+
+      // Execute these only on the first successful callback
+      if (!alreadyCompleted) {
+
+        const couponCodeToMark =
+          order?.coupon?.code ||
+          order?.phone_stand_details?.coupon_code ||
+          order?.giveaway_coupon ||
+          (order?.cart_items || []).find(
+            i => i.giveaway_coupon
+          )?.giveaway_coupon ||
+          (order?.cart_items || []).find(
+            i => i.phone_stand_details?.coupon_code
+          )?.phone_stand_details?.coupon_code;
+
+        // Mark coupon as used
+        if (couponCodeToMark) {
+          try {
+            const {
+              markCouponAsUsedAtomic,
+            } = require('./coupen.controller');
+
+            await markCouponAsUsedAtomic(
+              couponCodeToMark,
+              order.user_id
+            );
+
+            console.log(
+              `[CCAvenue] Coupon marked as used: ${couponCodeToMark}`
+            );
+
+          } catch (cErr) {
+            console.error(
+              '[CCAvenue] Coupon update error:',
+              cErr.message
+            );
+          }
+        }
+
+        // Clear cart after successful payment
+        try {
+          await clearCartAfterOrder({
+            userId: order.user_id,
+            guestId: order.guest_id,
+            cartItemIds: order.cart_item_ids || [],
+            giveawayCoupon: couponCodeToMark,
+          });
+
+          console.log('[CCAvenue] Cart cleared successfully');
+
+        } catch (cartErr) {
+          console.error(
+            '[CCAvenue] Cart clearing error:',
+            cartErr.message
+          );
+        }
+
+      } else {
+        console.log(
+          '[CCAvenue] Duplicate successful callback. Skipping coupon and cart processing.'
+        );
+      }
+
+    }
+
+    // --------------------------------------------------
+    // 10. Handle cancelled payment
+    // --------------------------------------------------
+
+    else if (paymentStatus === 'aborted') {
+
+      updateData.payment_status = 'cancelled';
+      updateData.order_status = 'cancelled';
       updateData.payment_failure_reason = 'User cancelled';
+
       frontendUrl = `${FRONTEND_BASE_URL}/payment/cancelled`;
-      params.append('order_id', order_id);
-      console.log('⚠ Payment cancelled');
 
-    } else if (order_status === 'Failure') {
-      updateData.payment_status         = 'failed';
-      updateData.order_status           = 'payment failed';
-      updateData.payment_failure_reason = failure_message || status_message || 'Payment failed';
+      console.log('[CCAvenue] Payment cancelled');
+
+    }
+
+    // --------------------------------------------------
+    // 11. Handle failed payment
+    // --------------------------------------------------
+
+    else if (paymentStatus === 'failure') {
+
+      updateData.payment_status = 'failed';
+      updateData.order_status = 'payment failed';
+
+      updateData.payment_failure_reason =
+        failure_message ||
+        status_message ||
+        'Payment failed';
+
       frontendUrl = `${FRONTEND_BASE_URL}/payment/failed`;
-      params.append('order_id', order_id);
-      if (failure_message) params.append('message', encodeURIComponent(failure_message));
-      console.log('✗ Payment failed');
 
-    } else {
-      updateData.payment_status         = 'failed';
-      updateData.order_status           = 'payment failed';
-      updateData.payment_failure_reason = status_message || 'Unknown status';
+      if (failure_message) {
+        params.append('message', failure_message);
+      }
+
+      console.log('[CCAvenue] Payment failed:', {
+        failure_message,
+        status_message,
+      });
+
+    }
+
+    // --------------------------------------------------
+    // 12. Handle unknown payment status
+    // --------------------------------------------------
+
+    else {
+
+      updateData.payment_status = 'failed';
+      updateData.order_status = 'payment failed';
+
+      updateData.payment_failure_reason =
+        status_message || 'Unknown payment status';
+
       frontendUrl = `${FRONTEND_BASE_URL}/payment/error`;
-      params.append('order_id', order_id);
-      console.log('✗ Unknown status:', order_status);
+
+      console.error(
+        '[CCAvenue] Unknown payment status:',
+        order_status
+      );
+
     }
 
-    if (order) {
-      await OrderDetailsSchema.findByIdAndUpdate(order._id, updateData, { new: true });
-      console.log('✓ Order updated:', order_id);
+    // --------------------------------------------------
+    // 13. Update cancelled / failed / unknown orders
+    // --------------------------------------------------
+
+    if (paymentStatus !== 'success') {
+
+      // Never downgrade an already completed payment
+      if (
+        String(order.payment_status || '').toLowerCase() === 'completed'
+      ) {
+        console.warn(
+          '[CCAvenue] Ignoring non-success callback for an already completed order:',
+          invoiceNumber
+        );
+
+        frontendUrl = `${FRONTEND_BASE_URL}/payment/success`;
+
+        params.delete('message');
+
+      } else {
+
+        const updatedOrder = await OrderDetailsSchema.findByIdAndUpdate(
+          order._id,
+          { $set: updateData },
+          { new: true, runValidators: true }
+        );
+
+        if (!updatedOrder) {
+          throw new Error(
+            `Failed to update payment status for order: ${invoiceNumber}`
+          );
+        }
+
+        console.log('[CCAvenue] Order payment status updated:', {
+          invoice_no: updatedOrder.invoice_no,
+          payment_status: updatedOrder.payment_status,
+        });
+      }
     }
 
-    const redirect = `${frontendUrl}?${params.toString()}`;
-    console.log('↪ Redirecting to:', redirect);
+    // --------------------------------------------------
+    // 14. Redirect customer
+    // --------------------------------------------------
+
+    const redirectUrl = `${frontendUrl}?${params.toString()}`;
+
+    console.log('[CCAvenue] Redirecting customer:', redirectUrl);
     console.log('='.repeat(60));
-    return res.redirect(redirect);
+
+    return res.redirect(redirectUrl);
 
   } catch (err) {
-    console.error('✗ Callback error:', err);
-    const FRONTEND_BASE_URL = getEnv('FRONTEND_BASE_URL', 'http://localhost:5173');
-    return res.redirect(`${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent('Payment processing error')}`);
+
+    console.error('[CCAvenue] CALLBACK PROCESSING ERROR:', {
+      message: err.message,
+      stack: err.stack,
+    });
+
+    return res.redirect(
+      `${FRONTEND_BASE_URL}/payment/error?message=${encodeURIComponent(
+        'Payment processing error. Please contact support.'
+      )}`
+    );
   }
 };
+
 
 // ==================== OTHER ENDPOINTS ====================
 

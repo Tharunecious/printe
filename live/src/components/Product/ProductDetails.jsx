@@ -1519,6 +1519,7 @@ const ProductDetails = ({
     }
     return false;
   })();
+  const [customizedName, setCustomizedName] = useState("");
   const [phoneStandName, setPhoneStandName] = useState("");
   const [phoneStandCoupon, setPhoneStandCoupon] = useState("");
   const [appliedGiveawayCoupon, setAppliedGiveawayCoupon] = useState(null);
@@ -2105,6 +2106,12 @@ const ProductDetails = ({
         return false;
       }
     } else {
+      if (Boolean(data?.is_customization_enabled) && Boolean(data?.is_customization_mandatory) && !customizedName.trim()) {
+        const errMsg = "Please enter name to be customized";
+        message.error(errMsg);
+        toast.error(errMsg);
+        return false;
+      }
       if (!quantity) {
         toast.error("Please select quantity first");
         return false;
@@ -2164,10 +2171,12 @@ const ProductDetails = ({
       DeliveryCharges: deliveryCharges,       // inside Tamil Nadu rate
       out_of_tn_charge: outOfTNCharge,        // ✅ outside Tamil Nadu rate
       BrandingCharges: resolvedBranding,       // ✅ flat, one-time branding charge for this quantity tier
-      noCustomtation: noDesignUpload,
+      noCustomtation: (data?.is_proceed_with_design === false || data?.proceed_with_design === false) || noDesignUpload,
       final_total: finalTotal,
       final_total_withoutGst: finalTotalWithoutGst,
-      customized_name: isPhoneStandProduct ? phoneStandName.trim() : "",
+      customized_name: isPhoneStandProduct
+        ? phoneStandName.trim()
+        : (Boolean(data?.is_customization_enabled) ? customizedName.trim() : ""),
       customization_name_price: isPhoneStandProduct && hasPhoneStandCustomization ? customizationPricePerUnit : 0,
       customization_charge: phoneStandCustomizationCharge,
       giveaway_coupon: isPhoneStandProduct && appliedGiveawayCoupon ? appliedGiveawayCoupon.code : "",
@@ -2583,18 +2592,23 @@ const ProductDetails = ({
       {/* Left: stacked strikethrough prices */}
       <div className="flex flex-col gap-0.5">
         <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-          {formatPrice(Number(_.get(data, "MRP_price", 0)))}
+          {formatPrice(Number(_.get(data, "MRP_price", 0)) || Number(_.get(data, "variants_price[0].MRP_price", 0)))}
         </span>
-        {Number(_.get(data, "offer_MRP_price", 0)) > 0 && (
+        {Number(_.get(data, "offer_MRP_price", 0) || _.get(data, "variants_price[0].offer_MRP_price", 0)) > 0 && (
           <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-            {formatPrice(Number(_.get(data, "offer_MRP_price", 0)))}
+            {formatPrice(Number(_.get(data, "offer_MRP_price", 0) || _.get(data, "variants_price[0].offer_MRP_price", 0)))}
+          </span>
+        )}
+        {Number(_.get(data, "MRP_price", 0)) > Number(getUnitPrice()) && Number(_.get(data, "MRP_price", 0)) > 0 && (
+          <span className="bg-yellow-400 text-black font-bold text-[10px] px-1.5 py-0.5 rounded leading-tight w-fit mt-0.5">
+            {Math.round(((Number(_.get(data, "MRP_price", 0)) - Number(getUnitPrice())) / Number(_.get(data, "MRP_price", 0))) * 100)}% OFF
           </span>
         )}
       </div>
       {/* Right: current price */}
       <div className="flex flex-col items-end">
         <h3 className="text-white text-base font-semibold leading-tight">
-          {quantity ? formatPrice(getUnitPrice()) : "Select Qty"}
+          {quantity ? formatPrice(getUnitPrice() || Number(_.get(data, "customer_product_price", _.get(data, "single_product_price", _.get(data, "variants_price[0].customer_product_price", 0))))) : "Select Qty"}
         </h3>
         <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
           Inclusive of GST
@@ -2620,22 +2634,22 @@ const ProductDetails = ({
       {/* Left: stacked strikethrough prices */}
       <div className="flex flex-col gap-0.5">
         <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-          {formatPrice(Number(_.get(data, "MRP_price", 0)))}
+          {formatPrice(Number(_.get(data, "MRP_price", 0)) || Number(_.get(data, "variants_price[0].MRP_price", 0)))}
         </span>
-        {Number(_.get(data, "offer_MRP_price", 0)) > 0 && (
+        {Number(_.get(data, "offer_MRP_price", 0) || _.get(data, "variants_price[0].offer_MRP_price", 0)) > 0 && (
           <span className="text-white/70 text-xs line-through leading-tight whitespace-nowrap">
-            {formatPrice(Number(_.get(data, "offer_MRP_price", 0)))}
+            {formatPrice(Number(_.get(data, "offer_MRP_price", 0) || _.get(data, "variants_price[0].offer_MRP_price", 0)))}
           </span>
         )}
       </div>
       {/* Right: current price */}
       <div className="flex flex-col items-end">
         <h3 className="text-white text-base font-semibold leading-tight">
-          {formatPrice(getUnitPrice())}
+          {formatPrice(getUnitPrice() || Number(_.get(data, "customer_product_price", _.get(data, "single_product_price", _.get(data, "variants_price[0].customer_product_price", 0)))))}
         </h3>
         <span className="text-white/85 text-[10px] leading-none font-medium mt-0.5">
           Inclusive of GST
-        </span>
+        </span> 
       </div>
     </div>
   </motion.div>
@@ -2797,6 +2811,46 @@ const ProductDetails = ({
                   <span className="font-bold text-sm text-green-700">₹0.00</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Product Customization Name Section (Generic products) ────────── */}
+        {!isPhoneStandProduct && Boolean(data?.is_customization_enabled) && !isOutOfStock && (
+          <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-xl space-y-3 shadow-sm mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">✍️</span>
+              <div>
+                <h4 className="font-bold text-gray-800 text-sm">Customization Name</h4>
+                <p className="text-xs text-gray-600">
+                  {data?.is_customization_mandatory
+                    ? "Please enter the name to be customized on this product."
+                    : "Enter the name to be customized on this product (optional)."}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                  <span>Name to be customized</span>
+                  {data?.is_customization_mandatory ? (
+                    <span className="text-red-500 font-bold">* (Required)</span>
+                  ) : (
+                    <span className="text-gray-400 font-normal text-[11px]">(Optional)</span>
+                  )}
+                </label>
+              </div>
+              <Input
+                placeholder="Enter name to be customized"
+                value={customizedName}
+                onKeyDown={(e) => e.stopPropagation()}
+                onChange={(e) => setCustomizedName(e.target.value)}
+                onBlur={() => setCustomizedName((prev) => prev.trim())}
+                className="!rounded-lg"
+                size="large"
+                maxLength={100}
+              />
             </div>
           </div>
         )}
@@ -3185,7 +3239,7 @@ const ProductDetails = ({
         )}
 
         {/* ── File Upload Section ──────────────────────────────────── */}
-        {!isOutOfStock && !isPhotoFrame && !isPhoneStandProduct && (
+        {!isOutOfStock && !isPhotoFrame && !isPhoneStandProduct && (data?.is_proceed_with_design !== false && data?.proceed_with_design !== false) && (
           <div className="space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
               <Checkbox checked={noDesignUpload} onChange={handleNoCustomization}>

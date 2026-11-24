@@ -125,8 +125,9 @@ const ProductCardNew = ({ data }) => {
       const firstTier = data.quantity_discount_splitup[0];
       const discountField = getRoleDiscountField(userRole);
       const discountValue = _.get(firstTier, discountField, 0);
+      const productGst = Number(_.get(data, "GST", 0));
       return (userRole === "Customer" || userRole === "user")
-        ? GST_DISCOUNT_HELPER(discountValue, basePrice, 18)
+        ? GST_DISCOUNT_HELPER(discountValue, basePrice, productGst)
         : DISCOUNT_HELPER(discountValue, basePrice);
     } catch {
       return Number(getBasePrice()) || 0;

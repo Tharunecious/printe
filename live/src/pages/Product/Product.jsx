@@ -557,7 +557,9 @@ const Product = () => {
 
   const hasVariants = useMemo(
     () =>
-      productData?.type === "Variable Product" &&
+      (productData?.type === "Variable Product" ||
+       productData?.type === "Variant Product" ||
+       (Array.isArray(productData?.variants_price) && productData.variants_price.length > 0)) &&
       Array.isArray(productData?.variants) &&
       productData.variants.length > 0,
     [productData],

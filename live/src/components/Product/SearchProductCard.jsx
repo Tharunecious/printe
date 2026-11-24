@@ -81,11 +81,11 @@ const SearchProductCard = ({ data, className = "", onClick, index }) => {
       
       if (isBNI) {
         if (variants_price.length > 0) {
-          dealerPrice = parseFloat(get(variants_price[0], dealerField, "0")) || 0;
+          dealerPrice = parseFloat(get(variants_price[0], dealerField, get(variants_price[0], "customer_product_price", "0"))) || 0;
           customerPrice = parseFloat(get(variants_price[0], customerField, "0")) || 0;
         } else {
-          dealerPrice = parseFloat(get(data, dealerField, "0")) || 0;
-          customerPrice = parseFloat(get(data, customerField, "0")) || 0;
+          dealerPrice = parseFloat(get(data, dealerField, get(data, "customer_product_price", "0"))) || 0;
+          customerPrice = parseFloat(get(data, customerField, get(data, "single_product_price", "0"))) || 0;
         }
         
         // BNI pricing: midpoint between customer and dealer price
@@ -94,9 +94,9 @@ const SearchProductCard = ({ data, className = "", onClick, index }) => {
 
       const priceField = getRolePriceField(userRole);
       if (variants_price.length > 0) {
-        return parseFloat(get(variants_price[0], priceField, "0")) || 0;
+        return parseFloat(get(variants_price[0], priceField, get(variants_price[0], "customer_product_price", "0"))) || 0;
       }
-      return parseFloat(get(data, priceField, "0")) || 0;
+      return parseFloat(get(data, priceField, get(data, "single_product_price", "0"))) || 0;
     };
 
     const calculateDiscountedPrice = (basePrice) => {
@@ -109,8 +109,9 @@ const SearchProductCard = ({ data, className = "", onClick, index }) => {
         const discountField = getRoleDiscountField(userRole);
         const discountValue = get(firstQuantityTier, discountField, 0) || 0;
 
+        const productGst = Number(get(data, "GST", 0));
         const finalPrice = (userRole === "Customer" || userRole === "user") 
-          ? GST_DISCOUNT_HELPER(discountValue, basePrice, 18) 
+          ? GST_DISCOUNT_HELPER(discountValue, basePrice, productGst) 
           : DISCOUNT_HELPER(discountValue, basePrice);
 
         return Math.round(finalPrice) || 0;
@@ -152,7 +153,15 @@ const SearchProductCard = ({ data, className = "", onClick, index }) => {
     // Calculate prices
     const basePrice = calculateBasePrice();
     const discountedPrice = calculateDiscountedPrice(basePrice);
-    const mrp = parseFloat(MRP_price || "0") || 0;
+    const mrp = parseFloat(
+      MRP_price || 
+      get(data, "offer_MRP_price", "0") ||
+      get(variants_price, "[0].MRP_price", "0") || 
+      get(variants_price, "[0].offer_MRP_price", "0") || 
+      get(variants_price, "[0].cost_price", "0") || 
+      get(variants_price, "[0].MRP", "0") || 
+      "0"
+    ) || 0;
     const calculatedDiscount = mrp > discountedPrice && mrp > 0
       ? Math.round(((mrp - discountedPrice) / mrp) * 100) 
       : 0;
@@ -291,25 +300,20 @@ const SearchProductCard = ({ data, className = "", onClick, index }) => {
               
 
               {/* Price Section */}
-              <div className="mb-3 !flex flex-row">
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-xl font-bold text-gray-900">
-                    ₹{finalPrice.toLocaleString('en-IN')}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-xl font-bold text-gray-900">
+                  ₹{finalPrice.toLocaleString('en-IN')}
+                </span>
+                {mrpPrice > finalPrice && (
+                  <span className="text-sm text-gray-500 line-through">
+                    ₹{mrpPrice.toLocaleString('en-IN')}
                   </span>
-                  {mrpPrice > finalPrice && (
-                    <span className="text-sm text-gray-500 line-through">
-                      ₹{mrpPrice.toLocaleString('en-IN')}
-                    </span>
-                  )}
-                </div>
-                
-                {/* Save Amount */}
+                )}
+
                 {saveAmount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                      Save ₹{saveAmount.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+                  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                    Save ₹{saveAmount.toLocaleString('en-IN')}
+                  </span>
                 )}
               </div>
 

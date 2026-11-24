@@ -239,10 +239,10 @@ const editProduct = async (req, res) => {
       let ids = checkCloneAVailable.map((res) => {
         return res._id;
       });
-      await ProductSchema.updateMany({ _id: ids }, req.body);
+      await ProductSchema.updateMany({ _id: { $in: ids } }, { $set: req.body });
     }
 
-    await ProductSchema.findByIdAndUpdate({ _id: id }, req.body);
+    await ProductSchema.findByIdAndUpdate(id, { $set: req.body }, { new: true });
 
     return successResponse(res, PRODUCT_EDITED_SUCCESS);
   } catch (error) {
